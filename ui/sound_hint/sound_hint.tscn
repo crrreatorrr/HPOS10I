@@ -20,20 +20,13 @@ mouse_filter = 2
 theme = ExtResource("2_theme")
 
 [node name="Label" type="Label" parent="Root"]
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -130.0
-offset_top = -15.0
-offset_right = 130.0
-offset_bottom = -5.0
-grow_horizontal = 2
-grow_vertical = 0
+layout_mode = 0
+offset_left = 146.0
+offset_top = 4.0
+offset_right = 336.0
+offset_bottom = 14.0
 mouse_filter = 2
 theme_type_variation = &"OutlineLabel"
 theme_override_colors/font_color = Color(1, 0.86, 0.34, 1)
-text = "CLICK OR PRESS ANY KEY TO ENABLE SOUND"
+text = "PRESS A KEY OR CLICK FOR SOUND"
 horizontal_alignment = 1
