@@ -5,9 +5,13 @@ extends SceneTree
 ##   godot --headless --path <project> -s res://tools/qa/level_lint.gd                 # every LevelRoot scene
 ##   godot --headless --path <project> -s res://tools/qa/level_lint.gd -- --scene=res://levels/test_zone/test_zone.tscn
 ##   ... -- --scene=res://playground/physics_playground.tscn   (any scene works)
+##   ... -- --list-acts      print `ACT <zone> <stage> <D> <path>` for every built act
+## Zone acts also get the difficulty-curve measures and findings
+## (tests/qa/qa_difficulty.gd), and all acts together the act-to-act order check.
 ## Exit 0 = no errors (warnings allowed), 1 = errors, 2 = scene not found.
 
 const Lint := preload("res://tests/qa/qa_level_lint.gd")
+const Diff := preload("res://tests/qa/qa_difficulty.gd")
 
 
 func _initialize() -> void:
@@ -19,6 +23,13 @@ func _run() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--scene="):
 			scenes.append(arg.get_slice("=", 1))
+		elif arg == "--list-acts":
+			for path in Lint.level_scenes():
+				var act := Diff.act_of(path)
+				if not act.is_empty():
+					print("ACT %s %d %d %s" % [act.zone, act.stage, act.d, path])
+			quit(0)
+			return
 	if scenes.is_empty():
 		scenes = Lint.level_scenes()
 	if scenes.is_empty():
@@ -26,6 +37,7 @@ func _run() -> void:
 		quit(0)
 		return
 	var errors := 0
+	var acts: Array = []
 	for path in scenes:
 		if not ResourceLoader.exists(path):
 			printerr("level_lint: no scene %s" % path)
@@ -38,8 +50,22 @@ func _run() -> void:
 		for f in findings:
 			counts[f.severity] += 1
 			print("  %-5s %-16s (%.0f, %.0f)  %s" % [f.severity.to_upper(), f.rule, f.at.x, f.at.y, f.detail])
+		var act := Diff.act_of(path)
+		if not act.is_empty():
+			var m := Diff.measure(root as Node2D)
+			acts.append({path = path, d = act.d, m = m})
+			print("  difficulty D%d (%s act %d): %s" % [act.d, act.zone, act.stage, Diff.summary(m)])
+			for f in Diff.check(m, act.d, Diff.targets(act.d)):
+				counts[f.severity] += 1
+				print("  %-5s %-28s %s" % [f.severity.to_upper(), f.rule, f.detail])
 		print("  -> %d error(s), %d warning(s)" % [counts.error, counts.warn])
 		errors += counts.error
 		root.queue_free()
 		await process_frame
+	if acts.size() > 1:
+		print("level_lint: act-to-act order (%d acts)" % acts.size())
+		for f in Diff.check_order(acts):
+			print("  %-5s %-28s %s" % [f.severity.to_upper(), f.rule, f.detail])
+			if f.severity == "error":
+				errors += 1
 	quit(1 if errors > 0 else 0)

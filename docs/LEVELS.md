@@ -66,8 +66,8 @@ difficulty D (1–8, from `Difficulty.current()`):
 - speed × `Difficulty.speed_mult()` = 1 + 0.06·(D−1), so up to +42%
 - attack interval × `Difficulty.interval_mult()` = 1 − 0.05·(D−1), so down
   to −35%
-- telegraph time × `Difficulty.telegraph_mult()` = 1 − 0.04·(D−1), never
-  below 0.35 s
+- telegraph time via `Difficulty.telegraph(seconds)` = seconds ×
+  (1 − 0.04·(D−1)), never below 0.35 s
 
 The same Walker is noticeably livelier in Zone 4.
 

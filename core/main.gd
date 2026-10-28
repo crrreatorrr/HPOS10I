@@ -35,15 +35,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _buttons.is_empty():
 		return
 	var focused := maxi(0, _buttons.find(get_viewport().gui_get_focus_owner()))
-	if event.is_action_pressed("move_down"):
+	if event.is_action_pressed("move_down", true):
 		_buttons[(focused + 1) % _buttons.size()].grab_focus()
-	elif event.is_action_pressed("move_up"):
+	elif event.is_action_pressed("move_up", true):
 		_buttons[(focused - 1 + _buttons.size()) % _buttons.size()].grab_focus()
 	elif event.is_action_pressed("jump"):
 		_start(focused)
 	elif event is InputEventKey and event.pressed and not event.echo \
-			and event.keycode >= KEY_1 and event.keycode < KEY_1 + mini(9, _buttons.size()):
-		_start(event.keycode - KEY_1)
+			and event.physical_keycode >= KEY_1 \
+			and event.physical_keycode < KEY_1 + mini(9, _buttons.size()):
+		# Physical digits: AZERTY keyboards need Shift for the printed digits.
+		_start(event.physical_keycode - KEY_1)
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -115,8 +117,8 @@ func _build_menu() -> void:
 		button.pressed.connect(_start.bind(i))
 		box.add_child(button)
 		_buttons.append(button)
-	var hint := "Tap an entry to play" if Display.is_touch \
-			else "Arrows/WASD + Jump or Enter, click, or number keys"
+	var hint := "Tap an entry to play" if Display.is_touch else "Choose: arrows or %s/%s   Start: %s or Enter" % [
+			InputLabels.for_physical(KEY_W), InputLabels.for_physical(KEY_S), InputLabels.for_action(&"jump", 1)]
 	box.add_child(_make_label(hint, 9))
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus.call_deferred()

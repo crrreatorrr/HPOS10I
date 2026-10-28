@@ -21,6 +21,10 @@ func _run() -> void:
 		if arg.begins_with("--filter="):
 			filter = arg.get_slice("=", 1)
 
+	# A test that hits a runtime script error must fail, not pass silently.
+	var error_logger := TestErrorLogger.new()
+	OS.add_logger(error_logger)
+
 	var files := PackedStringArray()
 	_collect("res://tests", files)
 	files.sort()
@@ -40,6 +44,7 @@ func _run() -> void:
 				continue
 			var test: TestCase = script.new()
 			test.tree = self
+			error_logger.take()
 			await test.before_each()
 			if not await _run_with_timeout(Callable(test, method.name)):
 				test.fail("timed out after %d physics frames" % TIMEOUT_FRAMES)
@@ -47,6 +52,10 @@ func _run() -> void:
 			test._cleanup()
 			_reset_global_state()
 			await process_frame
+			var errors := error_logger.take()
+			if errors.size() > test.expected_errors:
+				test.fail("%d unexpected engine/script error(s): %s" % [
+						errors.size() - test.expected_errors, "; ".join(errors)])
 			var label := "%s :: %s" % [path.trim_prefix("res://tests/"), method.name]
 			if test._failures.is_empty():
 				passed += 1

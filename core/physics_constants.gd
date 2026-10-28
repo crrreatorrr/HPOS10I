@@ -70,6 +70,11 @@ const FPS := 60.0
 @export var hurt_gravity := 0.1875
 @export var invincibility_frames := 120
 @export var death_y_speed := -7.0
+## Frames between kill() and the `died` signal (the fall-off animation).
+@export var died_delay_frames := 60
+## Upward speed removed per bounce when hitting an enemy from below or while
+## rising (classic rebound trim).
+@export var bounce_trim := 1.0
 
 @export_group("Hitbox")
 @export var width_radius := 9.0
