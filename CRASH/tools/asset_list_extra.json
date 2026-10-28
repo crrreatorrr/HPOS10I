@@ -1,0 +1,296 @@
+[
+  {
+    "id": "pill_bot",
+    "jobId": "32739942-fccb-43c4-8024-f4b2b219be71",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_085659_32739942-fccb-43c4-8024-f4b2b219be71.png",
+    "dest": "characters/pill_bot.webp",
+    "ops": [
+      "trim",
+      "max:768",
+      "webp:86"
+    ],
+    "model": "gpt_image_2_5 (medium) + user's pump-fun-pill.png as reference",
+    "usedFor": "Enemy card + tutorial pop-up: Pill Bot (3D model colors match it)",
+    "prompt": "Video game enemy sprite, full body, front facing: a Pill Bot, a mischievous little robot whose body is the exact green-and-white capsule pill from the reference image standing upright (green half on the bottom, white half on top, thick dark green outline, the same dashed white shine mark), with two angry cartoon eyes and a smirking mouth on the white half, small stubby metal robot arms and legs, a tiny antenna on top. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+  },
+  {
+    "id": "nobu_glb",
+    "jobId": "00ddf721-e6e8-424f-9c51-515e39149b12",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_082047_00ddf721-e6e8-424f-9c51-515e39149b12.glb",
+    "dest": "models/nobu.glb",
+    "ops": [],
+    "model": "Meshy Image-to-3D (textured, auto-rigged, A-pose, 15k tris)",
+    "usedFor": "In-game 3D Nobu (bones driven procedurally); 'Classic' primitive Nobu is the alternative",
+    "prompt": "Image-to-3D from nobu_master (the Nobu Element source image)."
+  },
+  {
+    "id": "nobu_tex_fixed",
+    "jobId": "00ddf721-e6e8-424f-9c51-515e39149b12",
+    "url": "",
+    "dest": "models/nobu_tex_fixed.jpg",
+    "ops": [],
+    "model": "Meshy texture, retouched locally (tools/fix_nobu_eyes.py)",
+    "usedFor": "Replaces the GLB's baked texture: removes a stray third pupil",
+    "prompt": "(edit) painted out the extra pupil in the right eye"
+  },
+  {
+    "id": "model_dog_shiba_coned",
+    "jobId": "e9ca5814-1e74-4706-9a69-5a465d80a8e5",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091708_e9ca5814-1e74-4706-9a69-5a465d80a8e5.glb",
+    "dest": "models/dog_shiba_coned.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'dog_shiba_coned' sprite",
+    "prompt": "Image-to-3D from the dog_shiba_coned sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_corgi_coned",
+    "jobId": "82d252d1-1af4-4527-a2f7-8cf18c1c6a12",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091711_82d252d1-1af4-4527-a2f7-8cf18c1c6a12.glb",
+    "dest": "models/dog_corgi_coned.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'dog_corgi_coned' sprite",
+    "prompt": "Image-to-3D from the dog_corgi_coned sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_pug_coned",
+    "jobId": "5c3d0c38-b99c-4873-9059-96183b4edf93",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091713_5c3d0c38-b99c-4873-9059-96183b4edf93.glb",
+    "dest": "models/dog_pug_coned.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'dog_pug_coned' sprite",
+    "prompt": "Image-to-3D from the dog_pug_coned sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_dalmatian_coned",
+    "jobId": "25d59c1c-3c98-4c1f-850b-2e438f04a7ac",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091716_25d59c1c-3c98-4c1f-850b-2e438f04a7ac.glb",
+    "dest": "models/dog_dalmatian_coned.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'dog_dalmatian_coned' sprite",
+    "prompt": "Image-to-3D from the dog_dalmatian_coned sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_shiba_free",
+    "jobId": "a69fae23-04f3-4ca5-9da2-568f98643ca0",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095924_a69fae23-04f3-4ca5-9da2-568f98643ca0.glb",
+    "dest": "models/dog_shiba_free.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip All_Night_Dance (64)",
+    "usedFor": "In-game 3D model, made from the 'dog_shiba_free' sprite (rigged, animated: All_Night_Dance (64))",
+    "prompt": "Image-to-3D from the dog_shiba_free sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_corgi_free",
+    "jobId": "32ad2870-67b9-4dd5-9453-f7ae8fe06e8f",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_100220_32ad2870-67b9-4dd5-9453-f7ae8fe06e8f.glb",
+    "dest": "models/dog_corgi_free.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip FunnyDancing_01 (22)",
+    "usedFor": "In-game 3D model, made from the 'dog_corgi_free' sprite (rigged, animated: FunnyDancing_01 (22))",
+    "prompt": "Image-to-3D from the dog_corgi_free sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_pug_free",
+    "jobId": "c3d4bbf2-c96c-4db8-918c-5629a141fb87",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_100221_c3d4bbf2-c96c-4db8-918c-5629a141fb87.glb",
+    "dest": "models/dog_pug_free.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Boom_Dance (66)",
+    "usedFor": "In-game 3D model, made from the 'dog_pug_free' sprite (rigged, animated: Boom_Dance (66))",
+    "prompt": "Image-to-3D from the dog_pug_free sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_dog_dalmatian_free",
+    "jobId": "6a883633-7a91-4247-947a-866711d1ab90",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_100223_6a883633-7a91-4247-947a-866711d1ab90.glb",
+    "dest": "models/dog_dalmatian_free.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Arm_Circle_Shuffle (63)",
+    "usedFor": "In-game 3D model, made from the 'dog_dalmatian_free' sprite (rigged, animated: Arm_Circle_Shuffle (63))",
+    "prompt": "Image-to-3D from the dog_dalmatian_free sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_small_cat",
+    "jobId": "16ddb58f-1cfd-492a-89a5-afa82e25f997",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091858_16ddb58f-1cfd-492a-89a5-afa82e25f997.glb",
+    "dest": "models/small_cat.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'small_cat' sprite",
+    "prompt": "Image-to-3D from the small_cat sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_snacks",
+    "jobId": "19872741-e93d-4edf-943c-560f6c677ea2",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091900_19872741-e93d-4edf-943c-560f6c677ea2.glb",
+    "dest": "models/snacks.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'snacks' sprite",
+    "prompt": "Image-to-3D from the snacks sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_trampoline",
+    "jobId": "da1835e0-6a2f-45ea-ba31-90ecc4544fb1",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091906_da1835e0-6a2f-45ea-ba31-90ecc4544fb1.glb",
+    "dest": "models/trampoline.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'trampoline' sprite",
+    "prompt": "Image-to-3D from the trampoline sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_nobu_head",
+    "jobId": "7e86b527-4688-43d8-a5b4-1c34b79b49df",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_091908_7e86b527-4688-43d8-a5b4-1c34b79b49df.glb",
+    "dest": "models/nobu_head.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+    "usedFor": "In-game 3D model, made from the 'nobu_head' sprite",
+    "prompt": "Image-to-3D from the nobu_head sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "backpack_front",
+    "jobId": "",
+    "url": "",
+    "dest": "items/backpack_front.jpg",
+    "ops": [],
+    "model": "user photo (backpack.webp), cropped",
+    "usedFor": "Front print of the 3D Black Backpack",
+    "prompt": "(user-supplied photo of the Harry Potter / OBAMA backpack)"
+  },
+  {
+    "id": "sproto_mask",
+    "jobId": "",
+    "url": "",
+    "dest": "ui/sproto_mask.webp",
+    "ops": [],
+    "model": "user art (mask.avif), face cut out",
+    "usedFor": "Sproto Mask HUD pips, dialogue portrait, 2D fallback",
+    "prompt": "(user-supplied Sproto character art; face only)"
+  },
+  {
+    "id": "model_sproto_mask",
+    "jobId": "4b30a95a-70b6-4563-bda6-8bb3a101ab14",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095231_4b30a95a-70b6-4563-bda6-8bb3a101ab14.glb",
+    "dest": "models/sproto_mask.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from the user's Sproto art (whole face down to the collar)"
+  },
+  {
+    "id": "model_broccoli",
+    "jobId": "84a2b66d-f499-42b2-95de-da6d233a950c",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095923_84a2b66d-f499-42b2-95de-da6d233a950c.glb",
+    "dest": "models/broccoli.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Monster_Walk (112)",
+    "usedFor": "In-game 3D model (rigged, animated: Monster_Walk (112))",
+    "prompt": "Image-to-3D from broccoli sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_broccoli_spiky",
+    "jobId": "d2183788-f5f9-4aff-981e-b6b4b0c97e04",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_100212_d2183788-f5f9-4aff-981e-b6b4b0c97e04.glb",
+    "dest": "models/broccoli_spiky.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Slow_Orc_Walk (119)",
+    "usedFor": "In-game 3D model (rigged, animated: Slow_Orc_Walk (119))",
+    "prompt": "Image-to-3D from broccoli_spiky sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_broccoli_cone",
+    "jobId": "59d520db-8e7c-4ee1-b647-48b1ec986e39",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_100213_59d520db-8e7c-4ee1-b647-48b1ec986e39.glb",
+    "dest": "models/broccoli_cone.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Walk_Fight_Forward (21)",
+    "usedFor": "In-game 3D model (rigged, animated: Walk_Fight_Forward (21))",
+    "prompt": "Image-to-3D from broccoli_cone sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_squirrel",
+    "jobId": "b7959c64-d8ac-485b-9e44-0fd22b2e743c",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095242_b7959c64-d8ac-485b-9e44-0fd22b2e743c.glb",
+    "dest": "models/squirrel.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from squirrel sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_cone_drone",
+    "jobId": "b8ff6ab0-37c4-4aec-bb2e-c4ed06076be6",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095244_b8ff6ab0-37c4-4aec-bb2e-c4ed06076be6.glb",
+    "dest": "models/cone_drone.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from cone_drone sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_vacuum",
+    "jobId": "9c25448b-58e4-4b55-8d88-8b87982c5dd5",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095247_9c25448b-58e4-4b55-8d88-8b87982c5dd5.glb",
+    "dest": "models/vacuum.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from vacuum sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_mouse",
+    "jobId": "31586896-1a44-4b30-a2e8-d80abc05ad72",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095249_31586896-1a44-4b30-a2e8-d80abc05ad72.glb",
+    "dest": "models/mouse.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from mouse sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_pill_bot",
+    "jobId": "b25b7015-061a-44ee-8c6c-21de400385ca",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_100215_b25b7015-061a-44ee-8c6c-21de400385ca.glb",
+    "dest": "models/pill_bot.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip penguin_walk (62)",
+    "usedFor": "In-game 3D model (rigged, animated: penguin_walk (62))",
+    "prompt": "Image-to-3D from pill_bot sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_mecha_bird",
+    "jobId": "d927bfe1-71ad-48fc-afda-34c4b9323528",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095255_d927bfe1-71ad-48fc-afda-34c4b9323528.glb",
+    "dest": "models/mecha_bird.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from mecha_bird sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_big_cat",
+    "jobId": "23406c67-b3a0-41b4-ad3f-fdc1532f13cb",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095257_23406c67-b3a0-41b4-ad3f-fdc1532f13cb.glb",
+    "dest": "models/big_cat.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from big_cat sprite (see that entry for its prompt)"
+  },
+  {
+    "id": "model_evil_cone",
+    "jobId": "7c3f159d-b758-4f3b-ab50-85a590ce6707",
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261028_095300_7c3f159d-b758-4f3b-ab50-85a590ce6707.glb",
+    "dest": "models/evil_cone.glb",
+    "ops": [],
+    "model": "Tripo H3.1 image-to-3D (textured)",
+    "usedFor": "In-game 3D model",
+    "prompt": "Image-to-3D from evil_cone sprite (see that entry for its prompt)"
+  }
+]

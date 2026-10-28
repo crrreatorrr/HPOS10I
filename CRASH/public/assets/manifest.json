@@ -1,0 +1,678 @@
+{
+  "style": "Chunky, colorful late-1990s console 3D platformer mascot look (PS1 era): bold saturated colors, smooth clay-like shapes, simple soft shading, thin black outlines.",
+  "nobuElement": "Higgsfield Element 'Nobu' 4c1a2f56-870c-4f6e-8be9-4948f984ed1f (from nobu_master)",
+  "assets": {
+    "concept_keyart": {
+      "file": "ui/concept_keyart.jpg",
+      "usedFor": "Style lock concept; credits backdrop",
+      "model": "nano_banana_pro",
+      "jobId": "2da490ea-713a-4327-ba84-c6a02a0f47de",
+      "prompt": "Key art concept for an original 3D cartoon platformer video game. The hero Nobu, a white Akita Inu dog standing upright on two legs with lanky skinny arms and legs, an oversized head, huge expressive eyes, a goofy confident toothy grin, small triangular ears, a fluffy tail curled over his back, an orange bandana and red sneakers, leaps through the air over a tropical jungle path lined with black backpacks, glowing blue spheres and spinning golden tickets. Sad cartoon dogs wearing plastic vet cones of shame sit in the background. Looming in the stormy sky is the villain: a giant sentient veterinary cone of shame made of glossy lavender plastic, funnel shaped with the wide rim on top, glowing red angry eyes and a sneering mouth, spindly robotic arms. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Wide cinematic composition, no text, no logos, no watermark."
+    },
+    "concept_environments": {
+      "file": "ui/concept_environments.jpg",
+      "usedFor": "Style lock environment sheet",
+      "model": "nano_banana_pro",
+      "jobId": "377e0c3f-0afe-4572-b70e-81bc199157ba",
+      "prompt": "Environment concept sheet for an original 3D cartoon platformer video game, three equal vertical panels: a lush tropical dog-park jungle path; a sandy orange canyon chase path at sunset with giant cardboard scratching posts and yarn balls; an evil cone factory interior with purple riveted metal, hazard stripes, conveyor belts of vet cones and glowing green vats. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. No characters, no text."
+    },
+    "nobu_master": {
+      "file": "nobu/nobu_master.webp",
+      "usedFor": "Reference Element 'Nobu' source + 3D GLB input + title screen fallback",
+      "model": "nano_banana_pro",
+      "jobId": "3b4b558c-8a50-4faf-91ce-baba41bf4613",
+      "prompt": "Full-body character reference of Nobu, an original cartoon video game mascot: a white Akita Inu dog who stands upright on two legs like a cartoon platformer hero. Lanky cartoon proportions with skinny long arms and legs, a big oversized head, huge expressive eyes with black pupils and thick dark eyebrows, a goofy confident toothy grin, a black nose, small triangular upright ears with pale pink insides, thick fluffy cream-white fur, a fluffy tail curled up in a loop over his back, an orange bandana tied around his neck with a small gold coin tag, red sneakers with white soles, four-fingered paw hands. Standing in a neutral front-facing A-pose, arms slightly away from the body, feet apart, full body head to toe visible and centered. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, single character only, no text, no props."
+    },
+    "nobu_sheet": {
+      "file": "nobu/nobu_sheet.jpg",
+      "usedFor": "Character sheet (front, side, back); shown in the Extras/credits",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "cbf48d27-a738-4423-935b-d059e701d4a3",
+      "prompt": "Character turnaround model sheet of <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>>, three consistent full-body views evenly spaced in a row: front view, side profile view facing right, and back view showing his curled fluffy tail and the knot of his orange bandana. Identical character in every view, neutral standing pose, full body head to toe. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, no text, no labels, no extra characters."
+    },
+    "nobu_title": {
+      "file": "nobu/nobu_title.webp",
+      "usedFor": "Title screen hero art",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "f06e2219-f92c-4291-9bd1-c6b006d6d174",
+      "prompt": "<<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> striking a cocky heroic title-screen pose: one fist pumped in the air, the other hand on his hip, winking with a huge confident toothy grin, chest puffed out, tail curled high, full body head to toe, slightly low camera angle. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, single character only, no text."
+    },
+    "nobu_complete": {
+      "file": "nobu/nobu_complete.webp",
+      "usedFor": "Level complete screen",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "39a6b5a7-f9a5-4435-8ea0-ac561258f420",
+      "prompt": "<<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> doing a goofy victory dance: one leg kicked up high, arms flailing happily, tongue flopping out, eyes squeezed shut with joy, holding a shiny golden ticket in one paw, full body head to toe. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, single character only, no text."
+    },
+    "death_flat": {
+      "file": "nobu/death_flat.webp",
+      "usedFor": "Death screen: squashed",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "8752af1e-72c1-4cde-b41a-279089f19da9",
+      "prompt": "<<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> comically flattened like a pancake after being squashed, lying paper-thin on the ground seen from slightly above, dizzy spiral eyes, tongue out, little yellow stars circling over his flat head, his red sneakers and orange bandana flattened too, slapstick cartoon death gag. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, single character only, no text."
+    },
+    "death_angel": {
+      "file": "nobu/death_angel.webp",
+      "usedFor": "Death screen: fell / angel",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "06567544-0988-4cc1-ac6f-3c13fe5cd16f",
+      "prompt": "<<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> as a slightly translucent ghost angel floating upward, small fluffy white feathered wings flapping on his back, a glowing golden halo over his head, eyes closed with a sheepish embarrassed grin, waving goodbye, full body, slapstick cartoon death gag. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, single character only, no text."
+    },
+    "death_cone": {
+      "file": "nobu/death_cone.webp",
+      "usedFor": "Death screen: coned",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "ad3d5b26-6414-446a-b2cd-a80fd80d508b",
+      "prompt": "<<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> stuck wearing a huge translucent plastic veterinary cone of shame around his head, sitting slumped on the ground, sad droopy puppy eyes, ears pinned down, bottom lip quivering, comically miserable, full body, slapstick cartoon death gag. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, single character only, no text."
+    },
+    "death_rug": {
+      "file": "nobu/death_rug.webp",
+      "usedFor": "Death screen: rug pull",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "d829ca8f-2e03-4f74-8186-70b2cedf67f2",
+      "prompt": "<<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> tumbling head over heels in mid-air with a shocked wide-eyed cartoon expression, because a colorful purple and gold patterned rug has just been pulled out from under his red sneakers and is flying away to the side, silly slapstick cartoon gag, full body. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, no text."
+    },
+    "nobu_head": {
+      "file": "nobu/nobu_head.webp",
+      "usedFor": "HUD life icon, 1UP pickup billboard",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "eb958386-08c5-406f-979a-7f2abe1f42e7",
+      "prompt": "Head-only game icon of <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>>: front-facing head with a big goofy confident toothy grin and one eyebrow raised, cropped just below the neck so only his head and the top of his orange bandana show, centered and filling the frame. Chunky colorful late-1990s console 3D platformer mascot style, polished PS1-era cartoon game render, smooth clay-like shapes, simple soft shading, bold saturated colors, thin black cartoon outlines. Pure white seamless background, no text."
+    },
+    "story_intro_1": {
+      "file": "story/intro_1.jpg",
+      "usedFor": "Intro cutscene panel 1: the Evil Cone's plan",
+      "model": "nano_banana_pro",
+      "jobId": "cac60bab-9b2b-4971-9ac4-3005eb971eba",
+      "prompt": "Comic book panel illustration of a cartoon villain lair: the Evil Cone, a giant living veterinary cone collar made of glossy lavender plastic, funnel shaped with the wide rim on top, with glowing red eyes, a smug grin, thin purple robot arms and a small purple cape, laughing and pointing at a huge glowing wall map of an island covered in paw-print markers, inside a purple factory with conveyor belts of plastic cones, little green broccoli-headed minions saluting him. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Purple and green lighting, playful. No text, no speech bubbles."
+    },
+    "story_intro_2": {
+      "file": "story/intro_2.jpg",
+      "usedFor": "Intro cutscene panel 2: dogs getting coned",
+      "model": "nano_banana_pro",
+      "jobId": "b41defdf-af43-4e8c-a45d-8ce40d48a3ed",
+      "prompt": "Comic book panel illustration: chaos in a sunny tropical dog park as little green broccoli-headed soldier minions with angry faces fire plastic veterinary cones of shame from cone cannons at panicking cartoon dogs (a corgi, a pug, a dalmatian and a golden retriever), each dog getting stuck in a cone and looking sad, while a flying mechanical robot bird drops more cones from the sky. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Dynamic action composition. No text, no speech bubbles."
+    },
+    "story_intro_3": {
+      "file": "story/intro_3.jpg",
+      "usedFor": "Intro cutscene panel 3: Nobu breaks free",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "f6e149e0-1f20-47ad-920f-9372c7ca4098",
+      "prompt": "Comic book panel illustration: <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> breaking free inside a cage in a dark purple cone factory at night, biting clean through the metal bars with a huge chomp, a cracked plastic cone of shame shattering off his head into flying pieces, sparks everywhere, a fierce determined grin, other sad coned dogs in cages watching in awe. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Dramatic lighting. No text, no speech bubbles."
+    },
+    "story_intro_4": {
+      "file": "story/intro_4.jpg",
+      "usedFor": "Intro cutscene panel 4: Nobu sets out",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "d2c7f955-ce3a-4196-b448-ba7a4b7eed67",
+      "prompt": "Comic book panel illustration: <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> standing heroically on a jungle cliff edge at sunrise, seen from behind and slightly to the side, looking toward a distant ominous purple cone-shaped factory on the horizon belching smoke, wind ruffling his fur and orange bandana, cracking his knuckles with a cocky grin. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Warm golden light. No text, no speech bubbles."
+    },
+    "story_rescue_1": {
+      "file": "story/rescue_1.jpg",
+      "usedFor": "Post-boss scene after the Mecha Bird",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "de5cbce0-a0a6-4e61-a2fd-fbcd5bc7853b",
+      "prompt": "Comic book panel illustration: <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> cheering with both fists up in a jungle clearing next to a crashed, smoking purple robot bird, its cargo cage burst open as a group of happy cartoon dogs (a shiba inu, a beagle, a poodle and a husky) leap out while their plastic cones of shame pop off and fly into the air, confetti everywhere. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Joyful. No text, no speech bubbles."
+    },
+    "story_rescue_2": {
+      "file": "story/rescue_2.jpg",
+      "usedFor": "Post-boss scene after the Big Cat",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "5145ad6f-92a8-470f-ba95-4ecd08afc2cb",
+      "prompt": "Comic book panel illustration: a giant chubby ginger tabby cat lies defeated on its back with dizzy spiral eyes in a sandy canyon arena at sunset, while <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> high-fives a crowd of freed cartoon dogs (a corgi, a dachshund, a pug and a border collie) whose plastic cones of shame are flying off their heads, confetti in the air. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Joyful. No text, no speech bubbles."
+    },
+    "story_rescue_3": {
+      "file": "story/rescue_3.jpg",
+      "usedFor": "Post-boss scene after the Evil Cone (every cone pops off)",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "4c2b718a-0ecb-48e0-b281-755e51d8fec8",
+      "prompt": "Comic book panel illustration of a cartoon victory moment: a giant lavender plastic cone-shaped cartoon villain with red eyes cracks into big harmless plastic pieces with a comically shocked face, inside a purple toy-like factory, while hundreds of plastic vet cones pop off happy dogs and fly up into the sky like confetti, <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> standing triumphant in the foreground with a huge grin. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Celebratory and playful. No text, no speech bubbles."
+    },
+    "story_ending": {
+      "file": "story/ending.jpg",
+      "usedFor": "Ending celebration",
+      "model": "nano_banana_pro + Nobu element",
+      "jobId": "2bab104b-79bc-4cfc-91e4-8e297f3fe4dc",
+      "prompt": "Comic book panel illustration: <<<4c1a2f56-870c-4f6e-8be9-4948f984ed1f>>> doing a goofy victory dance on top of a pile of broken plastic cones, one leg up and tongue out, while dozens of happy freed cartoon dogs of many breeds (shiba inus, corgis, pugs, dalmatians, huskies, poodles) celebrate around him, fireworks and confetti in a sunrise sky over a tropical island, golden tickets raining down. Chunky colorful late-1990s console 3D platformer cartoon style, polished PS1-era game cutscene render, bold saturated colors. Joyful celebration. No text, no speech bubbles."
+    },
+    "broccoli": {
+      "file": "characters/broccoli.webp",
+      "usedFor": "Enemy card + tutorial pop-up: Broccoli Head",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "10d19a6a-c2db-450b-9e87-ad3327be1ef1",
+      "prompt": "Video game enemy sprite, full body, front facing: a Broccoli Head foot soldier minion, a small cartoon creature whose head is a big bushy bright green broccoli floret with two angry cartoon eyes and a frowning mouth, a skinny pale green stalk body, stubby arms and legs, a tiny purple army helmet and purple boots. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+    },
+    "broccoli_spiky": {
+      "file": "characters/broccoli_spiky.webp",
+      "usedFor": "Enemy card + tutorial pop-up: Spiky Broccoli",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "36128c5c-5089-4195-b66c-d041b7176f12",
+      "prompt": "Video game enemy sprite, full body, front facing: an armored Spiky Broccoli Head soldier, a menacing cartoon minion whose dark green broccoli head is covered in sharp shiny silver metal spikes, glowing red eyes, a gritted-teeth scowl, riveted purple steel chest armor and shoulder pads, stalk body, purple boots, clearly dangerous to touch. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+    },
+    "broccoli_cone": {
+      "file": "characters/broccoli_cone.webp",
+      "usedFor": "Enemy card + tutorial pop-up: Cone Trooper",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "2423e1b8-e724-46ba-9aaa-c3c29514e5da",
+      "prompt": "Video game enemy sprite, full body, front facing: a Broccoli Head soldier minion with a bushy green broccoli head, mischievous grin and angry eyes, raising a translucent plastic veterinary cone of shame over his head like a weapon, ready to slam it down, skinny stalk body, purple helmet and boots. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+    },
+    "mecha_bird": {
+      "file": "characters/mecha_bird.webp",
+      "usedFor": "Boss intro card, 3D model color reference",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "90c0f629-2451-4b0d-898a-f83e5bed424f",
+      "prompt": "Video game boss sprite: the Mecha Bird, a big flying robotic bird made of riveted purple and silver metal plates, jet-engine wings spread wide, a sharp yellow drill beak, a glowing red visor eye, metal talons clutching a hanging cargo cage stuffed with plastic veterinary cones of shame, menacing but cartoony, full body front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "big_cat": {
+      "file": "characters/big_cat.webp",
+      "usedFor": "Boss intro card, 3D model color reference",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "9b2de447-ec80-4d7e-8911-e0ead0142a9e",
+      "prompt": "Video game boss sprite: the Big Cat, a giant chubby ginger orange tabby cat with a smug evil grin, sharp fangs, narrowed glowing yellow eyes, claws out, a purple collar with a small cone-shaped tag, crouched low ready to pounce, full body front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "evil_cone": {
+      "file": "characters/evil_cone.webp",
+      "usedFor": "Boss intro card, 3D model face texture reference",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "40893f8d-53c8-4b9e-bf50-28f5abaadf7a",
+      "prompt": "Video game final boss sprite: the Evil Cone, a giant sentient veterinary cone of shame villain made of glossy lavender plastic, funnel shaped with the wide rim on top, glowing red angry eyes and a sneering mouth on its front, spindly robotic arms with claw hands and a small purple cape, hovering with a faint purple glow beneath, full body, wide rim on top and narrow end at the bottom, sneering toothy mouth, three-fingered claw hands. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "small_cat": {
+      "file": "characters/small_cat.webp",
+      "usedFor": "Cat hazard tutorial pop-up",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "2ad74589-ec48-4ab4-aac7-f5e7c6234ca2",
+      "prompt": "Video game hazard sprite: a small grumpy black-and-white tuxedo cat hissing furiously with its back arched, tail puffed up like a bottle brush, ears flat, fangs bared, claws out, full body side three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single animal, no text."
+    },
+    "rug": {
+      "file": "characters/rug.jpg",
+      "usedFor": "Rug hazard top texture (in-game) + tutorial pop-up",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "ab4d553f-2890-4f6d-aea9-80c1571c934a",
+      "prompt": "Flat top-down view of a rectangular Persian-style rug filling the entire frame edge to edge, bold purple, crimson red and gold ornamental pattern with a central medallion, small cream tassels on the two short ends, cartoon game texture, evenly lit, no perspective, no shadows, no background visible, no text."
+    },
+    "squirrel": {
+      "file": "characters/squirrel.webp",
+      "usedFor": "Enemy card: Nutjob Squirrel (level 1 hopper)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "3056ee6f-d770-4040-8695-8bd86f7bdedb",
+      "prompt": "Video game enemy sprite, full body: a hyperactive cartoon squirrel minion mid-hop with wild crazy eyes, big buck teeth, a huge puffy brown tail, wearing a tiny purple army helmet, arms up. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+    },
+    "cone_drone": {
+      "file": "characters/cone_drone.webp",
+      "usedFor": "Enemy card: Cone Drone (flyer)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "4de7bff6-b149-427a-914b-4358167c02e3",
+      "prompt": "Video game enemy sprite: a Cone Drone, a small hovering robot shaped like an upside-down orange-and-purple plastic cone with a spinning propeller on top, a single glowing red camera eye, and a little grabber claw dangling below, front view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "vacuum": {
+      "file": "characters/vacuum.webp",
+      "usedFor": "Enemy card: Vacuum Bot (level 3 patroller)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "dc02411b-004b-485b-aa14-c4456f81c373",
+      "prompt": "Video game enemy sprite: a menacing round robot vacuum cleaner enemy rolling on wheels, purple and grey plastic shell, angry glowing LED eyes, a big sucking nozzle mouth with spinning brushes, front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "mouse": {
+      "file": "characters/mouse.webp",
+      "usedFor": "Enemy card: Bandit Mouse (level 2 patroller)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "df72ac7d-dc67-4916-acdf-dc620026d4bd",
+      "prompt": "Video game enemy sprite, full body: a sneaky cartoon grey mouse minion running fast on two legs, wearing a tiny purple bandit eye mask, big round ears, long pink tail, mischievous grin. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+    },
+    "dog_shiba_coned": {
+      "file": "characters/dog_shiba_coned.webp",
+      "usedFor": "Trapped dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "fac4f5be-4185-4955-9909-95cdec8ce73a",
+      "prompt": "Video game character sprite, full body, front facing: a sad cartoon shiba inu dog sitting, wearing a big translucent plastic veterinary cone of shame around its head, droopy teary eyes, ears down, tail limp. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_shiba_free": {
+      "file": "characters/dog_shiba_free.webp",
+      "usedFor": "Freed dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium) + coned sprite as reference",
+      "jobId": "1da67d21-19a8-4c70-a13d-e565a863bab1",
+      "prompt": "The exact same cartoon shiba inu dog from the reference image, now freed with no cone at all, jumping for joy with all four paws off the ground, huge happy open-mouth smile, tongue out, ears perked up, tail wagging, full body, front facing. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_corgi_coned": {
+      "file": "characters/dog_corgi_coned.webp",
+      "usedFor": "Trapped dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "1a14aeb6-51c9-472a-87f7-e999723ea8b3",
+      "prompt": "Video game character sprite, full body, front facing: a sad cartoon corgi dog sitting, wearing a big translucent plastic veterinary cone of shame around its head, droopy teary eyes, ears down. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_corgi_free": {
+      "file": "characters/dog_corgi_free.webp",
+      "usedFor": "Freed dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium) + coned sprite as reference",
+      "jobId": "964a3f6d-69c4-4e01-9adf-fd90105f8c5a",
+      "prompt": "The exact same cartoon corgi dog from the reference image, now freed with no cone at all, jumping for joy with paws in the air, huge happy open-mouth smile, tongue out, ears perked up, full body, front facing. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_pug_coned": {
+      "file": "characters/dog_pug_coned.webp",
+      "usedFor": "Trapped dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "49d8fe80-eb10-43bd-8c25-75e8a1b11106",
+      "prompt": "Video game character sprite, full body, front facing: a sad cartoon pug dog sitting, wearing a big translucent plastic veterinary cone of shame around its head, droopy teary bulging eyes, wrinkly face. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_pug_free": {
+      "file": "characters/dog_pug_free.webp",
+      "usedFor": "Freed dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium) + coned sprite as reference",
+      "jobId": "0a3feb01-3696-4ee5-82d9-a547239717b1",
+      "prompt": "The exact same cartoon pug dog from the reference image, now freed with no cone at all, jumping for joy with paws in the air, huge happy open-mouth smile, tongue out, curly tail wagging, full body, front facing. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_dalmatian_coned": {
+      "file": "characters/dog_dalmatian_coned.webp",
+      "usedFor": "Trapped dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "c3f495c2-0371-41d0-9fc7-2f87f1790f7e",
+      "prompt": "Video game character sprite, full body, front facing: a sad cartoon dalmatian dog sitting, wearing a big translucent plastic veterinary cone of shame around its head, droopy teary eyes, ears down. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "dog_dalmatian_free": {
+      "file": "characters/dog_dalmatian_free.webp",
+      "usedFor": "Freed dog billboard (in-game)",
+      "model": "gpt_image_2_5 (medium) + coned sprite as reference",
+      "jobId": "275ab294-db01-4b48-bd15-75665141fd62",
+      "prompt": "The exact same cartoon dalmatian dog from the reference image, now freed with no cone at all, jumping for joy with paws in the air, huge happy open-mouth smile, tongue out, ears flapping, full body, front facing. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, single dog, no text."
+    },
+    "ticket": {
+      "file": "items/ticket.webp",
+      "usedFor": "Golden Ticket collectible (in-game spinning quad) + HUD icon",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "61a4402d-7597-4943-ae1e-12c17e75afc7",
+      "prompt": "Video game collectible sprite: a shiny golden ticket with ornate scalloped edges and a decorative border, the text \"$Bitcoin\" printed boldly in the center in dark brown capital letters, glossy metallic gold with a small sparkle, flat front view filling the frame. Chunky colorful late-1990s console 3D platformer style, bold saturated colors, thin black outline. Transparent background, no other text."
+    },
+    "backpack": {
+      "file": "items/backpack.webp",
+      "usedFor": "Black Backpack front decal (in-game) + level complete icon",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "cf4b0277-b12e-4068-920e-eac32922807a",
+      "prompt": "Video game breakable item sprite: a chunky cartoon black backpack, zipped and stuffed full, with a front pocket, two padded shoulder straps, a top grab handle and a small round orange coin patch, front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "blue_sphere": {
+      "file": "items/blue_sphere.webp",
+      "usedFor": "Blue Sphere glow billboard + tutorial pop-up",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "c654483d-4533-4673-bcc2-23a108a80495",
+      "prompt": "Video game power-up sprite: a glowing magical blue sphere orb, translucent glass with swirling bright cyan light inside, soft blue glow halo around it, sparkles. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors. Transparent background, no text."
+    },
+    "trampoline": {
+      "file": "items/trampoline.webp",
+      "usedFor": "Trampoline tutorial pop-up",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "05fb7524-0e66-4e43-87f4-2f637dd36b1b",
+      "prompt": "Video game object sprite: a small round cartoon trampoline with a bouncy purple mat, a thick red padded rim with yellow stripes and short silver legs, front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "snacks": {
+      "file": "items/snacks.webp",
+      "usedFor": "Snacks checkpoint billboard (in-game)",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "bc4f2275-49be-420f-8701-cab381cd195a",
+      "prompt": "Video game checkpoint item sprite: a big paper bag of dog snacks torn open at the top with crunchy bone-shaped dog biscuits piled up and spilling out, a cartoon paw print logo on the bag, front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "golden_bone": {
+      "file": "items/golden_bone.webp",
+      "usedFor": "Level reward (100% breakables + dogs), level select map badge",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "9a3ccaeb-b445-44f1-83d8-cd160e457f60",
+      "prompt": "Video game reward sprite: a sparkling Golden Bone gem trophy, a dog bone shape cut from faceted gold crystal like a diamond, glowing with light rays and sparkles, front view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors. Transparent background, no text."
+    },
+    "bg_level1": {
+      "file": "backgrounds/bg_level1.jpg",
+      "usedFor": "Level 1 skybox (Bark Jungle)",
+      "model": "gpt_image_2_5 (medium) 2k 21:9",
+      "jobId": "79a3aa29-c97d-49ba-86a4-8e9b9817178c",
+      "prompt": "Wide panoramic game skybox backdrop: a lush tropical jungle valley seen from far away, distant misty blue mountains, waterfalls, giant palm trees and ancient mossy stone ruins on the horizon, bright blue sky with big fluffy white clouds, horizon line in the lower third, no foreground ground. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "bg_boss1": {
+      "file": "backgrounds/bg_boss1.jpg",
+      "usedFor": "Mecha Bird arena skybox",
+      "model": "gpt_image_2_5 (medium) 2k 21:9",
+      "jobId": "551d8f5f-37ba-4587-bd17-ba2000d5ec8e",
+      "prompt": "Wide panoramic game skybox backdrop: a boss arena on a jungle clifftop at dusk with a dramatic stormy orange and purple sky, a distant smoking volcano, silhouettes of palm trees, flocks of birds, horizon line in the lower third, no foreground ground. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "bg_level2": {
+      "file": "backgrounds/bg_level2.jpg",
+      "usedFor": "Level 2 skybox (Scratchpost Canyon)",
+      "model": "gpt_image_2_5 (medium) 2k 21:9",
+      "jobId": "27acc2e2-f6b2-471d-aadc-346f6697ae6d",
+      "prompt": "Wide panoramic game skybox backdrop: a sandy orange desert canyon at sunset, towering striped rock mesas shaped like giant cat scratching posts, warm orange and pink sky with long streaky clouds, horizon line in the lower third, no foreground ground. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "bg_boss2": {
+      "file": "backgrounds/bg_boss2.jpg",
+      "usedFor": "Big Cat arena skybox",
+      "model": "gpt_image_2_5 (medium) 2k 21:9",
+      "jobId": "81e974af-f0b6-4af5-ab35-ce502d5f5172",
+      "prompt": "Wide panoramic game skybox backdrop: a boss arena canyon at night under a giant glowing full moon, rock formations shaped like pointy cat ears, a dramatic deep purple and indigo sky full of stars, horizon line in the lower third, no foreground ground. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "bg_level3": {
+      "file": "backgrounds/bg_level3.jpg",
+      "usedFor": "Level 3 backdrop (Cone Factory)",
+      "model": "gpt_image_2_5 (medium) 2k 21:9",
+      "jobId": "9cfd49a4-cb67-4d4c-a664-78a953e084bc",
+      "prompt": "Wide panoramic game skybox backdrop: the vast interior of an evil cone factory, endless purple riveted steel walls, tangled pipes, smokestacks, conveyor belts carrying plastic veterinary cones, glowing green vats, hazard stripes, dark moody industrial lighting with purple haze, horizon line in the lower third, no foreground ground. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "bg_boss3": {
+      "file": "backgrounds/bg_boss3.jpg",
+      "usedFor": "Evil Cone arena skybox",
+      "model": "gpt_image_2_5 (medium) 2k 21:9",
+      "jobId": "5c942ef5-1148-423e-8216-9dcbc92876da",
+      "prompt": "Wide panoramic game skybox backdrop: the rooftop throne room at the very top of an evil cone factory, huge shattered windows showing a swirling purple storm with green lightning, giant cone statues, banners with a cone emblem, ominous red glow, horizon line in the lower third, no foreground ground. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "bg_title": {
+      "file": "backgrounds/bg_title.jpg",
+      "usedFor": "Title screen backdrop",
+      "model": "gpt_image_2_5 (medium) 2k",
+      "jobId": "e82b931c-225a-416c-9053-e1b1e314ecd7",
+      "prompt": "Video game title screen backdrop: a tropical island at golden sunset, a giant evil purple cone-shaped factory towering on a volcano in the far distance with smoke, palm trees framing the left and right edges, a sandy beach and turquoise water in the foreground, warm vibrant sky with empty space in the upper center for a logo. Chunky colorful late-1990s console 3D platformer style, painted cartoon backdrop, bold saturated colors. No characters, no text."
+    },
+    "level_map": {
+      "file": "backgrounds/level_map.jpg",
+      "usedFor": "Level select map",
+      "model": "gpt_image_2_5 (medium) 2k",
+      "jobId": "9fd8248b-af58-4715-9228-b8e7f37648f6",
+      "prompt": "Illustrated overworld level select map of a cartoon tropical island seen from above at an angle, like a treasure map: a lush green jungle region in the lower left, a sandy orange canyon region in the middle, and a purple cone factory on a smoking volcano in the upper right, connected by a winding dotted trail, ocean around the island, bright saturated colors, chunky late-1990s console platformer cartoon style. No text, no labels, no characters."
+    },
+    "tex_l1_ground": {
+      "file": "textures/tex_l1_ground.jpg",
+      "usedFor": "Level 1 ground",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "57a179d2-7934-4669-ac67-3147e3176a75",
+      "prompt": "Seamless tileable game texture, flat top-down orthographic view, no perspective, no shadows, evenly lit: lush bright green cartoon grass with tiny yellow and white flowers and a few clover patches, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l1_wall": {
+      "file": "textures/tex_l1_wall.jpg",
+      "usedFor": "Level 1 walls / cliff sides",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "cfe2af11-90a9-44c6-9f67-b419e1433c14",
+      "prompt": "Seamless tileable game texture, flat front orthographic view, no perspective, no shadows, evenly lit: mossy grey-green ancient jungle stone bricks with moss and small vines in the cracks, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l1_platform": {
+      "file": "textures/tex_l1_platform.jpg",
+      "usedFor": "Level 1 platforms / bridges",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "5b7916f4-b86e-4087-a585-7280385dc766",
+      "prompt": "Seamless tileable game texture, flat top-down orthographic view, no perspective, no shadows, evenly lit: warm brown wooden planks running horizontally with nail heads and wood grain, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l2_ground": {
+      "file": "textures/tex_l2_ground.jpg",
+      "usedFor": "Level 2 ground",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "e393eddb-6700-489a-b495-32641bb2902d",
+      "prompt": "Seamless tileable game texture, flat top-down orthographic view, no perspective, no shadows, evenly lit: warm golden-orange desert sand with soft ripples and a few small pebbles, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l2_wall": {
+      "file": "textures/tex_l2_wall.jpg",
+      "usedFor": "Level 2 canyon walls",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "68065ee9-8e8e-4396-a0bc-9b92ba8ff2af",
+      "prompt": "Seamless tileable game texture, flat front orthographic view, no perspective, no shadows, evenly lit: layered red-orange canyon rock wall with horizontal sandstone strata and cracks, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l2_platform": {
+      "file": "textures/tex_l2_platform.jpg",
+      "usedFor": "Level 2 platforms",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "6d279aa3-92d3-4d90-9d13-0130615b270d",
+      "prompt": "Seamless tileable game texture, flat top-down orthographic view, no perspective, no shadows, evenly lit: corrugated tan cardboard like a cat scratching pad with shredded scratch marks, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l3_ground": {
+      "file": "textures/tex_l3_ground.jpg",
+      "usedFor": "Level 3 floor",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "bec4018b-1384-474b-8f0d-211af9792b4b",
+      "prompt": "Seamless tileable game texture, flat top-down orthographic view, no perspective, no shadows, evenly lit: purple riveted steel factory floor plates with diamond tread pattern and bolts, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l3_wall": {
+      "file": "textures/tex_l3_wall.jpg",
+      "usedFor": "Level 3 walls",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "c4277c3b-e4d3-4a06-8f60-9247ea2b6ee7",
+      "prompt": "Seamless tileable game texture, flat front orthographic view, no perspective, no shadows, evenly lit: dark purple industrial metal wall panels with rivets, small pipes and a yellow and black hazard stripe band, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "tex_l3_platform": {
+      "file": "textures/tex_l3_platform.jpg",
+      "usedFor": "Level 3 platforms",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "b6a3b7cb-c5dd-4866-8502-7b464fe51f97",
+      "prompt": "Seamless tileable game texture, flat top-down orthographic view, no perspective, no shadows, evenly lit: yellow and black diagonal hazard-striped steel grating platform surface with bolts at the corners, chunky hand-painted PS1-era platformer texture style, bold saturated colors, edges tile seamlessly."
+    },
+    "logo": {
+      "file": "ui/logo.webp",
+      "usedFor": "Title logo",
+      "model": "gpt_image_2_5 (high)",
+      "jobId": "acdd1638-468d-4e8e-b1a1-d52873db153c",
+      "prompt": "Video game title logo: the word \"NOBU\" in huge chunky bubbly 3D letters with a glossy orange-to-gold gradient and a thick black outline, and directly beneath it the words \"SAVIOUR DOG\" in bold white letters on a curved purple ribbon banner, a small dog paw print and a cracked plastic cone icon as decorations, playful late-1990s console platformer game logo style. Transparent background, no other text."
+    },
+    "textbox": {
+      "file": "ui/textbox.webp",
+      "usedFor": "Dialogue text box frame",
+      "model": "gpt_image_2_5 (medium)",
+      "jobId": "ef94994c-dba9-4b54-b034-d2bad421dba0",
+      "prompt": "Empty dialogue text box frame for a cartoon video game UI: a wide rounded rectangle panel with a thick glossy golden-orange border with small rivets at the corners, a deep purple semi-opaque interior with a subtle gradient, completely empty inside, chunky late-1990s console platformer UI style. Transparent background, no text, no characters."
+    },
+    "portrait_bird": {
+      "file": "ui/portrait_bird.webp",
+      "usedFor": "Dialogue portrait: Mecha Bird",
+      "model": "gpt_image_2_5 (medium) + boss sprite as reference",
+      "jobId": "c3986cb2-bc3a-470c-b644-f1882c42ab4f",
+      "prompt": "Dialogue portrait bust of the exact same Mecha Bird robot from the reference image: head and upper body only, facing slightly to the left, squawking smugly with its drill beak open, red visor eye glaring, menacing but cartoony, centered and filling the frame. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "portrait_cat": {
+      "file": "ui/portrait_cat.webp",
+      "usedFor": "Dialogue portrait: Big Cat",
+      "model": "gpt_image_2_5 (medium) + boss sprite as reference",
+      "jobId": "ef7b2fe7-7150-42c8-a3ce-31b542c08f39",
+      "prompt": "Dialogue portrait bust of the exact same giant ginger tabby Big Cat from the reference image: head and shoulders only, facing slightly to the left, smug evil grin showing fangs, one eyebrow raised, purple collar visible, centered and filling the frame. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "portrait_cone": {
+      "file": "ui/portrait_cone.webp",
+      "usedFor": "Dialogue portrait: Evil Cone",
+      "model": "gpt_image_2_5 (medium) + boss sprite as reference",
+      "jobId": "48ac0d0c-a8b2-42bb-9122-4890782853ce",
+      "prompt": "Dialogue portrait bust of the exact same Evil Cone villain from the reference image: the upper part of the glossy lavender plastic cone with its glowing red eyes and sneering toothy mouth, one robotic claw raised dramatically, facing slightly to the left, centered and filling the frame. Same chunky late-1990s console 3D platformer style, polished PS1-era cartoon game render, bold saturated colors, thin black outline. Transparent background, no text."
+    },
+    "pill_bot": {
+      "file": "characters/pill_bot.webp",
+      "usedFor": "Enemy card + tutorial pop-up: Pill Bot (3D model colors match it)",
+      "model": "gpt_image_2_5 (medium) + user's pump-fun-pill.png as reference",
+      "jobId": "32739942-fccb-43c4-8024-f4b2b219be71",
+      "prompt": "Video game enemy sprite, full body, front facing: a Pill Bot, a mischievous little robot whose body is the exact green-and-white capsule pill from the reference image standing upright (green half on the bottom, white half on top, thick dark green outline, the same dashed white shine mark), with two angry cartoon eyes and a smirking mouth on the white half, small stubby metal robot arms and legs, a tiny antenna on top. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, single character, no text."
+    },
+    "nobu_glb": {
+      "file": "models/nobu.glb",
+      "usedFor": "In-game 3D Nobu (bones driven procedurally); 'Classic' primitive Nobu is the alternative",
+      "model": "Meshy Image-to-3D (textured, auto-rigged, A-pose, 15k tris)",
+      "jobId": "00ddf721-e6e8-424f-9c51-515e39149b12",
+      "prompt": "Image-to-3D from nobu_master (the Nobu Element source image)."
+    },
+    "nobu_tex_fixed": {
+      "file": "models/nobu_tex_fixed.jpg",
+      "usedFor": "Replaces the GLB's baked texture: removes a stray third pupil",
+      "model": "Meshy texture, retouched locally (tools/fix_nobu_eyes.py)",
+      "jobId": "00ddf721-e6e8-424f-9c51-515e39149b12",
+      "prompt": "(edit) painted out the extra pupil in the right eye"
+    },
+    "model_dog_shiba_coned": {
+      "file": "models/dog_shiba_coned.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_shiba_coned' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "e9ca5814-1e74-4706-9a69-5a465d80a8e5",
+      "prompt": "Image-to-3D from the dog_shiba_coned sprite (see that entry for its prompt)"
+    },
+    "model_dog_corgi_coned": {
+      "file": "models/dog_corgi_coned.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_corgi_coned' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "82d252d1-1af4-4527-a2f7-8cf18c1c6a12",
+      "prompt": "Image-to-3D from the dog_corgi_coned sprite (see that entry for its prompt)"
+    },
+    "model_dog_pug_coned": {
+      "file": "models/dog_pug_coned.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_pug_coned' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "5c3d0c38-b99c-4873-9059-96183b4edf93",
+      "prompt": "Image-to-3D from the dog_pug_coned sprite (see that entry for its prompt)"
+    },
+    "model_dog_dalmatian_coned": {
+      "file": "models/dog_dalmatian_coned.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_dalmatian_coned' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "25d59c1c-3c98-4c1f-850b-2e438f04a7ac",
+      "prompt": "Image-to-3D from the dog_dalmatian_coned sprite (see that entry for its prompt)"
+    },
+    "model_dog_shiba_free": {
+      "file": "models/dog_shiba_free.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_shiba_free' sprite (rigged, animated: All_Night_Dance (64))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip All_Night_Dance (64)",
+      "jobId": "a69fae23-04f3-4ca5-9da2-568f98643ca0",
+      "prompt": "Image-to-3D from the dog_shiba_free sprite (see that entry for its prompt)"
+    },
+    "model_dog_corgi_free": {
+      "file": "models/dog_corgi_free.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_corgi_free' sprite (rigged, animated: FunnyDancing_01 (22))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip FunnyDancing_01 (22)",
+      "jobId": "32ad2870-67b9-4dd5-9453-f7ae8fe06e8f",
+      "prompt": "Image-to-3D from the dog_corgi_free sprite (see that entry for its prompt)"
+    },
+    "model_dog_pug_free": {
+      "file": "models/dog_pug_free.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_pug_free' sprite (rigged, animated: Boom_Dance (66))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Boom_Dance (66)",
+      "jobId": "c3d4bbf2-c96c-4db8-918c-5629a141fb87",
+      "prompt": "Image-to-3D from the dog_pug_free sprite (see that entry for its prompt)"
+    },
+    "model_dog_dalmatian_free": {
+      "file": "models/dog_dalmatian_free.glb",
+      "usedFor": "In-game 3D model, made from the 'dog_dalmatian_free' sprite (rigged, animated: Arm_Circle_Shuffle (63))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Arm_Circle_Shuffle (63)",
+      "jobId": "6a883633-7a91-4247-947a-866711d1ab90",
+      "prompt": "Image-to-3D from the dog_dalmatian_free sprite (see that entry for its prompt)"
+    },
+    "model_small_cat": {
+      "file": "models/small_cat.glb",
+      "usedFor": "In-game 3D model, made from the 'small_cat' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "16ddb58f-1cfd-492a-89a5-afa82e25f997",
+      "prompt": "Image-to-3D from the small_cat sprite (see that entry for its prompt)"
+    },
+    "model_snacks": {
+      "file": "models/snacks.glb",
+      "usedFor": "In-game 3D model, made from the 'snacks' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "19872741-e93d-4edf-943c-560f6c677ea2",
+      "prompt": "Image-to-3D from the snacks sprite (see that entry for its prompt)"
+    },
+    "model_trampoline": {
+      "file": "models/trampoline.glb",
+      "usedFor": "In-game 3D model, made from the 'trampoline' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "da1835e0-6a2f-45ea-ba31-90ecc4544fb1",
+      "prompt": "Image-to-3D from the trampoline sprite (see that entry for its prompt)"
+    },
+    "model_nobu_head": {
+      "file": "models/nobu_head.glb",
+      "usedFor": "In-game 3D model, made from the 'nobu_head' sprite",
+      "model": "Tripo H3.1 image-to-3D (textured, 8k faces)",
+      "jobId": "7e86b527-4688-43d8-a5b4-1c34b79b49df",
+      "prompt": "Image-to-3D from the nobu_head sprite (see that entry for its prompt)"
+    },
+    "backpack_front": {
+      "file": "items/backpack_front.jpg",
+      "usedFor": "Front print of the 3D Black Backpack",
+      "model": "user photo (backpack.webp), cropped",
+      "jobId": "",
+      "prompt": "(user-supplied photo of the Harry Potter / OBAMA backpack)"
+    },
+    "sproto_mask": {
+      "file": "ui/sproto_mask.webp",
+      "usedFor": "Sproto Mask HUD pips, dialogue portrait, 2D fallback",
+      "model": "user art (mask.avif), face cut out",
+      "jobId": "",
+      "prompt": "(user-supplied Sproto character art; face only)"
+    },
+    "model_sproto_mask": {
+      "file": "models/sproto_mask.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "4b30a95a-70b6-4563-bda6-8bb3a101ab14",
+      "prompt": "Image-to-3D from the user's Sproto art (whole face down to the collar)"
+    },
+    "model_broccoli": {
+      "file": "models/broccoli.glb",
+      "usedFor": "In-game 3D model (rigged, animated: Monster_Walk (112))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Monster_Walk (112)",
+      "jobId": "84a2b66d-f499-42b2-95de-da6d233a950c",
+      "prompt": "Image-to-3D from broccoli sprite (see that entry for its prompt)"
+    },
+    "model_broccoli_spiky": {
+      "file": "models/broccoli_spiky.glb",
+      "usedFor": "In-game 3D model (rigged, animated: Slow_Orc_Walk (119))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Slow_Orc_Walk (119)",
+      "jobId": "d2183788-f5f9-4aff-981e-b6b4b0c97e04",
+      "prompt": "Image-to-3D from broccoli_spiky sprite (see that entry for its prompt)"
+    },
+    "model_broccoli_cone": {
+      "file": "models/broccoli_cone.glb",
+      "usedFor": "In-game 3D model (rigged, animated: Walk_Fight_Forward (21))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip Walk_Fight_Forward (21)",
+      "jobId": "59d520db-8e7c-4ee1-b647-48b1ec986e39",
+      "prompt": "Image-to-3D from broccoli_cone sprite (see that entry for its prompt)"
+    },
+    "model_squirrel": {
+      "file": "models/squirrel.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "b7959c64-d8ac-485b-9e44-0fd22b2e743c",
+      "prompt": "Image-to-3D from squirrel sprite (see that entry for its prompt)"
+    },
+    "model_cone_drone": {
+      "file": "models/cone_drone.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "b8ff6ab0-37c4-4aec-bb2e-c4ed06076be6",
+      "prompt": "Image-to-3D from cone_drone sprite (see that entry for its prompt)"
+    },
+    "model_vacuum": {
+      "file": "models/vacuum.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "9c25448b-58e4-4b55-8d88-8b87982c5dd5",
+      "prompt": "Image-to-3D from vacuum sprite (see that entry for its prompt)"
+    },
+    "model_mouse": {
+      "file": "models/mouse.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "31586896-1a44-4b30-a2e8-d80abc05ad72",
+      "prompt": "Image-to-3D from mouse sprite (see that entry for its prompt)"
+    },
+    "model_pill_bot": {
+      "file": "models/pill_bot.glb",
+      "usedFor": "In-game 3D model (rigged, animated: penguin_walk (62))",
+      "model": "Tripo H3.1 image-to-3D, then Meshy auto-rig + animation clip penguin_walk (62)",
+      "jobId": "b25b7015-061a-44ee-8c6c-21de400385ca",
+      "prompt": "Image-to-3D from pill_bot sprite (see that entry for its prompt)"
+    },
+    "model_mecha_bird": {
+      "file": "models/mecha_bird.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "d927bfe1-71ad-48fc-afda-34c4b9323528",
+      "prompt": "Image-to-3D from mecha_bird sprite (see that entry for its prompt)"
+    },
+    "model_big_cat": {
+      "file": "models/big_cat.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "23406c67-b3a0-41b4-ad3f-fdc1532f13cb",
+      "prompt": "Image-to-3D from big_cat sprite (see that entry for its prompt)"
+    },
+    "model_evil_cone": {
+      "file": "models/evil_cone.glb",
+      "usedFor": "In-game 3D model",
+      "model": "Tripo H3.1 image-to-3D (textured)",
+      "jobId": "7c3f159d-b758-4f3b-ab50-85a590ce6707",
+      "prompt": "Image-to-3D from evil_cone sprite (see that entry for its prompt)"
+    }
+  }
+}
