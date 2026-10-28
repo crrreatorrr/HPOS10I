@@ -152,7 +152,7 @@ text = "PAUSE"
 
 [node name="R3C1" type="Label" parent="Root/Layout/Controls/Box/Grid"]
 layout_mode = 2
-text = "ENTER ESC P"
+text = "P / ENTER"
 
 [node name="R3C2" type="Label" parent="Root/Layout/Controls/Box/Grid"]
 layout_mode = 2

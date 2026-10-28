@@ -35,8 +35,9 @@ const MUSIC_NAMES: Array[StringName] = [
 const MAX_SFX_VOICES := 8
 const SFX_BUS := &"SFX"
 const MUSIC_BUS := &"Music"
-## Music volume change while the tree is paused.
-const PAUSED_MUSIC_DB := -10.0
+## Music sits a little under the effects; quieter still while paused.
+const MUSIC_DB := -4.0
+const PAUSED_MUSIC_DB := -14.0
 
 var _music: AudioStreamPlayer
 var _current_music := &""
@@ -59,6 +60,7 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.name = "Music"
 	_music.bus = MUSIC_BUS
+	_music.volume_db = MUSIC_DB
 	add_child(_music)
 	for i in MAX_SFX_VOICES:
 		var voice := AudioStreamPlayer.new()
@@ -144,7 +146,7 @@ func _process(_delta: float) -> void:
 	var paused := get_tree().paused
 	if paused != _ducked:
 		_ducked = paused
-		_music.volume_db = PAUSED_MUSIC_DB if paused else 0.0
+		_music.volume_db = PAUSED_MUSIC_DB if paused else MUSIC_DB
 
 
 ## An idle voice, or the one that started longest ago.

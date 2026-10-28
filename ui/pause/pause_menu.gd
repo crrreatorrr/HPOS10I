@@ -10,7 +10,9 @@ extends CanvasLayer
 ##                 without losing a life
 ##   QUIT TO MENU  SceneRouter.go_title()
 ## Arrows/WASD/D-pad move, Enter/Space/any jump button/A choose, mouse and
-## touch click. The panel also lists the controls for every device.
+## touch click. The panel also lists the controls for every device; key names
+## come from the player's keyboard layout (InputHints), and Esc is never
+## offered for pause (browsers keep it for leaving fullscreen).
 ##
 ## Pausing releases every held game input. Resuming waits for a physics frame
 ## without a fresh jump press, so the key that closed the menu never makes
@@ -54,6 +56,7 @@ func _ready() -> void:
 		button.focus_neighbor_bottom = button.get_path_to(_buttons[(i + 1) % _buttons.size()])
 		button.mouse_entered.connect(_on_button_hovered.bind(button))
 		button.focus_entered.connect(_on_button_focused)
+	_refresh_key_hints()
 	_add_forced_touch_controls()
 
 
@@ -128,6 +131,7 @@ func open_menu() -> void:
 	_resume_pending = false
 	get_tree().paused = true
 	release_game_inputs()
+	_refresh_key_hints()
 	_refresh_device_columns()
 	visible = true
 	_quiet_focus = true
@@ -231,11 +235,22 @@ func _on_button_focused() -> void:
 		Audio.play_sfx(&"menu_move")
 
 
+## Keyboard column of the controls table, named for the current layout.
+func _refresh_key_hints() -> void:
+	_grid_cell(1, 1).text = InputHints.move_keys()
+	_grid_cell(2, 1).text = InputHints.action_keys(&"jump")
+	_grid_cell(3, 1).text = InputHints.action_keys(&"pause", " / ")
+
+
+func _grid_cell(row: int, column: int) -> Label:
+	return _grid.get_child(row * _grid.columns + column) as Label
+
+
 ## Highlights the controls column for the device the player last used.
 func _refresh_device_columns() -> void:
 	var active: int = DEVICE_COLUMNS.get(_last_device, 1)
 	for column in range(1, _grid.columns):
-		var header := _grid.get_child(column) as Label
+		var header := _grid_cell(0, column)
 		header.add_theme_color_override(&"font_color", HEADER_ACTIVE if column == active else HEADER_IDLE)
 
 
