@@ -40,8 +40,9 @@ func test_camera_contract() -> void:
 	assert_true(camera.is_current(), "made current")
 	assert_eq(_view(), Vector2(424, 240), "viewport size")
 	# Centred on Sproto, who is held vertical_offset above the centre.
-	assert_eq(camera.global_position, player.global_position.round() + Vector2(0.0, camera.vertical_offset),
-			"starts on the player")
+	var expected := player.global_position + Vector2(0.0, camera.vertical_offset)
+	assert_true(camera.global_position.distance_to(expected) < 0.01,
+			"starts on the player (%s vs %s)" % [camera.global_position, expected])
 
 
 func test_deadzone_holds_for_small_moves() -> void:
@@ -244,7 +245,10 @@ func test_no_pixel_jitter_at_constant_speed() -> void:
 			await physics_frames(1)
 			assert_true(camera.global_position.x >= last, "speed %s: snapped x never steps back" % speed)
 			last = camera.global_position.x
-			offsets[camera.global_position.x - player.global_position.round().x] = true
+			# Sproto's screen pixel, as the renderer snaps it.
+			offsets[roundf(player.global_position.x - camera.global_position.x)] = true
+			assert_eq(camera.global_position.x - player.global_position.x,
+					roundf(camera.global_position.x - player.global_position.x), "whole-pixel offset")
 		release(&"move_right")
 		assert_eq(offsets.size(), 1, "speed %s: Sproto keeps the same screen pixel %s" % [speed, offsets.keys()])
 
@@ -266,7 +270,7 @@ func test_no_pixel_jitter_on_a_slope() -> void:
 		assert_true(camera.global_position.x >= last.x and camera.global_position.y <= last.y,
 				"moves only right and up (%s -> %s)" % [last, camera.global_position])
 		last = camera.global_position
-		screen[camera.global_position - player.global_position.round()] = true
+		screen[(player.global_position - camera.global_position).round()] = true
 	release(&"move_right")
 	assert_eq(screen.size(), 1, "Sproto keeps the same screen pixel on the slope %s" % [screen.keys()])
 

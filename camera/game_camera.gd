@@ -15,11 +15,14 @@ extends Camera2D
 ## - Clamped to the level bounds (a level smaller than the screen is centred),
 ##   smoothly locked to arenas, autoscroll that pushes Sproto via
 ##   `Player.clamp_rect`, and a decaying shake.
-## - Pixel-perfect: the final position is snapped relative to Sproto's own
-##   snapped position, so he never jitters by a pixel at constant speed.
+## - Pixel-perfect: the camera keeps a whole-pixel offset from Sproto, so he
+##   never jitters by a pixel at constant speed (with or without physics
+##   interpolation).
 ##
 ## Speeds are in pixels per frame at 60 Hz (classic units), like the player.
 
+## Frames up/down may drop out before the look delay starts over.
+const LOOK_GAP_FRAMES := 4
 ## Effectively unbounded clamp rect.
 const UNBOUNDED := Rect2(-10000000.0, -10000000.0, 20000000.0, 20000000.0)
 
@@ -97,6 +100,7 @@ var _rng := RandomNumberGenerator.new()
 var _look_ahead_velocity := 0.0
 var _look_dir := 0
 var _look_timer := 0
+var _look_gap := 0
 var _last_focus := Vector2.INF
 var _last_target := Vector2.INF
 
@@ -254,14 +258,19 @@ func _update_look(player: Player, frames: float) -> void:
 			dir = 1
 		elif Input.is_action_pressed(&"move_up"):
 			dir = -1
+	# A gap of a few frames (focus blips, pad noise) doesn't restart the delay.
 	if dir != 0 and dir == _look_dir:
 		_look_timer += 1
+		_look_gap = 0
+	elif dir == 0 and _look_dir != 0 and _look_gap < LOOK_GAP_FRAMES:
+		_look_gap += 1
 	else:
 		_look_dir = dir
 		_look_timer = 0
+		_look_gap = 0
 	var wanted := 0.0
-	if dir != 0 and _look_timer >= look_delay_frames:
-		wanted = look_down_distance if dir > 0 else -look_up_distance
+	if _look_dir != 0 and _look_timer >= look_delay_frames:
+		wanted = look_down_distance if _look_dir > 0 else -look_up_distance
 	look_shift = move_toward(look_shift, wanted, look_speed * frames)
 
 
@@ -287,17 +296,18 @@ func _snap_to_target() -> void:
 	reset_physics_interpolation()
 
 
-## Snaps the final position to whole pixels. While following, it is snapped
-## relative to the target's own rounded position, so Sproto keeps the same
-## screen pixel at constant speed (no 1 px jitter); when the focus does not
-## move, the camera does not move.
+## Places the camera. While following, its offset from Sproto is a whole
+## number of pixels, so Sproto keeps the same screen pixel at constant speed
+## (no 1 px jitter), including on frames drawn between physics ticks with
+## physics interpolation on; the renderer's pixel snapping keeps the output
+## on whole pixels. When the focus does not move, the camera does not move.
+## Autoscroll positions are whole pixels.
 func _apply_position() -> void:
 	if focus.is_equal_approx(_last_focus):
 		return
 	var snapped := focus.round()
 	if not _autoscrolling and _target != null:
-		var anchor := _target.global_position.round()
-		snapped = anchor + (focus - _target.global_position).round()
+		snapped = _target.global_position + (focus - _target.global_position).round()
 	# Rounding must not show a pixel outside the limits.
 	var clamp_rect := _current_clamp()
 	var half := _view_size() / 2.0

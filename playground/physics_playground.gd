@@ -4,12 +4,13 @@ extends Node2D
 ## test dummy and tickets for hurt / ticket scatter. Respawns Sproto after death.
 ## Run with `-- --trace` (or `--trace=N`) to print the player's state every 15 (N) frames,
 ## `--accessory=wizard_hat` (or sunglasses) to preview a zone accessory, and
-## `--start=X` to drop Sproto in at x = X (to try one section).
+## `--start=X` to drop Sproto in at x = X (to try one section), and `--interp`
+## to turn on physics interpolation (smoother motion on 120 Hz+ displays).
 
 const HINT := "Arrows/WASD run   Z/X/C/Space jump   Down: roll   Down+Jump: spin dash   Up/Down: look   F1: overlay"
 const RESPAWN_FRAMES := 120
 ## The camera never shows outside this area.
-const LEVEL_BOUNDS := Rect2(-64, -600, 4288, 664)
+const LEVEL_BOUNDS := Rect2(-64, -800, 4556, 864)
 
 @onready var player: Player = $Player
 @onready var start: Marker2D = $PlayerStart
@@ -20,6 +21,8 @@ var _frame := 0
 
 
 func _ready() -> void:
+	if Dev.args.has("interp"):
+		get_tree().physics_interpolation = true
 	if Dev.args.has("start"):
 		start.global_position = Vector2(float(Dev.args.start), -19.0)
 	player.respawn_at(start.global_position)
@@ -45,10 +48,12 @@ func _physics_process(_delta: float) -> void:
 		if _respawn_in == 0:
 			player.respawn_at(start.global_position)
 	if Dev.args.has("trace") and _frame % _trace_interval() == 0:
-		print("[trace] f%d x=%.0f y=%.0f gsp=%.2f v=(%.2f, %.2f) a=%.0f mode=%d %s %s path=%d tickets=%d" % [
+		var camera := $Camera as GameCamera
+		print("[trace] f%d x=%.0f y=%.0f gsp=%.2f v=(%.2f, %.2f) a=%.0f mode=%d %s %s path=%d tickets=%d cam=(%.0f, %.0f) ahead=%.0f look=%.0f" % [
 			_frame, player.global_position.x, player.global_position.y, player.ground_speed,
 			player.velocity.x, player.velocity.y, player.ground_angle, player.collision_mode,
-			player.state, "G" if player.grounded else "air", player.collision_path, GameState.tickets])
+			player.state, "G" if player.grounded else "air", player.collision_path, GameState.tickets,
+			camera.global_position.x, camera.global_position.y, camera.look_ahead, camera.look_shift])
 
 
 func _trace_interval() -> int:
