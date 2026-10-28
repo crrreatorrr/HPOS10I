@@ -293,6 +293,9 @@ func _snap_to_target() -> void:
 	_last_target = _target.global_position
 	focus = _clamp_center(focus, _current_clamp())
 	_last_focus = Vector2.INF
+	# Place the camera first, then reset, so interpolation cuts straight to
+	# the new view instead of sweeping from the old one.
+	_apply_position()
 	reset_physics_interpolation()
 
 

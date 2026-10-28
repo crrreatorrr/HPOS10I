@@ -35,8 +35,10 @@ class Hit:
 	var mask: int
 
 
-## Every cast this frame: {label, from, to, hit (bool), point}.
+## Every cast this frame: {label, from, to, hit (bool), point}, kept only while
+## `recording` is on (the debug overlay turns it on while visible).
 var casts: Array[Dictionary] = []
+var recording := false
 ## The two side hits (or nulls) of the last cast_pair(), in label order.
 var last_pair: Array[Hit] = [null, null]
 
@@ -77,8 +79,10 @@ static func terrain_mask(path: int, top_only: bool) -> int:
 ## Casts one ray. Returns null when nothing is hit.
 func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) -> Hit:
 	var to := from + dir * length
-	var record := {label = label, from = from, to = to, hit = false, point = to}
-	casts.append(record)
+	var record: Dictionary = {}
+	if recording:
+		record = {label = label, from = from, to = to, hit = false, point = to}
+		casts.append(record)
 	if _space == null:
 		return null
 	_query.from = from
@@ -104,8 +108,9 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 	# measure the surface instead.
 	if hit.normal.dot(dir) > -0.001:
 		hit.angle = surface_angle(hit)
-	record.hit = true
-	record.point = hit.position
+	if recording:
+		record.hit = true
+		record.point = hit.position
 	return hit
 
 
@@ -158,7 +163,8 @@ func cast_pair(labels: PackedStringArray, center: Vector2, side: Vector2, dir: V
 		half_width: float, length: float, mask: int) -> Hit:
 	var first := cast(labels[0], center - side * half_width, dir, length, mask)
 	var second := cast(labels[1], center + side * half_width, dir, length, mask)
-	last_pair = [first, second]
+	last_pair[0] = first
+	last_pair[1] = second
 	if first == null and second == null and labels.size() > 2:
 		return cast(labels[2], center, dir, length, mask)
 	if first == null:

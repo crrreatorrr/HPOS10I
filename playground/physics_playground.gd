@@ -8,12 +8,15 @@ extends Node2D
 ## to turn on physics interpolation (smoother motion on 120 Hz+ displays), and
 ## `--terrain-root=res://some/dir` to try terrain materials from another folder.
 
+# LEAD-REQUEST: build this from InputLabels.for_action() (core/input_labels.gd,
+# FQ-07) once it lands, so the jump key reads right on AZERTY/QWERTZ layouts.
 const HINT := "Move: arrows  Jump: Z/X/C  Roll: Down  Spin: Down+Jump  Look: Up/Down  F1: debug"
-const RESPAWN_FRAMES := 120
+## After `died` (about 1 s after kill), wait about 1 s more: about 2 s in all.
+const RESPAWN_FRAMES := 60
 ## Terrain materials: assets/terrain/<ART_ZONE>/ (flat colours until they exist).
 const ART_ZONE := "z1_retro_rush_hills"
 ## The camera never shows outside this area.
-const LEVEL_BOUNDS := Rect2(-64, -800, 4556, 864)
+const LEVEL_BOUNDS := Rect2(-64, -800, 4756, 864)
 
 @onready var player: Player = $Player
 @onready var start: Marker2D = $PlayerStart
@@ -33,7 +36,7 @@ func _ready() -> void:
 		if node is CurveTerrain:
 			(node as CurveTerrain).set_art_zone(ART_ZONE)
 	if Dev.args.has("start"):
-		start.global_position = Vector2(float(Dev.args.start), -19.0)
+		start.global_position = Vector2(float(Dev.args.start), -Tuning.physics.height_radius)
 	player.respawn_at(start.global_position)
 	($Camera as GameCamera).set_level_bounds(LEVEL_BOUNDS)
 	if Dev.args.has("accessory"):

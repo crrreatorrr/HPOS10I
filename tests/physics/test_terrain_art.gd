@@ -197,3 +197,18 @@ func test_effects_never_change_the_trajectory() -> void:
 	for row in with_effects:
 		top_speed = maxf(top_speed, absf(row[1]))
 	assert_true(top_speed > 10.0, "the course reached afterimage speed (%s)" % top_speed)
+
+
+func test_lip_never_wraps_to_its_top_row() -> void:
+	world = W.new_world(self)
+	var ring := _piece({shape = CurveTerrain.Shape.LOOP, radius = 80.0, thickness = 16.0,
+			arc_start = 270.0, arc_end = 360.0}, Vector2.ZERO)
+	var block := _piece({shape = CurveTerrain.Shape.BLOCK, size = Vector2(64, 32)}, Vector2(200, 0))
+	await physics_frames(2)
+	for piece in [ring, block]:
+		for lip in _visual(piece, "Lip"):
+			var uvs: PackedVector2Array = (lip as MeshInstance2D).mesh.surface_get_arrays(0)[Mesh.ARRAY_TEX_UV]
+			for i in range(1, uvs.size(), 2):
+				# The far edge stays inside the last row (repeat would wrap v = 1 to row 0).
+				assert_true(uvs[i].y < 1.0, "far-edge v %.4f stays below 1" % uvs[i].y)
+				assert_near(uvs[i].y, 1.0 - 0.5 / TOP_SIZE.y, 0.0001, "far edge at the last row's centre")

@@ -99,26 +99,26 @@ position = Vector2(2400, 0)
 position = Vector2(2576, 0)
 script = ExtResource("2_curve")
 shape = 4
-size = Vector2(400, 64)
+size = Vector2(464, 64)
 
 [node name="SmallLoop" parent="Terrain" instance=ExtResource("3_loop")]
-position = Vector2(3120, 0)
+position = Vector2(3248, 0)
 radius = 80.0
 
 [node name="Hills" type="StaticBody2D" parent="Terrain"]
-position = Vector2(3264, 0)
+position = Vector2(3464, 0)
 script = ExtResource("2_curve")
 shape = 3
 curve = SubResource("Curve2D_hills")
 
 [node name="EndFloor" type="StaticBody2D" parent="Terrain"]
-position = Vector2(3984, 0)
+position = Vector2(4184, 0)
 script = ExtResource("2_curve")
 shape = 4
 size = Vector2(80, 64)
 
 [node name="QuarterPipe" type="StaticBody2D" parent="Terrain"]
-position = Vector2(4064, 0)
+position = Vector2(4264, 0)
 script = ExtResource("2_curve")
 shape = 1
 radius = 96.0
@@ -126,7 +126,7 @@ thickness = 48.0
 wall_height = 504.0
 
 [node name="RightWall" type="StaticBody2D" parent="Terrain"]
-position = Vector2(4428, -1400)
+position = Vector2(4628, -1400)
 script = ExtResource("2_curve")
 shape = 4
 size = Vector2(64, 1464)

@@ -46,6 +46,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func set_overlay_visible(on: bool) -> void:
 	visible = on
 	_layer.visible = on
+	if _player != null:
+		_player.sensors.recording = on
 
 
 func _process(_delta: float) -> void:

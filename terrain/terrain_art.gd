@@ -165,8 +165,10 @@ static func strip_mesh(points: PackedVector2Array, normals: PackedVector2Array, 
 			uvs.append(to_world * top / texture_size)
 			uvs.append(to_world * bottom / texture_size)
 		else:
+			# The texture repeats along the strip only: stop at the centre of
+			# its last row, or the far edge would wrap to the highlight row.
 			uvs.append(Vector2(along / texture_size.x, 0.0))
-			uvs.append(Vector2(along / texture_size.x, 1.0))
+			uvs.append(Vector2(along / texture_size.x, 1.0 - 0.5 / texture_size.y))
 		if i > 0:
 			var a := (i - 1) * 2
 			indices.append_array(PackedInt32Array([a, a + 2, a + 3, a, a + 3, a + 1]))

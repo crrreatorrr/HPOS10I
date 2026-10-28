@@ -76,11 +76,11 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 
-	var gravity := PhysicsConstants.accel(p.ticket_gravity)
+	var fall := PhysicsConstants.accel(p.ticket_gravity)
 	var cap := PhysicsConstants.speed(p.speed_cap)
 	var from := global_position
-	global_position += _vel * delta + Vector2(0.0, 0.5 * gravity * delta * delta)
-	_vel.y = minf(_vel.y + gravity * delta, cap)
+	global_position += _vel * delta + Vector2(0.0, 0.5 * fall * delta * delta)
+	_vel.y = minf(_vel.y + fall * delta, cap)
 
 	# Bounce off floors only while falling (sweep from last position: no tunnelling).
 	if _vel.y > 0.0:
@@ -100,7 +100,7 @@ func _physics_process(delta: float) -> void:
 				_collect()
 				return
 
-	visible = _age < p.ticket_lifetime_frames - BLINK_FRAMES or (_age / 4) % 2 == 0
+	visible = _age < p.ticket_lifetime_frames - BLINK_FRAMES or posmod(_age, 8) < 4
 	queue_redraw()
 
 

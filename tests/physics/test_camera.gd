@@ -327,3 +327,21 @@ func test_respawn_snaps_instead_of_scrolling() -> void:
 	player.respawn_at(Vector2(3000, -19))
 	await physics_frames(1)
 	assert_eq(camera.global_position.x, 3000.0, "snapped to the new spot")
+
+
+func test_respawn_snap_is_a_clean_cut_with_interpolation_on() -> void:
+	tree.physics_interpolation = true
+	await _setup()
+	# The snap must place the camera itself, before it resets interpolation,
+	# so the renderer cuts straight to the new view (no sweep from the old one).
+	player.global_position = Vector2(2400, -19)
+	camera._target = player
+	camera._snap_to_target()
+	assert_eq(camera.global_position, Vector2(2400, -19 + camera.vertical_offset), "placed inside the snap")
+	# And the whole respawn flow with interpolation on.
+	player.respawn_at(Vector2(-1500, -19))
+	await physics_frames(1)
+	assert_eq(camera.global_position.x, -1500.0, "snapped to the respawn spot")
+	await physics_frames(5)
+	assert_eq(camera.global_position.x, -1500.0, "and stays there")
+	tree.physics_interpolation = false

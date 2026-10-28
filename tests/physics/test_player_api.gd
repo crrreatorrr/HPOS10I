@@ -167,3 +167,22 @@ func test_respawn_at_from_a_ball_is_exact() -> void:
 	await physics_frames(2)
 	assert_true(player.grounded, "on the floor")
 	assert_near(W.feet_y(player), 0.0, 0.05, "feet on the floor")
+
+
+func test_invincibility_blink_follows_physics_ticks() -> void:
+	await _flat()
+	GameState.add_tickets(1)
+	player.hurt(player.global_position + Vector2(-20, 0))
+	var visual := player.get_node("Visual")
+	var pattern := []
+	for i in 16:
+		await physics_frames(1)
+		# Extra render frames between ticks (a 144 Hz display) change nothing.
+		visual._process(1.0 / 144.0)
+		var seen: bool = visual.visible
+		visual._process(1.0 / 144.0)
+		visual._process(1.0 / 144.0)
+		assert_eq(visual.visible, seen, "tick %d: same at any refresh rate" % i)
+		pattern.append(seen)
+	assert_true(pattern.has(true) and pattern.has(false), "blinks")
+	GameState.tickets = 0

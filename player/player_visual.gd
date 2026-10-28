@@ -13,8 +13,6 @@ const FRAMES_PATH := "res://assets/sprites/common/sproto/sproto_frames.tres"
 ## Feet centre inside a 64x64 frame cell, relative to the cell centre.
 const CELL_FEET_OFFSET := 28.0
 const BLINK_PERIOD_FRAMES := 4
-## Below this ground speed the run cycle shows as a walk.
-const WALK_RUN_THRESHOLD := 6.0
 ## Rotation easing rate (1/s).
 const ROTATION_SMOOTHING := 30.0
 ## Placeholder head size, and how far its centre sits above the feet.
@@ -44,7 +42,6 @@ var _player: Player
 var _sprite: AnimatedSprite2D
 var _spin := 0.0
 var _cycle := 0.0
-var _frame := 0
 
 
 func _ready() -> void:
@@ -63,7 +60,6 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _player == null:
 		return
-	_frame += 1
 	var speed := absf(_player.ground_speed) if _player.grounded else _player.velocity.length()
 	_spin += (4.0 + speed * 1.6) * delta * TAU * 0.25
 	_cycle += (0.5 + absf(_player.ground_speed)) * delta * 2.2
@@ -76,7 +72,9 @@ func _process(delta: float) -> void:
 		rotation = 0.0
 	else:
 		rotation = lerp_angle(rotation, target, 1.0 - exp(-ROTATION_SMOOTHING * delta))
-	visible = not _player.is_invincible() or (_frame / BLINK_PERIOD_FRAMES) % 2 == 0
+	# Blink by physics ticks of invincibility left, the same at any refresh rate.
+	visible = not _player.is_invincible() \
+			or posmod(_player.invincible_frames_left(), BLINK_PERIOD_FRAMES * 2) < BLINK_PERIOD_FRAMES
 
 	if _sprite != null:
 		_update_sprite()
@@ -94,7 +92,7 @@ func wanted_animation() -> StringName:
 		return _player.pose
 	match _player.state:
 		&"run":
-			return &"run" if absf(_player.ground_speed) >= WALK_RUN_THRESHOLD else &"walk"
+			return &"run" if absf(_player.ground_speed) >= Tuning.physics.top_speed else &"walk"
 		&"idle":
 			return &"crouch" if _player.crouching else &"idle"
 	return _player.state
