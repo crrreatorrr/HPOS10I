@@ -13,8 +13,8 @@ extends SceneTree
 ##                           returns to the dev menu, see SceneRouter.open_scene)
 ##   --zone=<id> --stage=N   start a zone stage (real respawns and accessories)
 ##   --frames=N              physics frames to run (default 3600 = 60 s)
-##   --policy=runner         hold right; jump when blocked or every N frames;
-##                           spin dash after 2 s without progress (default)
+##   --policy=runner         hold right; on the floor, jump when blocked or every
+##                           N frames, spin dash after 2 s without progress (default)
 ##   --policy=fuzz           random presses/releases every frame (input spam),
 ##                           including rare pause toggles; see --seed
 ##   --policy=none           send nothing; observe only (combine with Dev's
@@ -54,6 +54,8 @@ var _frame := 0
 var _queue: Array = []  # [frame, action, pressed], sorted by frame
 var _held := {}  # action -> true
 var _sent: Array = []  # [frame, action, pressed] for --record
+var _recording := false
+var _inputs_sent := 0
 var _finished := false
 
 var _player: Node2D = null
@@ -96,6 +98,7 @@ func _initialize() -> void:
 	_jump_every = int(_args.get("jump-every", "240"))
 	_wait_player = int(_args.get("wait-player", "300"))
 	_rng.seed = int(_args.get("seed", "1"))
+	_recording = _args.has("record")
 	if not _policy in ["runner", "fuzz", "none"] or _max_frames <= 0:
 		printerr("playtest_bot: bad arguments %s (policy runner|fuzz|none, frames > 0)" % [_args])
 		quit(2)
@@ -218,6 +221,12 @@ func _grounded() -> bool:
 	return _player.get(&"grounded") != false
 
 
+## Grounded in floor mode (collision_mode 0, or unknown).
+func _on_floor() -> bool:
+	var mode = _player.get(&"collision_mode")
+	return _grounded() and (mode == null or int(mode) == 0)
+
+
 func _on_died() -> void:
 	_record_death(_frame)
 
@@ -279,11 +288,17 @@ func _runner(f: int) -> void:
 		return
 	if not _held.has(&"move_right"):
 		_schedule(f, &"move_right", true)
-	if _frames_since_progress >= SPINDASH_AFTER_FRAMES and f >= _next_spindash and _grounded():
+	if not _on_floor():
+		return  # never jump or spin dash off a wall, a loop or a ceiling
+	if _frames_since_progress >= SPINDASH_AFTER_FRAMES and f >= _next_spindash:
 		_spindash(f)
 		return
-	var blocked := _x_history.size() == WALL_WINDOW and absf(_x_history[-1] - _x_history[0]) < 0.5
-	if _grounded() and (blocked or (_jump_every > 0 and f > 0 and f % _jump_every == 0)):
+	# Blocked = on flat-ish floor, nearly stopped and not moving for a while
+	# (x alone also stalls while running up a loop's wall).
+	var gsp = _player.get(&"ground_speed")
+	var slow: bool = gsp == null or absf(float(gsp)) < 0.5
+	var blocked := slow and _x_history.size() == WALL_WINDOW and absf(_x_history[-1] - _x_history[0]) < 0.5
+	if blocked or (_jump_every > 0 and f > 0 and f % _jump_every == 0):
 		_jump(f)
 
 
@@ -343,7 +358,9 @@ func _send(f: int, action: StringName, pressed: bool) -> void:
 		_held[action] = true
 	else:
 		_held.erase(action)
-	_sent.append([f, String(action), pressed])
+	_inputs_sent += 1
+	if _recording:
+		_sent.append([f, String(action), pressed])
 	var event := InputEventAction.new()
 	event.action = action
 	event.pressed = pressed
@@ -396,7 +413,7 @@ func _summary(reason: String) -> Dictionary:
 		longest_no_progress_s = snappedf(_longest_no_progress / FPS, 0.01),
 		jumps = _jumps,
 		spindashes = _spindashes,
-		inputs_sent = _sent.size(),
+		inputs_sent = _inputs_sent,
 		level_completed = _level_completed_frame >= 0,
 		level_completed_frame = _level_completed_frame,
 		scenes = _scenes,
