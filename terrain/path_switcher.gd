@@ -26,11 +26,12 @@ var _shape: CollisionShape2D
 
 func _ready() -> void:
 	collision_layer = 0
-	collision_mask = 1 << 4  # player hitbox
+	collision_mask = Layers.PLAYER
 	monitorable = false
 	_update_shape()
 	if Engine.is_editor_hint():
 		return
+	set_physics_process(false)  # only while a player is inside
 	area_entered.connect(_on_area_entered)
 	area_exited.connect(_on_area_exited)
 
@@ -50,6 +51,7 @@ func _on_area_entered(area: Area2D) -> void:
 	var player := Player.from_area(area)
 	if player != null:
 		_sides[player.get_instance_id()] = _side_of(player)
+		set_physics_process(true)
 
 
 func _on_area_exited(area: Area2D) -> void:
@@ -57,6 +59,7 @@ func _on_area_exited(area: Area2D) -> void:
 	if player != null:
 		_check(player)
 		_sides.erase(player.get_instance_id())
+		set_physics_process(not _sides.is_empty())
 
 
 func _side_of(player: Player) -> int:

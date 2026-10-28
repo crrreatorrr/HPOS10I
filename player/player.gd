@@ -45,9 +45,24 @@ const VALLEY_REST_SPEED := 0.5
 const VALLEY_PROBE_REACH := 48.0
 ## Feet within this distance of a surface count as touching it.
 const CONTACT_EPSILON := 0.05
-## bounce_off() trims this from the rebound speed (px/frame).
-const BOUNCE_TRIM := 1.0
-const DIED_SIGNAL_FRAMES := 60
+## Default control lock for push_ground() (contract default).
+const PUSH_LOCK_FRAMES := 16
+## Landing speed conversion bands (Physics Guide): flat up to 23 deg from flat,
+## slope up to 45 deg (y speed halved), steeper uses the full y speed.
+const LANDING_FLAT_MAX := 23.0
+const LANDING_SLOPE_MAX := 45.0
+const SLOPE_LANDING_FACTOR := 0.5
+## Movement sub-steps: at least this long, and this much shorter than the
+## smallest sensor reach.
+const MIN_SUB_STEP := 2.0
+const SUB_STEP_MARGIN := 2.0
+## The hitbox Area2D is this much shorter than the sensor box at each end.
+const HITBOX_HEIGHT_TRIM := 3.0
+## Sensor labels, built once (nothing is allocated per tick).
+static var floor_labels := PackedStringArray(["A", "B", "AB"])
+static var ceiling_labels := PackedStringArray(["C", "D", "CD"])
+static var valley_labels := PackedStringArray(["A", "B"])
+const WALL_SIDES: Array[float] = [-1.0, 1.0]
 
 # --- Public state (classic units) -------------------------------------------
 
@@ -161,6 +176,7 @@ static func angle_from_flat(angle: float) -> float:
 
 func _ready() -> void:
 	add_to_group(&"player")
+	hitbox.collision_layer = Layers.PLAYER
 	_update_hitbox()
 
 
@@ -180,6 +196,11 @@ func can_collect_tickets() -> bool:
 
 
 ## Current hitbox radii (width, height) in pixels.
+## Physics ticks of invincibility left (the visuals blink from this).
+func invincible_frames_left() -> int:
+	return _invincible_frames
+
+
 func get_radii() -> Vector2:
 	var p := Tuning.physics
 	if _ball:
@@ -238,7 +259,7 @@ func bounce_off(target_y: float, reverse_x := false) -> void:
 			_gsp = -_gsp
 		return
 	if global_position.y > target_y or _vel.y < 0.0:
-		_vel.y -= signf(_vel.y) * PhysicsConstants.speed(BOUNCE_TRIM)
+		_vel.y -= signf(_vel.y) * PhysicsConstants.speed(Tuning.physics.bounce_trim)
 	else:
 		_vel.y = -_vel.y
 	if reverse_x:
@@ -261,7 +282,7 @@ func launch(velocity_pf: Vector2) -> void:
 
 
 ## Horizontal springs and boosters.
-func push_ground(speed_pf: float, lock_frames := 16) -> void:
+func push_ground(speed_pf: float, lock_frames := PUSH_LOCK_FRAMES) -> void:
 	if _state == &"dead":
 		return
 	if speed_pf != 0.0:
@@ -309,6 +330,7 @@ func respawn_at(new_position: Vector2) -> void:
 	_leave_ground()
 	_set_ball(false)
 	global_position = new_position
+	reset_physics_interpolation()
 	ground_angle = 0.0
 	_gsp = 0.0
 	_vel = Vector2.ZERO
@@ -446,7 +468,7 @@ func _apply_slope_factor(p: PhysicsConstants, dt: float) -> void:
 func _has_jump_clearance() -> bool:
 	var r := get_radii()
 	var up := -mode_down(collision_mode)
-	var hit := sensors.cast_pair(PackedStringArray(["C", "D", "CD"]), global_position,
+	var hit := sensors.cast_pair(ceiling_labels, global_position,
 			mode_right(collision_mode), up, r.x, r.y + JUMP_CLEARANCE, _terrain_mask(false))
 	return hit == null
 
@@ -461,7 +483,7 @@ func _is_force_rolling(p: PhysicsConstants) -> bool:
 ## True when the standing hitbox would fit above the feet (checked from the ball).
 func _has_standing_headroom(p: PhysicsConstants) -> bool:
 	var reach := p.height_radius * 2.0 - p.roll_height_radius
-	var hit := sensors.cast_pair(PackedStringArray(["C", "D", "CD"]), global_position,
+	var hit := sensors.cast_pair(ceiling_labels, global_position,
 			mode_right(collision_mode), -mode_down(collision_mode), p.width_radius, reach,
 			_terrain_mask(false))
 	return hit == null
@@ -543,7 +565,7 @@ func _move_on_ground(p: PhysicsConstants, dt: float) -> void:
 		global_position += _vel * dt / steps
 		if _gsp != 0.0:
 			_ground_wall_check(p)
-		if not _ground_floor_check(p):
+		if not _ground_floor_check():
 			_leave_ground()
 			var remaining := steps - i - 1
 			if remaining > 0:
@@ -591,7 +613,7 @@ func _ground_wall_check(p: PhysicsConstants) -> void:
 
 ## Floor sensors A/B: snap to the nearer hit or report that the ground is gone.
 ## `tolerance` < 0 uses the classic min(|speed| + 4, 14) window.
-func _ground_floor_check(p: PhysicsConstants, tolerance := -1.0) -> bool:
+func _ground_floor_check(tolerance := -1.0) -> bool:
 	var r := get_radii()
 	# At the bottom of a sharp V the wall-mode offset would put the centre into
 	# the other side: switch to floor mode as soon as A/B straddle it. The two
@@ -601,7 +623,7 @@ func _ground_floor_check(p: PhysicsConstants, tolerance := -1.0) -> bool:
 		collision_mode = FLOOR
 		tolerance = maxf(tolerance, VALLEY_PROBE_REACH)
 	var down := mode_down(collision_mode)
-	var hit := sensors.cast_pair(PackedStringArray(["A", "B", "AB"]), global_position,
+	var hit := sensors.cast_pair(floor_labels, global_position,
 			mode_right(collision_mode), down, r.x, r.y + SNAP_MAX,
 			_terrain_mask(collision_mode == FLOOR))
 	if hit == null:
@@ -648,10 +670,10 @@ func _valley_rest_position(left: PlayerSensors.Hit, right: PlayerSensors.Hit) ->
 	if absf(denom) < 0.000001:
 		return Vector2.INF
 	var vertex := left.position + dl * ((right.position - left.position).cross(dr) / denom)
-	var tl := tan(deg_to_rad(angle_from_flat(left.angle)))
-	var tr := tan(deg_to_rad(angle_from_flat(right.angle)))
-	var u := r.x * (tl - tr) / (tl + tr)
-	return Vector2(vertex.x + u, vertex.y - (r.x - u) * tl - r.y)
+	var tan_left := tan(deg_to_rad(angle_from_flat(left.angle)))
+	var tan_right := tan(deg_to_rad(angle_from_flat(right.angle)))
+	var u := r.x * (tan_left - tan_right) / (tan_left + tan_right)
+	return Vector2(vertex.x + u, vertex.y - (r.x - u) * tan_left - r.y)
 
 
 ## True for a steep (> 45 deg) slope leaning the other way from the current ground.
@@ -667,7 +689,7 @@ func _is_opposite_steep_slope(angle: float) -> bool:
 ## sideways offset would put the centre into the other side).
 func _steep_valley_below() -> bool:
 	var r := get_radii()
-	sensors.cast_pair(PackedStringArray(["A", "B"]), global_position, Vector2.RIGHT, Vector2.DOWN,
+	sensors.cast_pair(valley_labels, global_position, Vector2.RIGHT, Vector2.DOWN,
 			r.x, VALLEY_PROBE_REACH, _terrain_mask(true))
 	var pair := sensors.last_pair
 	return pair[0] != null and pair[1] != null and _is_valley(pair[0].angle, pair[1].angle, true)
@@ -689,7 +711,7 @@ static func _is_valley(left_angle: float, right_angle: float, steep_only: bool) 
 ## Keeps a standing-still player (spin dash) on the ground. The full snap window
 ## is allowed: switching to the ball hitbox can lift the feet off a V's sides.
 func _stick_to_ground(p: PhysicsConstants) -> void:
-	if not _ground_floor_check(p, SNAP_MAX):
+	if not _ground_floor_check(SNAP_MAX):
 		_leave_ground()
 	var a := deg_to_rad(ground_angle)
 	_vel = Vector2(cos(a), -sin(a)) * _gsp
@@ -788,7 +810,7 @@ func _move_in_air(p: PhysicsConstants, displacement: Vector2) -> void:
 
 func _air_wall_check(p: PhysicsConstants) -> void:
 	var mask := _terrain_mask(false)
-	for side: float in [-1.0, 1.0]:
+	for side: float in WALL_SIDES:
 		var hit := sensors.cast("E" if side < 0.0 else "F", global_position,
 				Vector2(side, 0.0), p.push_radius, mask)
 		if hit == null:
@@ -800,7 +822,7 @@ func _air_wall_check(p: PhysicsConstants) -> void:
 
 func _air_ceiling_check(p: PhysicsConstants) -> void:
 	var r := get_radii()
-	var hit := sensors.cast_pair(PackedStringArray(["C", "D", "CD"]), global_position, Vector2.RIGHT,
+	var hit := sensors.cast_pair(ceiling_labels, global_position, Vector2.RIGHT,
 			Vector2.UP, r.x, r.y, _terrain_mask(false))
 	if hit == null:
 		return
@@ -815,7 +837,7 @@ func _air_ceiling_check(p: PhysicsConstants) -> void:
 
 func _air_floor_check(p: PhysicsConstants) -> bool:
 	var r := get_radii()
-	var hit := sensors.cast_pair(PackedStringArray(["A", "B", "AB"]), global_position, Vector2.RIGHT,
+	var hit := sensors.cast_pair(floor_labels, global_position, Vector2.RIGHT,
 			Vector2.DOWN, r.x, r.y + CONTACT_EPSILON, _terrain_mask(true))
 	if hit == null:
 		return false
@@ -836,8 +858,8 @@ func _land(p: PhysicsConstants, angle: float) -> bool:
 	var steepness := angle_from_flat(angle)
 	var downhill := -signf(sin(deg_to_rad(angle)))
 	var speed := xsp
-	if steepness > 23.0 and absf(xsp) <= ysp:
-		speed = ysp * downhill * (0.5 if steepness <= 45.0 else 1.0)
+	if steepness > LANDING_FLAT_MAX and absf(xsp) <= ysp:
+		speed = ysp * downhill * (SLOPE_LANDING_FACTOR if steepness <= LANDING_SLOPE_MAX else 1.0)
 	return _attach(p, angle, speed)
 
 
@@ -847,7 +869,7 @@ func _attach(p: PhysicsConstants, angle: float, speed: float) -> bool:
 	_set_ball(false)
 	ground_angle = angle
 	collision_mode = mode_for_angle(angle)
-	if not _ground_floor_check(p, SNAP_MAX):
+	if not _ground_floor_check(SNAP_MAX):
 		collision_mode = FLOOR
 		_set_ball(was_ball)
 		return false
@@ -876,7 +898,7 @@ func _dead_step(p: PhysicsConstants, dt: float) -> void:
 	global_position += _vel * dt + Vector2(0.0, 0.5 * g * dt * dt)
 	_vel.y = minf(_vel.y + g * dt, PhysicsConstants.speed(p.max_fall_speed))
 	_death_frames += 1
-	if _death_frames == DIED_SIGNAL_FRAMES:
+	if _death_frames == p.died_delay_frames:
 		died.emit()
 
 
@@ -898,7 +920,7 @@ func _terrain_mask(include_top_only: bool) -> int:
 
 ## Longest sub-step: shorter than every sensor reach.
 func _max_step(p: PhysicsConstants) -> float:
-	var step := maxf(2.0, minf(p.push_radius, p.roll_height_radius) - 2.0)
+	var step := maxf(MIN_SUB_STEP, minf(p.push_radius, p.roll_height_radius) - SUB_STEP_MARGIN)
 	# Across a V a horizontal step must stay short enough for the floor sensors
 	# to follow a side up to 70 deg.
 	return step * 0.5 if _in_valley else step
@@ -949,7 +971,7 @@ func _update_hitbox() -> void:
 		return
 	var r := get_radii()
 	var rect := _hitbox_shape.shape as RectangleShape2D
-	var size := Vector2(r.x * 2.0, maxf(r.y - 3.0, 1.0) * 2.0)
+	var size := Vector2(r.x * 2.0, maxf(r.y - HITBOX_HEIGHT_TRIM, 1.0) * 2.0)
 	if rect.size != size:
 		rect.size = size
 

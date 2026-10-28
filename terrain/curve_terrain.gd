@@ -1,10 +1,17 @@
 @tool
 class_name CurveTerrain
 extends StaticBody2D
-## Builds collision (CollisionPolygon2D) and placeholder visuals (Polygon2D +
-## an edge line) for curved terrain: a loop arc, a quarter pipe, a ramp with
-## rounded ends, a free Curve2D profile or a plain block. Curves are cut into
-## short segments (segment_length, ~5 px) so ground angles change smoothly.
+## Builds collision (CollisionPolygon2D) and visuals for curved terrain: a
+## loop arc, a quarter pipe, a ramp with rounded ends, a free Curve2D profile
+## or a plain block. Curves are cut into short segments (segment_length,
+## ~5 px) so ground angles change smoothly.
+##
+## Visuals use the zone's terrain materials (see TerrainArt and
+## docs/CONTRACTS.md): the fill texture tiled in world space, a grass lip along
+## top-facing surfaces (the whole running surface of a loop) and rock bands on
+## steep sides. LevelRoot calls set_art_zone(); `art_zone` is for scenes
+## opened directly. Without materials it keeps flat colours, an edge line and
+## a 2-tone lip.
 ##
 ## Origins:
 ##   LOOP          bottom inner point of the circle (where it meets the floor)
@@ -18,12 +25,10 @@ extends StaticBody2D
 enum Shape { LOOP, QUARTER_PIPE, RAMP, CURVE, BLOCK }
 enum PathLayer { BOTH, A, B }
 
-const LAYER_SOLID := 1
-const LAYER_PATH_A := 2
-const LAYER_PATH_B := 4
-const LAYER_TOP_ONLY := 8
 ## Pieces of a loop are at most this many degrees, keeping each polygon simple.
 const MAX_ARC_CHUNK := 90.0
+## Visual edges are judged in parts this long (px), so partly covered sides work.
+const EDGE_PART := 8.0
 
 @export var shape := Shape.RAMP:
 	set(value):
@@ -130,11 +135,37 @@ const MAX_ARC_CHUNK := 90.0
 		edge_color = value
 		_queue_rebuild()
 
+@export_group("Art")
+## Terrain material folder under assets/terrain/ (LevelRoot sets it for levels).
+@export var art_zone := "":
+	set(value):
+		art_zone = value
+		_queue_visuals()
+
 var _rebuild_queued := false
+var _visuals_queued := false
+
+
+## Outline polygons from the last rebuild (local space); neighbours read them
+## to hide lip and side edges that butt against other terrain.
+var polygons: Array[PackedVector2Array] = []
 
 
 func _ready() -> void:
+	add_to_group(&"curve_terrain")
+	if Engine.is_editor_hint():
+		set_notify_transform(true)  # world-space texture coordinates follow moves
 	_rebuild()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSFORM_CHANGED:
+		_queue_visuals()
+
+
+## Switches the terrain materials to assets/terrain/<zone_id>/ (visuals only).
+func set_art_zone(zone_id: String) -> void:
+	art_zone = zone_id
 
 
 ## Every outline polygon of the current shape (local space).
@@ -172,6 +203,13 @@ func _queue_rebuild() -> void:
 	_rebuild.call_deferred()
 
 
+func _queue_visuals() -> void:
+	if _visuals_queued or _rebuild_queued or not is_inside_tree():
+		return
+	_visuals_queued = true
+	_rebuild_visuals.call_deferred()
+
+
 func _rebuild() -> void:
 	_rebuild_queued = false
 	for child in get_children(true):
@@ -180,9 +218,36 @@ func _rebuild() -> void:
 			child.queue_free()
 	collision_mask = 0
 	if top_only:
-		collision_layer = LAYER_TOP_ONLY
+		collision_layer = Layers.TERRAIN_TOP_ONLY
 	else:
-		collision_layer = [LAYER_SOLID, LAYER_PATH_A, LAYER_PATH_B][path_layer]
+		collision_layer = [Layers.TERRAIN_SOLID, Layers.TERRAIN_PATH_A, Layers.TERRAIN_PATH_B][path_layer]
+
+	polygons.clear()
+	for polygon in build_polygons():
+		if polygon.size() < 3:
+			continue
+		polygons.append(polygon)
+		var collision := CollisionPolygon2D.new()
+		collision.build_mode = CollisionPolygon2D.BUILD_SOLIDS
+		collision.polygon = polygon
+		_add_generated(collision)
+	# Deferred, so every neighbour's outline is known.
+	_queue_visuals()
+
+
+## Fill, lip, side bands and (without materials) the edge line. Collision is
+## untouched, so changing the art never changes physics.
+func _rebuild_visuals() -> void:
+	_visuals_queued = false
+	for child in get_children(true):
+		if child.has_meta(&"curve_terrain_visual"):
+			remove_child(child)
+			child.queue_free()
+	var mats := TerrainArt.materials(art_zone)
+	var fill_texture: Texture2D = mats.fill
+	var top_texture: Texture2D = mats.top if mats.top != null else TerrainArt.fallback_lip()
+	var side_texture: Texture2D = mats.side
+	var to_world := global_transform if is_inside_tree() else transform
 
 	var tint := fill_color
 	if path_layer == PathLayer.A:
@@ -192,28 +257,109 @@ func _rebuild() -> void:
 	if top_only:
 		tint = Color(tint.lightened(0.25), 0.85)
 
-	for polygon in build_polygons():
-		if polygon.size() < 3:
-			continue
-		var collision := CollisionPolygon2D.new()
-		collision.build_mode = CollisionPolygon2D.BUILD_SOLIDS
-		collision.polygon = polygon
-		_add_generated(collision)
-		var visual := Polygon2D.new()
-		visual.polygon = polygon
-		visual.color = tint
-		_add_generated(visual)
-	var edge := Line2D.new()
-	edge.points = build_surface()
-	edge.width = 3.0
-	edge.default_color = edge_color
-	edge.joint_mode = Line2D.LINE_JOINT_ROUND
-	_add_generated(edge)
+	var neighbours := _neighbours()
+	var index := 0
+	for polygon in polygons:
+		var fill := Polygon2D.new()
+		fill.name = "Fill%d" % index
+		fill.polygon = polygon
+		fill.z_index = TerrainArt.FILL_Z
+		if fill_texture != null:
+			fill.texture = fill_texture
+			fill.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			var uv := PackedVector2Array()
+			for point in polygon:
+				uv.append(to_world * point)
+			fill.uv = uv
+			if top_only:
+				fill.color = Color(1, 1, 1, 0.85)
+		else:
+			fill.color = tint
+		_add_visual(fill)
+
+		# Edges cut into short parts, so a side that is partly against a
+		# neighbour keeps only its open part.
+		var outline := TerrainArt.subdivide(polygon, EDGE_PART)
+		var normals := TerrainArt.outward_normals(outline)
+		var lip_edges: Array[bool] = []
+		var side_edges: Array[bool] = []
+		for i in outline.size():
+			var middle := (outline[i] + outline[(i + 1) % outline.size()]) / 2.0
+			var open := not _covered(to_world * (middle + normals[i] * 2.0), neighbours)
+			var lip := open and _is_lip_edge(outline, i, normals[i])
+			lip_edges.append(lip)
+			side_edges.append(open and side_texture != null and not lip and TerrainArt.is_side_facing(normals[i]))
+		for chain in TerrainArt.edge_chains(outline, normals, side_edges):
+			var band := MeshInstance2D.new()
+			band.mesh = TerrainArt.strip_mesh(chain[0], chain[1], TerrainArt.SIDE_BAND,
+					side_texture.get_size(), 0.0, to_world, true)
+			band.texture = side_texture
+			band.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			band.z_index = TerrainArt.SIDE_Z
+			_add_visual(band)
+		var lips := 0
+		for chain in TerrainArt.edge_chains(outline, normals, lip_edges):
+			var points: PackedVector2Array = chain[0]
+			var lip := MeshInstance2D.new()
+			lip.name = "Lip%d_%d" % [index, lips]
+			lips += 1
+			lip.mesh = TerrainArt.strip_mesh(points, chain[1], top_texture.get_height(),
+					top_texture.get_size(), (to_world * points[0]).x, to_world)
+			lip.texture = top_texture
+			lip.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			lip.z_index = TerrainArt.LIP_Z
+			_add_visual(lip)
+		index += 1
+
+	if fill_texture == null:
+		var edge := Line2D.new()
+		edge.points = build_surface()
+		edge.width = 3.0
+		edge.default_color = edge_color
+		edge.joint_mode = Line2D.LINE_JOINT_ROUND
+		edge.z_index = TerrainArt.FILL_Z
+		_add_visual(edge)
+
+
+## Other terrain pieces in the same scene, with their world transforms.
+func _neighbours() -> Array:
+	var found := []
+	if not is_inside_tree():
+		return found
+	for node in get_tree().get_nodes_in_group(&"curve_terrain"):
+		if node != self and node is CurveTerrain and not (node as CurveTerrain).polygons.is_empty():
+			found.append([(node as CurveTerrain).global_transform.affine_inverse(), (node as CurveTerrain).polygons])
+	return found
+
+
+## True when a world point lies inside another terrain piece.
+static func _covered(point: Vector2, neighbours: Array) -> bool:
+	for entry in neighbours:
+		var local: Vector2 = entry[0] * point
+		for polygon: PackedVector2Array in entry[1]:
+			if Geometry2D.is_point_in_polygon(local, polygon):
+				return true
+	return false
+
+
+## Lip edges: the whole running (inner) surface of a loop; elsewhere every
+## top-facing edge.
+func _is_lip_edge(polygon: PackedVector2Array, i: int, normal: Vector2) -> bool:
+	if shape == Shape.LOOP:
+		var middle := (polygon[i] + polygon[(i + 1) % polygon.size()]) / 2.0
+		var to_center := (Vector2(0.0, -radius) - middle).normalized()
+		return normal.dot(to_center) > 0.9
+	return TerrainArt.is_top_facing(normal)
 
 
 func _add_generated(node: Node) -> void:
 	node.set_meta(&"curve_terrain_generated", true)
 	add_child(node, false, Node.INTERNAL_MODE_BACK)
+
+
+func _add_visual(node: Node) -> void:
+	node.set_meta(&"curve_terrain_visual", true)
+	_add_generated(node)
 
 
 # --- Shapes ---------------------------------------------------------------------
