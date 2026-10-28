@@ -24,6 +24,8 @@ class Hit:
 	var angle: float
 	## True when the surface is a one-way (top-only) platform.
 	var top_only: bool
+	## The body hit (for moving terrain and conveyors).
+	var collider: Object
 	## The ray that found it (for re-measuring the surface angle).
 	var origin: Vector2
 	var dir: Vector2
@@ -96,6 +98,7 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 	hit.dir = dir
 	hit.length = length
 	hit.mask = mask
+	hit.collider = result.collider
 	var layer := PhysicsServer2D.body_get_collision_layer(result.rid)
 	hit.top_only = (layer & Layers.TERRAIN_TOP_ONLY) != 0 \
 			and (layer & (Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_PATH_B)) == 0
@@ -178,3 +181,17 @@ func point_in_terrain(point: Vector2, mask: int) -> bool:
 	_point_query.position = point
 	_point_query.collision_mask = mask
 	return not _space.intersect_point(_point_query, 1).is_empty()
+
+
+## True when `point` is inside a body of `mask` that is moving terrain (has
+## platform_delta()).
+func moving_body_at(point: Vector2, mask: int) -> bool:
+	if _space == null:
+		return false
+	_point_query.position = point
+	_point_query.collision_mask = mask
+	for result in _space.intersect_point(_point_query, 4):
+		var body: Object = result.collider
+		if body != null and body.has_method(&"platform_delta"):
+			return true
+	return false
