@@ -1,6 +1,6 @@
 extends TestCase
-## QA guards for moving terrain (docs/CONTRACTS.md "Moving terrain"; checklist
-## 01-physics section M). QA builds its own platforms to the contract:
+## QA guards for moving terrain (docs/CONTRACTS.md "Moving terrain" as of
+## c364fb9; checklist 01-physics section M). QA builds its own platforms to the contract:
 ## AnimatableBody2D, sync_to_physics, terrain bits, moved in _physics_process
 ## before the player, exposing platform_delta(). Skips until player/ reads
 ## platform_delta(). Written ahead of the physics work: if a check disagrees
@@ -91,33 +91,41 @@ func _dead(p: Node2D) -> bool:
 	return str(p.get(&"state")) == "dead"
 
 
+## Rides a platform that starts moving once Sproto stands on it. The contract
+## (c364fb9): he is carried by the body's actual motion over the last physics
+## step, so what he stands on is where the screen shows it. Measured at the end
+## of each frame (what is drawn): his offset from the platform must not change,
+## and his feet stay on its top.
 func _ride(velocity: Vector2, reverse_ticks: int, ticks: int) -> Dictionary:
 	var w := L.world(self)
-	var plat := _platform(w, Rect2(-120, 0, 240, 16), velocity, reverse_ticks)
+	var plat := _platform(w, Rect2(-120, 0, 240, 16), Vector2.ZERO, reverse_ticks)
 	var p: Node2D = await L.spawn(self, w, Vector2(0, 0))
-	var worst_dx := 0.0
+	await physics_frames(5)
+	plat.set(&"velocity", velocity)
+	plat.set(&"_tick", 0)
+	await tree.process_frame
+	await tree.process_frame
+	var rel0 := p.global_position - plat.global_position
+	var worst_drift := 0.0
 	var worst_feet := 0.0
 	var airborne := 0
 	var max_gsp := 0.0
-	var last := p.global_position
 	for i in ticks:
-		await physics_frames(1)
-		var d: Vector2 = plat.call(&"platform_delta")
-		worst_dx = maxf(worst_dx, absf((p.global_position.x - last.x) - d.x))
+		await tree.process_frame
+		worst_drift = maxf(worst_drift, ((p.global_position - plat.global_position) - rel0).length())
 		worst_feet = maxf(worst_feet, absf(L.feet_y(p) - _top(plat)))
 		if not bool(p.get(&"grounded")):
 			airborne += 1
 		max_gsp = maxf(max_gsp, absf(float(p.get(&"ground_speed"))))
-		last = p.global_position
-	return {dx = worst_dx, feet = worst_feet, airborne = airborne, gsp = max_gsp, inside = L.centre_in_terrain(p)}
+	return {dx = worst_drift, feet = worst_feet, airborne = airborne, gsp = max_gsp, inside = L.centre_in_terrain(p)}
 
 
 func test_m1_ride_horizontal_with_reversals() -> void:
 	if _skip():
 		return
 	var r: Dictionary = await _ride(Vector2(2, 0), 60, 240)
-	print("  INFO horizontal ride: worst dx error %.3f, feet error %.3f, airborne ticks %d, max |gsp| %.3f" % [r.dx, r.feet, r.airborne, r.gsp])
-	assert_true(r.dx <= 0.01, "carried exactly by platform_delta().x")
+	print("  INFO horizontal ride: worst drift on the platform %.3f, feet error %.3f, airborne ticks %d, max |gsp| %.3f" % [r.dx, r.feet, r.airborne, r.gsp])
+	assert_true(r.dx <= 0.01, "carried exactly with the platform (no slip, also at reversals)")
 	assert_eq(r.airborne, 0, "stays grounded through reversals")
 	assert_true(r.gsp <= 0.01, "the platform's speed is not added to ground speed")
 
@@ -137,7 +145,7 @@ func test_m3_ride_diagonal() -> void:
 	if _skip():
 		return
 	var r: Dictionary = await _ride(Vector2(2, -1), 50, 200)
-	print("  INFO diagonal ride: dx error %.3f, feet error %.3f, airborne %d" % [r.dx, r.feet, r.airborne])
+	print("  INFO diagonal ride: drift %.3f, feet error %.3f, airborne %d" % [r.dx, r.feet, r.airborne])
 	assert_true(r.dx <= 0.01 and r.feet <= 0.5 and r.airborne == 0, "carried on both axes")
 
 
