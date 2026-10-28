@@ -3,7 +3,8 @@ extends Node2D
 ## gentle and steep slopes, two loops, a curve run and a quarter pipe, plus a
 ## test dummy and coins for hurt / coin scatter. Respawns Sproto after death.
 ## Run with `-- --trace` (or `--trace=N`) to print the player's state every 15 (N) frames,
-## and `--accessory=wizard_hat` (or sunglasses) to preview a zone accessory.
+## `--accessory=wizard_hat` (or sunglasses) to preview a zone accessory, and
+## `--start=X` to drop Sproto in at x = X (to try one section).
 
 const HINT := "Arrows/WASD run   Z/X/C/Space jump   Down: roll   Down+Jump: spin dash   F1: overlay"
 const RESPAWN_FRAMES := 120
@@ -17,6 +18,8 @@ var _frame := 0
 
 
 func _ready() -> void:
+	if Dev.args.has("start"):
+		start.global_position = Vector2(float(Dev.args.start), -19.0)
 	player.respawn_at(start.global_position)
 	if Dev.args.has("accessory"):
 		player.get_node("Visual/Accessory").set_accessory(str(Dev.args.accessory))
