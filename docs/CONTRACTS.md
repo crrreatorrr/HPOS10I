@@ -233,6 +233,13 @@ direction difficulty (R1–R5), checkpoints and tickets.
 - Enemy behaviours come from the T1–T4 roster in docs/LEVELS.md, dressed per
   zone (docs/DESIGN.md).
 - `Enemy` exports `tier: int`, so QA's lint can check each act's tier mix.
+- **Difficulty rises inside every act.** `LevelRoot.progress_at(x) -> float`
+  (0 at PlayerStart, 1 at the goal sign) gives an enemy its progress, and
+  `Difficulty.local(progress)` gives the local difficulty to pass to the
+  multipliers.
+- **Bosses** read `Difficulty.boss(zone_id)`: d, weak_window,
+  attacks_per_cycle, telegraph, escalation, desperation, ticket_refills.
+  The last two bosses are very difficult by design (docs/LEVELS.md).
 
 ## Bosses (boss agent: `bosses/`)
 
