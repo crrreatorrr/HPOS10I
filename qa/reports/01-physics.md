@@ -675,3 +675,50 @@ The rule switches on when sensors A and B straddle a "\" and a "/". From a wall 
 - **New QA files on branch `qa`:**
   - 4 new guards in `tests/qa/test_physics_fixes.gd`, which now holds 20 checks; all skip on main.
   - The BUG-01-10/11 repros were removed. `qa/repros/physics/` keeps BUG-01-05 (WONTFIX) and the clip scenes.
+
+## Step 4: moving terrain @ f3e480c (77e8196 + f3e480c, merged with main c364fb9): MERGE
+
+- **Scope:** `player/`, `playground/` and `tests/physics/`. The merge with main is clean.
+- **Checks:** 0 import errors; 411 passed, 0 failed (QA guards included); smoke 24/24; 0 originality hits.
+- **QA guards at other frame rates:** `suite_framerates.sh` passes `test_moving_terrain` plus the agent's tests (21) at 30 and 144 fps.
+
+**QA guards reconciled with the documented design (c364fb9):**
+- Sproto is carried by the body's actual motion over the last physics step, read from the server. With `sync_to_physics` the node's position also updates only after the step, so the right check is the drawn relation: at the end of each frame, his offset from the platform must not change. Comparing against this tick's `platform_delta()` was the wrong check.
+- Ride platforms now start moving only once he stands on them. An earlier version moved them during spawn, which dropped him onto a platform already falling away.
+- With those two changes, all 10 QA guards pass.
+
+| Item | Result |
+|---|---|
+| PHY-M1 horizontal ride with reversals | PASS: drift on the platform 0.000 px, grounded throughout, `ground_speed` 0 |
+| PHY-M2 vertical ride, up/down 2–3 px/f | PASS: feet error 0.000, grounded |
+| PHY-M3 diagonal | PASS: drift 0.000 |
+| PHY-M4 drop at 8/12 px/f | PASS: never below the surface; grounded 16 and 24 ticks after the stop (lift-off by design) |
+| PHY-M5 jumping off | PASS: air x velocity 0.000 (only the jump) |
+| PHY-M6 run on and off | PASS (agent tests: running and rolling keep their own speed; fuzz) |
+| PHY-M7 conveyors ±2 | PASS: exactly 120 px in 60 ticks, `ground_speed` 0 |
+| PHY-M8 crush from above | PASS: dies when the gap is 35 px (contract: under 38 − 1), and against a wall from the side |
+| PHY-M9 no false kill | PASS: platform stopping 1 px above the head, and a side push into open space |
+| PHY-M10 top-only moving platform | PASS (QA probe): passes up through without being carried, lands, then rides with 0.000 drift |
+| PHY-M11 interpolation | PASS. The playground elevator ride (`ride.json`, `--start=836`), recorded at 144 Hz with interpolation on: across 569 riding frames, Sproto's offset to the platform is a constant -42 px, changing only 3 times, at landing. No 1 px jitter. |
+| PHY-M12 fuzz | PASS: QA platform fuzz (3 seeds). Playground fuzz from x 700, 3 × 5 min: 0 errors, 0 NaN, 0 deaths, 0 orphans. |
+| PHY-M13 telegraphed crushers | N/A until the level agent's crusher objects exist |
+| PHY-M14 feel | PASS on the recorded ride (`qa/reports/evidence/01-physics/moving_terrain_playground_ride.png`): the elevator, the chevron conveyor on the tunnel block and the shuttle all read clearly at game size |
+
+- **Frame identity (playground):**
+  - Fuzz seed 5 and runner jump-every 240 are byte-identical to 57f6879.
+  - Fuzz seed 9 diverges at frame 5202 at x 441, where it reaches the new shuttle platform. Expected.
+- **QA lint change:** `prepare()` now takes moving terrain (anything with `platform_delta()`) out of the static rule scan, so a platform isn't judged wherever it happened to be. The playground lints with 0 errors and 0 warnings.
+
+**For the level agent (zone platforms):**
+1. **Build from `playground/demo_moving_platform.gd`:**
+   - an `AnimatableBody2D` with `sync_to_physics`;
+   - set `position` only in `_physics_process`;
+   - `platform_delta()` returns this tick's move.
+   - The node's position updates after the physics step, so read `target_position()` for "where it is going".
+2. **Teleports and resets:** a jump of more than 64 px in one tick isn't carried. Call `reset_physics_interpolation()` on any reset.
+3. **Descents:** a platform that drops faster than sink speed + gravity + 4 px in one tick leaves him falling, by design. Keep elevators that he should ride down at about 6 px/f or less.
+4. **Clearances where crushing isn't intended:** at least 39 px vertical for standing, 29 px for rolling tunnels, and 19 px horizontal between a moving body and other terrain. Anything tighter kills.
+5. **Crushers:** must telegraph at least `Difficulty.telegraph(base, local)` and never under 0.35 s before closing, including the first cycle after a respawn (PHY-M13, ZN-C).
+6. **Conveyors:** set the `conveyor_speed` meta on a static terrain body, and show the direction (chevrons, as in the playground).
+7. **One-way platforms:** use `Layers.TERRAIN_TOP_ONLY`; they work as jump-through, ride-after-landing platforms.
+8. **No checkpoint or PlayerStart on a moving platform.** Respawn checks use static floor, and a respawn there could put him in mid-air.

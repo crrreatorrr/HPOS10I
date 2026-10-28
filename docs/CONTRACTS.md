@@ -168,6 +168,56 @@ Both call `GameState.add_tickets(1)` and `Audio.play_sfx(&"ticket")`.
 - `terrain/loop.tscn`: a ready-to-place full loop with its path switchers.
   Levels only instance it and set the radius.
 
+## Moving terrain (physics agent: player side; level agent: the objects)
+
+Zones use moving platforms, shifting stairs, bookshelves, conveyors and
+crushers. Each side's responsibilities:
+- **Moving platforms and moving solids:**
+  - Build them as `AnimatableBody2D` (`sync_to_physics = true`) on the
+    usual terrain bits (`Layers.TERRAIN_SOLID` or `Layers.TERRAIN_TOP_ONLY`).
+  - Move them only in `_physics_process`.
+  - Expose `func platform_delta() -> Vector2`, the displacement applied
+    this physics tick. Having the method is what marks a body as moving
+    terrain.
+  - The player carries the body's actual motion over the last physics step
+    (read from the physics server, so it matches what's drawn whatever
+    order the scripts run in) while standing on it, before its own
+    movement. Standing still on a platform moves you with it.
+  - Ground speed is never changed. When a platform stops or reverses, the
+    player keeps its own speed. A jump of more than 64 px in one tick
+    counts as a reset and doesn't carry the player.
+  - **Lift-off:** a platform that drops faster than the player's sink speed
+    + gravity + 4 px in one tick leaves the player falling, to land again
+    later.
+- **Conveyors:** terrain that sets the meta `conveyor_speed` (px/frame,
+  + = right) adds it to the player's motion while grounded on it, not to
+  ground speed.
+- **Crushing:** the player calls `kill()` when any of these happen:
+  - its centre is inside a moving body;
+  - along either axis the free span between the nearest solids (one of
+    them moving) is shorter than its hitbox by more than 1 px. The hitbox
+    is 38×18 standing and 28×14 when rolling or jumping;
+  - a platform lifts it into a ceiling with less room than its height.
+
+  Touching is never a crush. A body short of crushing pushes the player
+  out (up to 10 px sideways). Crushers must telegraph before they close.
+- **Interpolation:** anything that teleports (a platform reset, a respawn)
+  calls `reset_physics_interpolation()`.
+- **Level-building rules** (QA-measured):
+  - Reference implementation: `playground/demo_moving_platform.gd`. Its
+    node position updates after the physics step, so use
+    `target_position()` for where it's heading.
+  - Descending platforms that should be ridden move ≤ 6 px/frame.
+  - Where crushing isn't intended, leave ≥ 39 px vertical clearance
+    (≥ 29 px in roll tunnels) and ≥ 19 px horizontal between a moving body
+    and other terrain.
+  - Crushers telegraph for `Difficulty.telegraph(base, local)` (never under
+    0.35 s), including their first cycle after a respawn.
+  - Conveyors: put the `conveyor_speed` meta on a static terrain body and
+    show the direction with chevrons.
+  - One-way moving platforms use `Layers.TERRAIN_TOP_ONLY`.
+  - Never place a checkpoint or PlayerStart on a moving platform.
+
 ## Camera (physics agent: `camera/`)
 
 Scene `res://camera/game_camera.tscn`, `class_name GameCamera` (extends
@@ -311,7 +361,7 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 - **SFX:** `jump`, `roll`, `spindash_charge`, `spindash_release`, `skid`,
   `ticket`, `ticket_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
   `enemy_pop`, `checkpoint`, `goal_sign`, `boss_hit`, `boss_explode`,
-  `boss_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`
+  `boss_telegraph`, `enemy_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`
 - **Music:** `title`, `zone_select`, `z1`, `z2`, `z3`, `z4`, `boss`,
   `act_clear`, `game_over`
 

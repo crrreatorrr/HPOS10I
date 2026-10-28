@@ -52,6 +52,9 @@ extends RefCounted
 ##                                     finale's median is not above the middle's
 ##   error difficulty.local_source     no enemy script (or the base) reads
 ##                                     Difficulty.local() / progress_at()
+##   error difficulty.safe_spot        below D5: an enemy within 2 screens ahead
+##                                     of a checkpoint or a loop exit (warn for
+##                                     springs: their landing spot isn't known)
 ##   error difficulty.order            easier than the act before it: lower enemy
 ##                                     density (> 10 %), lower tier ceiling or
 ##                                     lower direction score
@@ -234,7 +237,25 @@ static func measure(root: Node2D, is_enemy := Callable()) -> Dictionary:
 	var finale_x: float = start_x + span * _dconst("FINALE_START", 0.75) if use_route \
 			else bounds.position.x + bounds.size.x * _dconst("FINALE_START", 0.75)
 
+	# Safe spots (docs/LEVELS.md: no enemy within 2 screens after a spring
+	# landing, a loop exit or a checkpoint until D5), in the travel direction.
+	var travel := 1.0 if goal_x >= start_x else -1.0
+	var safe: Array = []
+	for n in _all(root, func(n: Node) -> bool: return n is Node2D and _named(n, ["checkpoint"])):
+		safe.append({kind = "checkpoint", name = String(n.name), x = (n as Node2D).global_position.x})
+	for n in _all(root, func(n: Node) -> bool: return n is Node2D and _named(n, ["spring"])):
+		safe.append({kind = "spring", name = String(n.name), x = (n as Node2D).global_position.x})
+	for lp in loops:
+		safe.append({kind = "loop exit", name = "loop", x = lp.at.x + travel * lp.half})
+	var too_close: Array = []
+	for spot in safe:
+		for e in enemies:
+			var ahead: float = travel * ((e as Node2D).global_position.x - float(spot.x))
+			if ahead >= 0.0 and ahead < 2.0 * SCREEN_W:
+				too_close.append({kind = spot.kind, name = spot.name, x = spot.x, enemy = String(e.name), ahead = ahead})
+
 	var m := {
+		too_close = too_close,
 		sections = sections, checkpoint_progress = checkpoint_progress, finale_x = finale_x,
 		gate_x = gate_x, start_x = start_x, goal_x = goal_x,
 		screens = screens, walk_px = walk_px, route = Vector2(lo, hi),
@@ -319,6 +340,11 @@ static func check(m: Dictionary, d: float, t: Dictionary, pre_boss := false) -> 
 				"direction R%d, row R%d (vertical %.1f screens, leftward %.1f, routes %s, dead ends %d, doors/switches %d, forced %d)" % [
 				m.direction, t.direction, m.vertical_screens, m.leftward_screens, str(m.routes),
 				m.dead_ends, m.doors_switches, m.forced])
+	if d < 5.0:
+		for c in m.get("too_close", []):
+			_add(out, "warn" if c.kind == "spring" else "error", "difficulty.safe_spot", Vector2(c.x, 0.0),
+					"%s %s at x %.0f: enemy %s only %.0f px (%.1f screens) ahead (below D5 keep 2 screens clear)" % [
+					c.kind, c.name, c.x, c.enemy, c.ahead, c.ahead / SCREEN_W])
 	if not sections.is_empty():
 		var ramp: Array[Dictionary] = []
 		_check_ramp(ramp, m, sections, ceiling, pre_boss)

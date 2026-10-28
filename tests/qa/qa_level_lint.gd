@@ -4,7 +4,8 @@ extends RefCounted
 ## tests/qa/test_level_rules.gd and tools/qa/level_lint.gd.
 ##
 ## Call prepare() to put a scene in the tree with its root script stripped
-## (so LevelRoot spawns nothing) and let the terrain build its collision, then
+## (so LevelRoot spawns nothing), let the terrain build its collision and take
+## moving terrain (platform_delta()) out of the static scan, then
 ## lint() for a list of findings: {severity = "error"|"warn"|"info", rule, at, detail}.
 ##
 ## Rules (numbers from the physics review):
@@ -53,6 +54,13 @@ static func prepare(test_or_tree: Object, parent: Node, path: String) -> Node:
 	var tree: SceneTree = test_or_tree if test_or_tree is SceneTree else test_or_tree.get(&"tree")
 	for i in 3:
 		await tree.physics_frame
+	# Moving terrain (bodies with platform_delta(), docs/CONTRACTS.md) is not
+	# static geometry: the rules below would judge it wherever it happened to
+	# be. Take it out of the scan and stop it.
+	for node in root.find_children("*", "CollisionObject2D", true, false):
+		if node.has_method(&"platform_delta"):
+			(node as CollisionObject2D).collision_layer = 0
+			node.process_mode = Node.PROCESS_MODE_DISABLED
 	return root
 
 
