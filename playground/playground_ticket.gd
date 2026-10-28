@@ -30,6 +30,7 @@ func _physics_process(_delta: float) -> void:
 	for area in get_overlapping_areas():
 		var player := Player.from_area(area)
 		if player != null and player.can_collect_tickets():
+			Effects.ticket_sparkle(global_position, get_parent())
 			GameState.add_tickets(1)
 			Audio.play_sfx(&"ticket")
 			_hidden_frames = RESPAWN_FRAMES

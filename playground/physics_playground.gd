@@ -4,11 +4,14 @@ extends Node2D
 ## test dummy and tickets for hurt / ticket scatter. Respawns Sproto after death.
 ## Run with `-- --trace` (or `--trace=N`) to print the player's state every 15 (N) frames,
 ## `--accessory=wizard_hat` (or sunglasses) to preview a zone accessory, and
-## `--start=X` to drop Sproto in at x = X (to try one section), and `--interp`
-## to turn on physics interpolation (smoother motion on 120 Hz+ displays).
+## `--start=X` to drop Sproto in at x = X (to try one section), `--interp`
+## to turn on physics interpolation (smoother motion on 120 Hz+ displays), and
+## `--terrain-root=res://some/dir` to try terrain materials from another folder.
 
 const HINT := "Move: arrows  Jump: Z/X/C  Roll: Down  Spin: Down+Jump  Look: Up/Down  F1: debug"
 const RESPAWN_FRAMES := 120
+## Terrain materials: assets/terrain/<ART_ZONE>/ (flat colours until they exist).
+const ART_ZONE := "z1_retro_rush_hills"
 ## The camera never shows outside this area.
 const LEVEL_BOUNDS := Rect2(-64, -800, 4556, 864)
 
@@ -23,6 +26,12 @@ var _frame := 0
 func _ready() -> void:
 	if Dev.args.has("interp"):
 		get_tree().physics_interpolation = true
+	if Dev.args.has("terrain-root"):
+		TerrainArt.material_root = str(Dev.args["terrain-root"])
+		TerrainArt.clear_cache()
+	for node in find_children("*", "StaticBody2D", true, false):
+		if node is CurveTerrain:
+			(node as CurveTerrain).set_art_zone(ART_ZONE)
 	if Dev.args.has("start"):
 		start.global_position = Vector2(float(Dev.args.start), -19.0)
 	player.respawn_at(start.global_position)

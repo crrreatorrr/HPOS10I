@@ -105,6 +105,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _collect() -> void:
+	Effects.ticket_sparkle(global_position, get_parent())
 	GameState.add_tickets(1)
 	Audio.play_sfx(&"ticket")
 	queue_free()
