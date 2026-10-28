@@ -25,6 +25,8 @@ frames="$2"
 shift 2
 
 mkdir -p "$out_dir"
+# Keep Godot from importing anything recorded under build/.
+touch "$project_dir/build/.gdignore"
 log="$out_dir/$name.log"
 godot --path "$project_dir" --always-on-top --write-movie "$out_dir/$name.avi" --quit-after "$frames" -- "$@" >"$log" 2>&1
 # A typo'd --scene silently records the dev menu, so treat any error as fatal.
