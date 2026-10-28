@@ -25,7 +25,7 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 
 ## C. Telegraphs and fairness
 
-- [ ] BOS-C1 [auto] Every attack is preceded by a telegraph (visual + sfx `boss_telegraph`) at least 0.5 s before the first damaging frame (log telegraph and attack frames).
+- [ ] BOS-C1 [auto] Every attack is preceded by a telegraph (visual + sfx `boss_telegraph`) of at least `Difficulty.telegraph(base, D)` and never under 0.35 s before the first damaging frame (log telegraph and attack frames). D is the zone's Act 2 value (BOS-H1).
 - [ ] BOS-C2 [manual] Every attack is avoidable with normal inputs; there is always a safe spot.
 - [ ] BOS-C3 [manual] Fight length 1–3 minutes for a first-time player.
 - [ ] BOS-C4 [manual] Phases read clearly (colour, speed or pattern change).
@@ -51,6 +51,17 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 - [ ] BOS-F3 [manual] Broccoli Head: a cartoon teen on a hoverboard; an original design that does not resemble any real person.
 - [ ] BOS-F4 [manual] The Executive: a generic businessman, no real person's likeness, no real company logo or brand.
 - [ ] BOS-F5 [auto] The Executive's final hit plays in slow motion: `Engine.time_scale` < 1 for at most about 2 s, then exactly 1.0, also if the game is paused or the player dies during it; the next scene starts at 1.0.
+
+## H. Difficulty scaling (docs/LEVELS.md, `core/difficulty.gd`)
+
+- [ ] BOS-H1 [auto] Each arena runs at its zone's Act 2 D: Rug Pull 2, Library Demon 4, Broccoli Head 6, The Executive 8. `Difficulty.for_stage(zone, acts + 1)` matches, and the boss reads `Difficulty.current()` (not a constant).
+- [ ] BOS-H2 [auto] The boss scales speed by `Difficulty.speed_mult()`, attack intervals by `interval_mult()` and telegraphs by `telegraph()`. Probe the same boss scene at D 2 and D 8 (set `SceneRouter.zone_id`/`stage`, or call with an explicit D):
+  - movement speed ratio `speed_mult(8)/speed_mult(2)` = 1.42/1.06 ≈ 1.34;
+  - interval ratio 0.65/0.95 ≈ 0.68;
+  - telegraphs never under 0.35 s.
+- [ ] BOS-H3 [auto] Later bosses start harder. Record each boss's mean attack interval and its fastest move speed in phase 1. Each is at least as hard as the previous boss's (shorter interval or faster). The base aggression rises with D on top of the multipliers.
+- [ ] BOS-H4 [auto] Phase speed-ups after hits 4 and 6 multiply with the D scaling. They never push a telegraph under 0.35 s or an attack interval under the telegraph plus 0.25 s of recovery.
+- [ ] BOS-H5 [manual] Still fair at D 8: the 8 hits stay reachable, there is always a safe spot, and the fight lasts 1–3 minutes for a first-time player.
 
 ## G. Originality
 

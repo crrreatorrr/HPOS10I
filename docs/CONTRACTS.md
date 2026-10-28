@@ -173,6 +173,19 @@ Enemy base: `levels/enemies/enemy_base.gd` (`class_name Enemy`). On contact,
 if `player.is_attacking()`, the enemy dies (+100 score, `enemy_pop`) and calls
 `player.bounce_off(global_position.y)`. Otherwise it calls `player.hurt(global_position)`.
 
+## Difficulty (lead: `core/difficulty.gd`, `docs/LEVELS.md`)
+
+Every act is built to the curve in docs/LEVELS.md: enemy tiers and density,
+direction difficulty (R1–R5), checkpoints and tickets.
+- `Difficulty.current()` gives D: 0 for the test zone, 1..8 across the
+  acts; a boss uses its zone's Act 2 value.
+- Every enemy and boss scales with `Difficulty.speed_mult()`,
+  `Difficulty.interval_mult()` and `Difficulty.telegraph(seconds)`. Never
+  hard-code a per-zone speed.
+- Enemy behaviours come from the T1–T4 roster in docs/LEVELS.md, dressed per
+  zone (docs/DESIGN.md).
+- `Enemy` exports `tier: int`, so QA's lint can check each act's tier mix.
+
 ## Bosses (boss agent: `bosses/`)
 
 `bosses/boss_base.gd` (`class_name Boss`, extends `Node2D`):
