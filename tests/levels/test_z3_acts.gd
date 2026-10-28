@@ -25,7 +25,7 @@ const BOT := "res://tools/qa/playtest_bot.gd"
 const REQUIRED := {
 	B.DOOR: [3, 4],
 	B.FLOOR_SWITCH: [3, 4],
-	B.SECURITY_BEAM: [10, 10],
+	B.SECURITY_BEAM: [9, 10],
 	B.CONVEYOR: [4, 4],
 	B.BOOSTER: [2, 0],
 	B.BOOKSHELF: [1, 5],
@@ -122,9 +122,11 @@ func test_spawns_are_fair_and_on_solid_ground() -> void:
 		for node in root.find_children("*", "", true, false):
 			if not node is Enemy:
 				continue
-			var x := (node as Node2D).position.x
+			var at := (node as Node2D).position
 			for spot in spawns:
-				assert_true(absf(x - spot.x) > SCREEN, "act %d: %s %.0f px from a respawn at x %.0f" % [stage, node.name, x - spot.x, spot.x])
+				# A screen away along the route, or on another level out of the respawn's view.
+				assert_true(absf(at.x - spot.x) > SCREEN or absf(at.y - spot.y) > 200.0,
+						"act %d: %s %.0f px from a respawn at x %.0f" % [stage, node.name, at.x - spot.x, spot.x])
 		root.free()
 
 

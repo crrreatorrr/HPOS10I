@@ -85,8 +85,9 @@ var soil := Color(0.75, 0.44, 0.2)
 var grass := Color(0.36, 0.82, 0.24)
 ## Colour of back walls (caves, halls).
 var cave := CAVE
-## Spacing of the tickets past a guard()'s enemy.
+## Spacing of the tickets past a guard()'s enemy, and whether one lies before it.
 var guard_ticket_step := 40
+var guard_lead_ticket := true
 
 ## [x, what] of every spring landing, loop exit and checkpoint so far.
 var safe_marks: Array = []
@@ -479,18 +480,22 @@ func book_hall(length: int, count: int, height := 176) -> void:
 
 
 ## A flat of `width` px with an enemy `at` px in (feet on the floor, or
-## `up` px above it for flyers). Most of its tickets lie just past the enemy,
-## so a Sproto who takes the hit runs through it (invincible) and picks some
-## back up before the next one.
+## `up` px above it for flyers). Two tickets always lie right past the enemy
+## (the flat is widened to fit them), then more every `ticket_step` px, so a
+## Sproto who takes the hit runs through it (invincible) and picks some back
+## up before the next enemy; one lies before it as well.
 func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}, ticket_step := 0) -> Node2D:
 	if ticket_step <= 0:
 		ticket_step = guard_ticket_step
 	var x0 := x
 	var floor_y := ground
+	width = maxi(width, (at + 120 + 15) / 16 * 16)  # tiles are 16 px
 	paint.flat(width)
-	if at >= 96:
+	if at >= 96 and guard_lead_ticket:
 		ticket(x0 + 32, floor_y)
-	var tx := x0 + at + 48
+	ticket(x0 + at + 40, floor_y)
+	ticket(x0 + at + 88, floor_y)
+	var tx := x0 + at + 88 + ticket_step
 	while tx <= x0 + width + 16:
 		ticket(tx, floor_y)
 		tx += ticket_step
@@ -538,7 +543,7 @@ func conveyor(length := 256, speed := -3.0) -> Node2D:
 	paint.solid(Rect2i(x0, floor_y + 48, length, FILL_BOTTOM - floor_y - 48))
 	var belt := place(CONVEYOR, "Conveyor%d" % _next("conveyor"), Vector2(x0, floor_y),
 			{size = Vector2(length, 48), speed = speed}, terrain)
-	row(x0 + 32, floor_y, maxi(1, (length - 64) / 64), 64)
+	row(x0 + 48, floor_y, maxi(1, (length - 96) / 96), 96)
 	return belt
 
 
@@ -595,7 +600,8 @@ func camera_post(approach := 384, length := 192) -> Node2D:
 	paint.floor_at(t0, t0 + length, base)
 	backwall(Rect2(t0, base - 48, length, 48))
 	row(t0 + 48, base, length / 64, 48)
-	var cam := enemy(CAMERA, Vector2(t0 + length / 2, base - 64))
+	row(t0 + 24, base - 64, 3, 40)  # a bot that lands on top has tickets before the camera
+	var cam := enemy(CAMERA, Vector2(t0 + length - 24, base - 64))
 	paint.flat(96)
 	return cam
 
@@ -603,7 +609,7 @@ func camera_post(approach := 384, length := 192) -> Node2D:
 ## A rooftop run: a booster, then `count` roof gaps of `gap` px between
 ## `roof` px roofs, each roof `step` px lower than the last, so a run at
 ## speed clears every gap (jumping clears them with room to spare).
-func rooftops(count := 3, roof := 256, gap := 64, step := 16, runup := 192) -> void:
+func rooftops(count := 3, roof := 256, gap := 48, step := 24, runup := 192) -> void:
 	paint.flat(runup)
 	place(BOOSTER, "SpeedBooster%d" % _next("booster"), Vector2(x - 48, ground), {facing = 1})
 	for i in count:
