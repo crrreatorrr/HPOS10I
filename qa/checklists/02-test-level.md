@@ -60,7 +60,7 @@ in the web build (`tests/` never ships). Collectibles are golden tickets
 - [ ] TL-G4 [auto] Two enemies touched on the same frame: both resolved, one bounce, score +200.
 - [ ] TL-G5 [auto] Enemies use `Area2D` with mask bit 5, sit on layer 6, extend `Enemy` (`levels/enemies/enemy_base.gd`).
 - [ ] TL-G6 [auto] Enemies do not walk off ledges or through walls; they respawn when the level reloads.
-- [ ] TL-G7 [manual] Placeholder enemies are red and readable.
+- [ ] TL-G7 [manual] Enemies are pill robots (docs/DESIGN.md): capsule bodies in the zone colours with a 1 px dark outline, readable against the test zone background. Each tier reads differently at a glance (walker, hopper and so on, docs/LEVELS.md T1–T4). Enemies keep the "enemy" colour role, distinct from hazards (orange), springs (yellow) and tickets (gold).
 
 ## H. Checkpoint
 

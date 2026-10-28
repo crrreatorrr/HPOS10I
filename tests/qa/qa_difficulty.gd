@@ -178,7 +178,7 @@ static func measure(root: Node2D, is_enemy := Callable()) -> Dictionary:
 
 	# Checkpoints and their spacing.
 	var checkpoint_xs: Array[float] = []
-	for node in _top_level(root, Lint._find_checkpoints(root)):
+	for node in _all(root, func(n: Node) -> bool: return n is Node2D and _named(n, ["checkpoint"])):
 		checkpoint_xs.append((node as Node2D).global_position.x)
 	checkpoint_xs.sort()
 	var marks: Array[float] = [lo]
@@ -319,9 +319,16 @@ static func check(m: Dictionary, d: float, t: Dictionary, pre_boss := false) -> 
 				"direction R%d, row R%d (vertical %.1f screens, leftward %.1f, routes %s, dead ends %d, doors/switches %d, forced %d)" % [
 				m.direction, t.direction, m.vertical_screens, m.leftward_screens, str(m.routes),
 				m.dead_ends, m.doors_switches, m.forced])
-	# The test zone (D 0) teaches everything gently and has no ramp.
-	if not sections.is_empty() and d >= 1.0:
-		_check_ramp(out, m, sections, ceiling, pre_boss)
+	if not sections.is_empty():
+		var ramp: Array[Dictionary] = []
+		_check_ramp(ramp, m, sections, ceiling, pre_boss)
+		# The test zone (D 0) teaches everything gently: its ramp is reported,
+		# not enforced.
+		for f in ramp:
+			if d < 1.0 and f.severity == "error":
+				f.severity = "warn"
+				f.detail += " (test zone: reported only)"
+			out.append(f)
 	return out
 
 
@@ -500,7 +507,9 @@ static func _named(node: Node, words: Array) -> bool:
 
 
 ## Nodes under root matching `test`, skipping anything inside a match (one
-## instance counts once, not its children).
+## instance counts once, not its children). A node that matches only by its
+## name and holds other matches is a container (a "Tickets" or "Checkpoints"
+## group node): it is not counted, its contents are.
 static func _all(root: Node, test: Callable) -> Array[Node]:
 	var out: Array[Node] = []
 	for child in root.get_children():
@@ -509,11 +518,22 @@ static func _all(root: Node, test: Callable) -> Array[Node]:
 
 
 static func _collect(node: Node, test: Callable, out: Array[Node]) -> void:
-	if test.call(node):
+	if test.call(node) and not _is_container(node, test):
 		out.append(node)
 		return
 	for child in node.get_children():
 		_collect(child, test, out)
+
+
+## True for a plain node (no scene instance, no script) that has a matching
+## node somewhere below it.
+static func _is_container(node: Node, test: Callable) -> bool:
+	if node.scene_file_path != "" or node.get_script() != null:
+		return false
+	for child in node.get_children():
+		if test.call(child) or _is_container(child, test):
+			return true
+	return false
 
 
 static func _first(root: Node, test: Callable) -> Node:

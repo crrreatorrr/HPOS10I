@@ -230,3 +230,22 @@ Both are minor for a dev playground. Owner: physics (playground).
 - BUG-03-02.
 - BUG-01-12 and BUG-01-13.
 - FQ-26: the F1 overlay ships in the public build.
+
+## 03d: re-check physics @ 53a6989 (+ merge 02677a7): MERGE
+
+- **Scope:**
+  - The two fixes for bugs the level agent found (53a6989) and the merge of main 6d42411 (02677a7). The merge's tree is identical to QA's own `git merge-tree main 53a6989`.
+  - Interpolation is ON (now the project setting).
+  - The playground UI-01/UI-02 commit has not landed yet.
+
+| Check | Result |
+|---|---|
+| Suite, smoke, originality | 294 passed, 0 failed (with QA's new guards). Smoke 12/12. 0 originality hits. |
+| Sharp flat-to-slope corners | **FIXED.** New `tests/qa/test_physics_fixes_2.gd` covers 30/40/45° corners in both directions, running and rolling, at 2–12 px/f. On a59f32d a roll at 8 px/f stopped dead 2.8 px (40°) and 4.0 px (45°) before the corner, in both directions. On 53a6989 every case crosses the corner. A 70°/89° face still stops a walk (the fix is limited to slopes up to 45.5°). |
+| Launches into ceilings and walls | **FIXED.** 81 launches (speeds 6/10/16, slants 0/0.5/1, ceilings 40–110 px above the head, 3 sub-step phases). On a59f32d the head went up to 9.57 px into the ceiling; on 53a6989 it reaches 0.000 px. Sideways motion continues along the ceiling after the rise stops. Fast sideways launches into walls: 0.000 px. |
+| Trajectories vs a59f32d (branch alone, playground, `--trace=1`) | Fuzz seeds 5 and 9 and runner jump-every 90 are byte-identical. Runner jump-every 45 differs only at frames 141–155, a jump under the tunnel ceiling that used to end 3 px inside it; it lands back on the same path, and the end state and furthest x are identical. That is the intended fix. |
+| Long runs with interpolation on | 3 × 18,000 ticks: 0 errors, 0 NaN, 0 orphans, flat memory. |
+
+**Notes:**
+- The fuzz bot now reaches the real pause menu, so its random presses sometimes pick QUIT/RESTART and end the run in the boot menu. That is expected. QA will add a `--no-pause` fuzz option (qa follow-up).
+- Still open: BUG-03-02 (minor), and UI-01/UI-02 in the playground (in progress, physics).

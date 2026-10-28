@@ -45,6 +45,9 @@ const VALLEY_REST_SPEED := 0.5
 const VALLEY_PROBE_REACH := 48.0
 ## Feet within this distance of a surface count as touching it.
 const CONTACT_EPSILON := 0.05
+## In floor mode, a "wall" hit no steeper than this (deg from flat) is a slope
+## to run onto (the floor-mode range ends at 45).
+const WALKABLE_SLOPE_MAX := 45.5
 ## Default control lock for push_ground() (contract default).
 const PUSH_LOCK_FRAMES := 16
 ## Landing speed conversion bands (Physics Guide): flat up to 23 deg from flat,
@@ -600,6 +603,10 @@ func _ground_wall_check(p: PhysicsConstants) -> void:
 			hit = top
 	if hit == null:
 		return
+	if collision_mode == FLOOR and angle_from_flat(hit.angle) <= WALKABLE_SLOPE_MAX:
+		# A walkable slope rising ahead (a sharp flat-to-slope corner): the
+		# floor sensors carry Sproto onto it; it is not a wall.
+		return
 	if dir.y > 0.5 and _is_opposite_steep_slope(hit.angle) and _steep_valley_below():
 		# Running down a steep side of a V, the "wall" ahead is the other side:
 		# this is the valley floor. Go on in floor mode (see _ground_floor_check).
@@ -799,6 +806,7 @@ func _move_in_air(p: PhysicsConstants, displacement: Vector2) -> void:
 	var step := displacement / steps
 	for i in steps:
 		global_position += step
+		var before := _vel
 		_air_wall_check(p)
 		if _vel.y < 0.0:
 			_air_ceiling_check(p)
@@ -806,6 +814,12 @@ func _move_in_air(p: PhysicsConstants, displacement: Vector2) -> void:
 			return
 		if grounded:
 			return
+		# A wall or ceiling stopped part of the motion: the rest of this frame's
+		# move follows the corrected velocity, so it can't carry on into it.
+		if before.x != 0.0 and _vel.x == 0.0:
+			step.x = 0.0
+		if before.y < 0.0 and _vel.y >= 0.0:
+			step.y = 0.0
 
 
 func _air_wall_check(p: PhysicsConstants) -> void:
