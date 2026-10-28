@@ -124,7 +124,8 @@ func test_scatter_pattern_speeds() -> void:
 	var coins := ScatteredCoin.scatter(world, Vector2(0, -100), 32)
 	assert_eq(coins.size(), 32, "32 coins")
 	for i in 32:
-		var expected := 4.0 if i < 16 else 2.0
+		var p := Tuning.physics
+		var expected := p.coin_scatter_speed_first if i < 16 else p.coin_scatter_speed_second
 		assert_near(coins[i].velocity.length(), expected, 1e-6, "coin %d speed" % i)
 	assert_true(coins[0].velocity.y < 0.0 and coins[0].velocity.x < 0.0, "first coin up-left (101.25 degrees)")
 	assert_near(coins[1].velocity.x, -coins[0].velocity.x, 1e-6, "second coin mirrored")
@@ -153,7 +154,8 @@ func test_scattered_coin_bounces_and_vanishes() -> void:
 		await physics_frames(1)
 		if before > 0.5 and coin.velocity.y < 0.0:
 			bounced = true
-			assert_near(coin.velocity.y, -0.75 * (before + 0.09375), 0.01, "bounce keeps 75%")
+			var p := Tuning.physics
+			assert_near(coin.velocity.y, p.coin_bounce * (before + p.coin_gravity), 0.01, "bounce keeps 75%")
 			break
 	assert_true(bounced, "bounced off the floor")
 	assert_true(coin.global_position.y <= -ScatteredCoin.RADIUS + 0.5, "never below the floor")

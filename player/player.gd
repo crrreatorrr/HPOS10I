@@ -25,14 +25,6 @@ const PATH_B := 1
 const ATTACK_STATES: Array[StringName] = [&"jump", &"roll", &"spindash"]
 
 # Classic behaviour values that are not in PhysicsConstants.
-## Reversing at this ground speed or faster (floor mode) skids.
-const SKID_MIN_SPEED := 4.0  # LEAD-REQUEST: skid_min_speed
-## Turning around sets ground speed to this, in the new direction.
-const TURNAROUND_SPEED := 0.5  # LEAD-REQUEST: turnaround_speed
-## Standing still, the slope factor only applies when at least this strong.
-const SLOPE_STAND_MIN := 0.05078125  # LEAD-REQUEST: slope_stand_min
-## While airborne the angle eases back to 0 by this much per frame.
-const AIR_ANGLE_EASE := 2.8125  # LEAD-REQUEST: air_angle_ease
 ## No jump when a ceiling is this close above the head.
 const JUMP_CLEARANCE := 6.0
 ## Wall sensors drop this far below the centre on flat floor (catches low steps).
@@ -428,7 +420,7 @@ func _apply_slope_factor(p: PhysicsConstants, dt: float) -> void:
 		var uphill := _gsp != 0.0 and signf(_gsp) == signf(s)
 		factor = p.slope_factor_roll_up if uphill else p.slope_factor_roll_down
 	var amount := factor * s
-	if _gsp == 0.0 and absf(amount) < SLOPE_STAND_MIN:
+	if _gsp == 0.0 and absf(amount) < p.slope_stand_min:
 		return
 	_gsp -= PhysicsConstants.accel(amount) * dt
 
@@ -466,13 +458,13 @@ func _run_input(p: PhysicsConstants, dt: float, dir: int) -> void:
 		return
 	if _gsp * dir < 0.0:
 		# Pressing against the motion: decelerate, turning around at 0.5.
-		if absf(_gsp) >= PhysicsConstants.speed(SKID_MIN_SPEED) and collision_mode == FLOOR:
+		if absf(_gsp) >= PhysicsConstants.speed(p.skid_min_speed) and collision_mode == FLOOR:
 			_skidding = true
 		elif _state == &"skid":
 			_skidding = true
 		_gsp += dec * dir
 		if _gsp * dir >= 0.0:
-			_gsp = PhysicsConstants.speed(TURNAROUND_SPEED) * dir
+			_gsp = PhysicsConstants.speed(p.turnaround_speed) * dir
 			_skidding = false
 			facing = dir
 	else:
@@ -489,7 +481,7 @@ func _roll_input(p: PhysicsConstants, dt: float, dir: int) -> void:
 	if dir != 0 and _gsp * dir < 0.0:
 		_gsp += PhysicsConstants.accel(p.roll_deceleration) * dt * dir
 		if _gsp * dir >= 0.0:
-			_gsp = PhysicsConstants.speed(TURNAROUND_SPEED) * dir
+			_gsp = PhysicsConstants.speed(p.turnaround_speed) * dir
 	_gsp = move_toward(_gsp, 0.0, PhysicsConstants.accel(p.roll_friction) * dt)
 	if _gsp != 0.0:
 		facing = int(signf(_gsp))
@@ -629,9 +621,9 @@ func _air_step(p: PhysicsConstants, dt: float) -> void:
 	# 6. Ease the angle back to flat.
 	if ground_angle != 0.0:
 		if ground_angle < 180.0:
-			ground_angle = maxf(ground_angle - AIR_ANGLE_EASE, 0.0)
+			ground_angle = maxf(ground_angle - p.air_angle_ease, 0.0)
 		else:
-			ground_angle = ground_angle + AIR_ANGLE_EASE
+			ground_angle = ground_angle + p.air_angle_ease
 			if ground_angle >= 360.0:
 				ground_angle = 0.0
 
