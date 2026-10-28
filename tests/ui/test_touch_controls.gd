@@ -14,6 +14,8 @@ var controls: TouchControls
 
 
 func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
 	H.set_touch_mode(true)
 	H.enter_gameplay(self)
 	# Display's own (global) instance would press actions too; test a fresh

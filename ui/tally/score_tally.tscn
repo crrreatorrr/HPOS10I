@@ -13,7 +13,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_top = 44.0
-offset_bottom = -2.0
+offset_bottom = -17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -45,26 +45,31 @@ horizontal_alignment = 1
 
 [node name="EmeraldBox" type="Control" parent="Root/Panel/Box"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 54)
+custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 mouse_filter = 2
 
 [node name="Emerald" parent="Root/Panel/Box/EmeraldBox" instance=ExtResource("3_icon")]
 unique_name_in_owner = true
 
-[node name="EmeraldName" type="Label" parent="Root/Panel/Box"]
+[node name="EmeraldLine" type="HBoxContainer" parent="Root/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="EmeraldName" type="Label" parent="Root/Panel/Box/EmeraldLine"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HudLabel"
 text = "EMERALD"
-horizontal_alignment = 1
 
-[node name="EmeraldCount" type="Label" parent="Root/Panel/Box"]
+[node name="EmeraldCount" type="Label" parent="Root/Panel/Box/EmeraldLine"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HudValue"
 text = "1 / 8"
-horizontal_alignment = 1
 
 [node name="QuietBox" type="HBoxContainer" parent="Root/Panel/Box"]
 unique_name_in_owner = true

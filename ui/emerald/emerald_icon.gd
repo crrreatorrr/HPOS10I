@@ -15,6 +15,8 @@ const SMALL_SIZE := 16
 ## Below this width the icon is drawn as the edge strip.
 const EDGE_WIDTH := 2
 const BACK_TINT := Color(0.65, 0.65, 0.65)
+## An empty slot: the gem's silhouette, dark and see-through.
+const EMPTY_TINT := Color(0.12, 0.14, 0.3, 0.75)
 const EDGE_GREEN := Color8(40, 170, 90)
 const EDGE_GOLD := Color8(250, 204, 72)
 const BOB_HZ := 0.6
@@ -103,9 +105,8 @@ func _draw() -> void:
 	var size := face_size()
 	var top := -size / 2.0 + _bob_offset()
 	if empty:
-		var slot := Rect2(-size / 2.0 + 1, top + 1, size - 2, size - 2)
-		draw_rect(slot, Color(0.06, 0.07, 0.2, 0.6))
-		draw_rect(slot, Color(0.5, 0.56, 0.8, 0.8), false, 1.0)
+		# A dark gem-shaped hollow, face-on and still.
+		draw_texture_rect(face_texture(), Rect2(-size * 0.5, top, size, size), false, EMPTY_TINT)
 		return
 	var width := face_width()
 	if width <= EDGE_WIDTH:
