@@ -9,10 +9,10 @@ extends Area2D
 signal player_entered(player: Player)
 signal player_exited(player: Player)
 
-const LAYER_PLAYER := 1 << 4
-const LAYER_ENEMIES := 1 << 5
-const LAYER_OBJECTS := 1 << 6
-const LAYER_HAZARDS := 1 << 7
+const LAYER_PLAYER := Layers.PLAYER
+const LAYER_ENEMIES := Layers.ENEMIES
+const LAYER_OBJECTS := Layers.OBJECTS
+const LAYER_HAZARDS := Layers.HAZARDS
 
 ## Player instance id -> Player.
 var _inside := {}

@@ -67,7 +67,7 @@ const TALLY_TIMEOUT_FRAMES := 60 * 30
 ## Spawn: frames to wait for terrain collision before giving up on the floor snap.
 const SPAWN_SETTLE_FRAMES := 3
 
-const FLOOR_MASK := 1 | 2 | 8  # terrain_solid, path A, top-only
+const FLOOR_MASK := Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY
 
 enum Finish { NONE, BRAKE, POSE, TALLY, AFTER_TALLY, DONE }
 

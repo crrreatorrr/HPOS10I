@@ -37,7 +37,7 @@ var _shape: CollisionShape2D
 
 
 func _ready() -> void:
-	collision_layer = 1  # terrain_solid
+	collision_layer = Layers.TERRAIN_SOLID
 	collision_mask = 0
 	process_physics_priority = -10  # before the player moves
 	_shape = CollisionShape2D.new()

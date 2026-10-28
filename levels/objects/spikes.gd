@@ -31,7 +31,7 @@ var _shape: CollisionShape2D
 
 
 func _ready() -> void:
-	collision_layer = 1
+	collision_layer = Layers.TERRAIN_SOLID
 	collision_mask = 0
 	_shape = CollisionShape2D.new()
 	_shape.shape = RectangleShape2D.new()

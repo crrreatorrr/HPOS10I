@@ -31,8 +31,8 @@ extends PlayerArea
 signal destroyed
 
 const SCORE := 100
-const TERRAIN_MASK := 1 | 2 | 8  # solid, path A, top-only floors
-const WALL_MASK := 1 | 2
+const TERRAIN_MASK := Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY
+const WALL_MASK := Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A
 const GRAVITY := 0.21875  # px/frame², like Sproto
 const MAX_FALL := 16.0
 

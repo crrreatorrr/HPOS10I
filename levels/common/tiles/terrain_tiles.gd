@@ -34,8 +34,8 @@ const SOURCE_ID := 0
 const PHYSICS_SOLID := 0
 const PHYSICS_TOP_ONLY := 1
 ## Collision layer values for those physics layers (CONTRACTS.md bits 1 and 4).
-const LAYER_SOLID := 1
-const LAYER_TOP_ONLY := 8
+const LAYER_SOLID := Layers.TERRAIN_SOLID
+const LAYER_TOP_ONLY := Layers.TERRAIN_TOP_ONLY
 
 enum Kind { FLOOR, FILL, CEILING, TOP_ONLY }
 
