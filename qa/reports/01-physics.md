@@ -1,4 +1,9 @@
-# QA report 01: physics @ 3aa4be3
+# QA report 01: physics @ 3aa4be3, re-checked @ 9f3303c
+
+> **Final verdict (re-check @ 9f3303c): FIX FIRST.** BUG-01-01 to 01-04 are fixed and BUG-01-05 is WONTFIX.
+> The force-roll added for BUG-01-03 creates a softlock in low dead ends (**BUG-01-06, blocker**).
+> Two majors on small loops predate the fixes and were missed in the first pass: **BUG-01-07** (a radius-48 loop never exits) and **BUG-01-08** (a ground-angle spike throws Sproto off).
+> One new minor: BUG-01-09. See "Re-check @ 9f3303c" at the end.
 
 - Date: 2026-10-28
 - Branch: `physics` @ `3aa4be3` (Merge main into physics), base `main` @ `560175a`
@@ -6,7 +11,7 @@
 - Review copy: `git archive 3aa4be3` (it already contains the QA tools from main), with the new QA tests from `qa` laid over it.
 - Note: `physics` has since moved to `1c6e698` (reads the new PhysicsConstants fields). That commit is not reviewed here; see "Re-check".
 
-## Verdict: FIX FIRST
+## Verdict @ 3aa4be3: FIX FIRST
 
 The controller is strong: every number in the checklist matches, nothing tunnels at 16 px/frame, loops and path switchers hold at every speed and phase tried, and 1.5 hours of fuzzed play (324 000 frames) produced no errors, NaNs or leaks. One blocker remains: `terrain/loop.tscn`, the ready-to-place loop every zone will use, lets Sproto run off its outer top, wrap under the floor and fall out of the world (BUG-01-01). Fix that, and QA re-checks it with the repro; the four minors can go to the backlog.
 
@@ -217,7 +222,7 @@ Evidence key: **agent** = `tests/physics/<file>.gd :: <test>`; **QA** = `tests/q
 - **Severity:** blocker. It is tunnelling through terrain at normal speed (3 px/f) in the shared, ready-to-place loop that the zones will instance. It happens whenever a route passes over a loop or Sproto lands on one.
 - **Owner:** physics agent (`terrain/loop.gd` / `terrain/loop.tscn`; the controller side is in `player/player.gd`)
 - **Checklist:** T-5, PHY-F
-- **Repro:** `qa/repros/physics/BUG-01-01_loop_outer_wrap.gd` (copy to `tests/qa/` in a review copy, run with `--filter=BUG-01-01`). To watch it: copy `qa/repros/physics/clips/` to `res://tests/qa_clips/`, then
+- **Repro:** `qa/repros/physics/BUG-01-01_loop_outer_wrap.gd` (fixed @ 9f3303c; now `tests/qa/test_physics_fixes.gd :: test_bug_01_01_off_the_loop_top_lands_on_the_floor`) (copy to `tests/qa/` in a review copy, run with `--filter=BUG-01-01`). To watch it: copy `qa/repros/physics/clips/` to `res://tests/qa_clips/`, then
   ```bash
   PROJECT_DIR=<copy> tools/lead/record_clip.sh loop_top 200 \
       --scene=res://tests/qa_clips/loop_top.tscn --inputs=res://tests/qa_clips/inputs/hold_right.json --overlay
@@ -239,7 +244,7 @@ Evidence key: **agent** = `tests/physics/<file>.gd :: <test>`; **QA** = `tests/q
 - **Severity:** minor (only for solid pieces narrower than the A/B sensor span)
 - **Owner:** physics agent (`player/player.gd` / `player/sensors.gd`); or a documented rule for the level agent
 - **Checklist:** PHY-E9
-- **Repro:** `qa/repros/physics/BUG-01-02_narrow_terrain_sink.gd`; clip scene `qa/repros/physics/clips/pillar.tscn` (no inputs, 75 frames).
+- **Repro:** `qa/repros/physics/BUG-01-02_narrow_terrain_sink.gd` (fixed @ 9f3303c; now `tests/qa/test_physics_fixes.gd :: test_bug_01_02_lands_on_narrow_pillars`); clip scene `qa/repros/physics/clips/pillar.tscn` (no inputs, 75 frames).
 - **Expected:** lands on top of an 8 or 16 px wide pillar.
 - **Actual:** the A/B rays at x ± 9 both miss the pillar, the centre enters it at frame 27, and E/F rays that start inside it see nothing. He sinks to whatever is below, which is a death pit if nothing is.
 - **Evidence:** `qa/reports/evidence/01-physics/BUG-01-02_pillar_sink.png`
@@ -250,7 +255,7 @@ Evidence key: **agent** = `tests/physics/<file>.gd :: <test>`; **QA** = `tests/q
 - **Severity:** minor. No softlock: he can walk out; only jumping is refused.
 - **Owner:** physics agent (`player/player.gd`, `_roll_input` unrolls without a ceiling check)
 - **Checklist:** PHY-G5
-- **Repro:** `qa/repros/physics/BUG-01-03_unroll_into_ceiling.gd`; clip: `clips/tunnel.tscn` with `clips/inputs/tunnel.json` (300 frames).
+- **Repro:** `qa/repros/physics/BUG-01-03_unroll_into_ceiling.gd` (fixed @ 9f3303c; now `tests/qa/test_physics_fixes.gd :: test_bug_01_03_keeps_rolling_under_a_low_ceiling`); clip: `clips/tunnel.tscn` with `clips/inputs/tunnel.json` (300 frames).
   ```json
   {"events": [[10, "move_right", true], [70, "move_right", false], [70, "move_down", true], [72, "move_down", false],
               [200, "move_right", true], [215, "move_right", false], [240, "jump", true], [250, "jump", false]]}
@@ -265,7 +270,7 @@ Evidence key: **agent** = `tests/physics/<file>.gd :: <test>`; **QA** = `tests/q
 - **Severity:** minor (a respawn after a death already leaves the ball hitbox, so this only shows when a level teleports a rolling or jumping player)
 - **Owner:** physics agent (`player/player.gd`, `respawn_at`)
 - **Checklist:** PHY-I14
-- **Repro:** `qa/repros/physics/BUG-01-04_respawn_offset.gd`
+- **Repro:** `qa/repros/physics/BUG-01-04_respawn_offset.gd` (fixed @ 9f3303c; now `tests/qa/test_physics_fixes.gd :: test_bug_01_04_respawn_at_is_exact_from_any_state`)
   ```gdscript
   # rolling on flat ground, then:
   player.respawn_at(Vector2(300, -19))   # global_position is (300, -24)
@@ -314,3 +319,159 @@ Evidence key: **agent** = `tests/physics/<file>.gd :: <test>`; **QA** = `tests/q
     - `tests/qa/test_physics_regression.gd` and `tests/qa/qa_physics_lib.gd`, which skip without a player.
     - `qa/repros/physics/`.
     - `qa/reports/evidence/01-physics/`.
+
+## Re-check @ 9f3303c
+
+- Branch: `physics` @ `9f3303c` ("Fix QA bugs 01-01 to 01-04"). It includes `1c6e698` (constants swap) and `main` with the QA phase B work.
+- Review copy: `git archive 9f3303c`, with `build/.gdignore` added before recording. The new QA guards and repros were laid over it.
+
+### Verdict @ 9f3303c: FIX FIRST
+
+The four fixes work, and the constants swap is clean. However, the BUG-01-03 fix introduced a softlock (BUG-01-06). More thorough loop testing turned up two majors that already existed at 3aa4be3 and that I missed in the first pass. My radius check then tried one entry phase per radius and did not measure angle steps:
+- BUG-01-07: a radius-48 loop can trap Sproto forever.
+- BUG-01-08: a rare ground-angle spike throws him off small loops.
+
+Open bugs: **1 blocker (BUG-01-06), 2 major (BUG-01-07, BUG-01-08), 1 minor (BUG-01-09)**; BUG-01-05 WONTFIX.
+
+### Status of the first-pass bugs
+
+| Bug | Status | Evidence |
+|---|---|---|
+| BUG-01-01 loop outer wrap | FIXED | `tests/qa/test_physics_fixes.gd :: test_bug_01_01_off_the_loop_top_lands_on_the_floor`. All 4 direction/path combinations: never inside terrain, lands on the floor. On the matching path he rides the hill foot down with 0 airborne frames and reaches the floor at 8.8–11.2 px/f (speed kept). On the other path he drops at the equator (8–10 airborne frames) and lands at x ≈ ±152. |
+| BUG-01-02 narrow terrain sink | FIXED (floors) | `test_bug_01_02_lands_on_narrow_pillars` (8 and 16 px). The ceiling side is still open: BUG-01-09. |
+| BUG-01-03 unroll into a low ceiling | FIXED, but see BUG-01-06 | `test_bug_01_03_keeps_rolling_under_a_low_ceiling`: the head never enters the ceiling, and the ball creeps out of a 32 px tunnel. |
+| BUG-01-04 `respawn_at` offset | FIXED | `test_bug_01_04_respawn_at_is_exact_from_any_state` (from roll and from jump) |
+| BUG-01-05 22° slope creep | WONTFIX (classic behaviour, lead decision) | repro kept as documentation: `qa/repros/physics/BUG-01-05_slope_creep.gd` |
+
+### Review of 1c6e698 (constants moved into PhysicsConstants)
+
+PASS. The 8 values are identical to the removed local constants:
+
+| Field | Value |
+|---|---|
+| `skid_min_speed` | 4.0 |
+| `turnaround_speed` | 0.5 |
+| `slope_stand_min` | 0.05078125 |
+| `air_angle_ease` | 2.8125 |
+| `coin_scatter_speed_first` | 4.0 |
+| `coin_scatter_speed_second` | 2.0 |
+| `coin_gravity` | 0.09375 |
+| `coin_bounce` | -0.75 |
+
+Every use reads `p` = `Tuning.physics`, fetched in the same physics tick or call. A grep finds no `LEAD-REQUEST` local left and no cached `Tuning`. The only matching literal is a drawing offset in `player_visual.gd`. Live reads are proven by `tests/qa/test_physics_fixes.gd :: test_moved_constants_are_read_live`: runtime changes to `skid_min_speed`, `turnaround_speed` and `coin_scatter_speed_first` apply at once. **PHY-A2: SKIP → PASS.**
+
+### Tool results @ 9f3303c
+
+| Tool | Result | Notes |
+|---|---|---|
+| `godot --import` | PASS | no errors or warnings |
+| Tests (`tests/run_tests.gd`) | 119 passed, 0 failed | 62 physics agent tests (5 new), 41 QA physics guards, 10 contract, 6 core |
+| QA guards for the fixes (`tests/qa/test_physics_fixes.gd`, new) | 9 passed | full suite with them: 128 passed; on `main` they skip (66 passed) |
+| `tools/qa/scene_smoke.sh` | 11/11 PASS | includes `loop.tscn` and the QA clip scenes |
+| `tools/qa/originality_scan.sh` | 0 hits | files; commit messages `3aa4be3..9f3303c` |
+| bot runner, sandbox, 7 200 frames | PASS | whole sandbox crossed with the new loops, 0 deaths |
+| bot fuzz seeds 1/2/3 × 36 000 | PASS | 0 errors, 0 NaN, only contract states |
+| bot fuzz seed 11 × 216 000 | PASS | 0 errors, 0 NaN; nodes 155 at the end, orphans 0, memory 24.9 → 29.8 MB, flat |
+| `git diff --name-only main...9f3303c` | owned folders only | `player/`, `terrain/`, `tests/physics/` |
+
+### Loop and terrain items with the new geometry
+
+| Check | Result | Evidence |
+|---|---|---|
+| Enter and exit both ways, radii 52 / 112 / 200 at 8 / 12 / 16 px/f | PASS | `test_loop_radii_52_to_200_every_speed`; the earlier guards (radii 48–220 at 10, switchers at 16 for every phase, two loops in a row) still pass |
+| Radius 48 | FAIL | **BUG-01-07** (2 of 9 runs never exit) |
+| Small loops 64–80: smooth angle | FAIL | **BUG-01-08** (1 of 28 runs at radius 64; also radius 80 at 3aa4be3) |
+| A slow loop fails cleanly (5, 7, 8.5 px/f, both ways) | PASS | `test_loop_too_slow_fails_cleanly` |
+| Top switcher sets B (CW) / A (CCW) while coming down, A after the loop | PASS | `test_loop_top_switcher_paths` |
+| Running off the top, every path and direction | PASS | see BUG-01-01 above |
+| Hill feet from outside: run into a foot on its own path (between it and the side switcher) | PASS | `test_loop_feet_are_hills_from_outside`. At 3 px/f he climbs part way and slides back; at 8 px/f he goes up the foot and over the loop and drops down the far side. He is never inside terrain. |
+| Drops onto a foot's vertical face and curve | PASS | probe: lands and slides off, never inside terrain |
+
+### Checklist changes @ 9f3303c
+
+Every other item was re-run (full suite, bot, smoke) and is unchanged from the first pass.
+
+| ID | Was | Now | Why |
+|---|---|---|---|
+| PHY-A2 | SKIP | PASS | constants swap reviewed above |
+| PHY-D3, PHY-H5 | PASS + BUG-01-05 | PASS | BUG-01-05 WONTFIX |
+| PHY-E6 | PASS | FAIL | BUG-01-09: a spring launch into a hanging column narrower than 18 px enters it (case not tried in the first pass) |
+| PHY-E9 | FAIL | PASS | BUG-01-02 fixed |
+| PHY-F2, T-1 | PASS | FAIL | BUG-01-07 (radius 48) and BUG-01-08 (radius 64/80). Both existed at 3aa4be3. |
+| PHY-G5 | FAIL | FAIL | the head no longer enters the ceiling, but the force-roll softlocks in a low dead end (BUG-01-06) |
+| PHY-I14 | FAIL | PASS | BUG-01-04 fixed |
+| T-5 | FAIL | PASS | BUG-01-01 fixed |
+
+### New bugs
+
+#### BUG-01-06: Force-roll softlocks Sproto in a low dead end
+
+- **Severity:** blocker. There is no way out short of restarting: he can't turn, jump or spin dash. It can be reached by rolling into any space lower than 38 px that ends in a wall, for example a roll tunnel closed by a breakable wall that he was too slow to break. It was introduced by the BUG-01-03 fix.
+- **Owner:** physics agent (`player/player.gd`, `_roll_input` force-roll)
+- **Checklist:** PHY-G5
+- **Repro:** `qa/repros/physics/BUG-01-06_force_roll_dead_end.gd`. Clip: copy `qa/repros/physics/clips/` to `res://tests/qa_clips/`, then
+  ```bash
+  PROJECT_DIR=<copy> tools/lead/record_clip.sh dead_end 600 \
+      --scene=res://tests/qa_clips/dead_end.tscn --inputs=res://tests/qa_clips/inputs/dead_end.json --overlay
+  ```
+  ```json
+  {"events": [[10, "move_right", true], [100, "move_right", false], [100, "move_down", true], [102, "move_down", false],
+              [330, "move_left", true], [480, "move_left", false], [500, "jump", true], [510, "jump", false],
+              [520, "move_down", true], [525, "jump", true], [528, "jump", false], [540, "move_down", false]]}
+  ```
+- **Expected:** holding the other direction gets the ball back out of the dead end.
+- **Actual:** against the end wall, ground speed is 0 every frame. The force-roll sets it to 0.5 × `facing` and the wall stops it again. The roll's turnaround branch needs a non-zero speed against the input, so holding left for 2 s leaves the ball at x 376.6 → 390.0, still `roll`, facing 1, speed 0. Jump has no clearance, and a spin dash needs a crouch. It is the same with the clip's timeline: it ends at x 390, `roll`, speed 0.
+- **Evidence:** `qa/reports/evidence/01-physics/BUG-01-06_force_roll_dead_end.png` (frames 150–590: the ball against the wall in `roll` at gsp 0 through left, jump and down+jump)
+- **Notes:** for example, when speed is 0 and a direction is held, creep that way (flip `facing`); or creep in the input direction rather than `facing`.
+
+#### BUG-01-07: A radius-48 loop can trap Sproto forever
+
+- **Severity:** major. Holding forward, he goes round and round and never exits (2 of 9 runs). He can escape only by giving up and walking back out. It also happens at 3aa4be3 (3 of 9).
+- **Owner:** physics agent (`terrain/loop.gd`, top switcher placement)
+- **Checklist:** PHY-F2, T-1
+- **Repro:** `qa/repros/physics/BUG-01-07_small_loop_endless.gd` (radius 48, speeds 8/10/12, start x -400/-403/-407)
+- **Expected:** every run exits on the far side on path A.
+- **Actual:** the top switcher is placed at y = -2r + 28 and is 64 px tall, so for r = 48 its bottom edge is at y -36. The standing hitbox crossing the loop's bottom just reaches it. Running right, he comes down the left side on path B, and the top switcher (moving right → A) sets path A again at the bottom. He climbs the lower-right quarter again. Trace (speed 10): path B at f49 (x -13), path A by f54 climbing again, repeating every ~19 frames for the whole run.
+- **Notes:** keep the top switcher's bottom edge above the floor-level crossing (at least about 40 px above the floor for the standing hitbox), or raise the minimum radius.
+
+#### BUG-01-08: A ground-angle spike throws Sproto off small loops
+
+- **Severity:** major. It is rare, but it happens at loop entry on the main route. In 28 runs per radius, varying entry speed and start phase:
+
+  | Commit | Radius | Runs with a > 40° grounded angle jump |
+  |---|---|---|
+  | 9f3303c | 64 | 1 |
+  | 9f3303c | 80 | 0 |
+  | 9f3303c | 112 | 0 |
+  | 3aa4be3 | 80 | 1 |
+
+- **Owner:** physics agent (`terrain/curve_terrain.gd` collision build, or the angle handling in `player/player.gd`)
+- **Checklist:** PHY-F2, T-1
+- **Repro:** `qa/repros/physics/BUG-01-08_loop_angle_spike.gd` (radius 64, entry 10 px/f from x -400: deterministic)
+- **Expected:** the ground angle changes smoothly at the loop entry, and the loop completes.
+- **Actual:** at f40 the B floor ray hits the inner arc at (18.864, -2.844), within 0.0002 px of an arc vertex (17.14°), and returns a normal giving 124.9° instead of about 17°. Godot builds the concave ring polygon as convex pieces, and a ray grazing a vertex reports the normal of an internal edge. The angle jumps 6 → 125° in one frame (mode right wall), so velocity points up and backwards. He flies across the loop, attaches to the far side moving the wrong way, loses speed and falls: the loop is not completed.
+- **Notes:** options:
+  - build CurveTerrain collision as segments (no internal edges);
+  - when grounded, reject a sensor angle that differs from the current angle by more than about 45° (use the other sensor, or keep the current angle);
+  - compute the angle from the surface around the hit, not from the returned normal.
+
+#### BUG-01-09: A spring launch centred under a column narrower than 18 px flies into it
+
+- **Severity:** minor. It needs narrow solid terrain overhead and a centred upward launch while standing; in a ball (jump) C/D sit at ±7 and catch 16 px columns.
+- **Owner:** physics agent (`player/player.gd`, ceiling checks use C/D only)
+- **Checklist:** PHY-E6
+- **Repro:** `qa/repros/physics/BUG-01-09_narrow_ceiling.gd` (16 px column hanging to y -100, `launch(0, -10)` from directly below)
+- **Expected:** the head stops at y -100.
+- **Actual:** the C/D rays at x ± 9 miss the column. At frame 6 the head is at -102.6 and the centre goes on into the column.
+- **Notes:** this is the ceiling counterpart of BUG-01-02; give the ceiling and jump-clearance `cast_pair` calls the same centre fallback ray.
+
+### Notes for the lead (re-check)
+
+- **Loop footprint:** a loop now takes radius + thickness + 112 px on each side of its centre (240 px for the default radius). The level agent needs that room, and two loops need about twice that between centres.
+- **Spawns near loops:** don't put a checkpoint or spawn point between a loop's hill foot and its side switcher. A player starting there on the foot's own path runs up the foot and over the loop (harmless, but odd).
+- **Walking into low tunnels:** walking (not rolling) into a tunnel lower than 38 px still puts the head inside the ceiling, as at 3aa4be3 (no ceiling check on the ground). Low tunnels should only be reachable while rolling, which needs BUG-01-06 fixed first.
+- **New QA files on branch `qa`:**
+  - `tests/qa/test_physics_fixes.gd` (9 guards, which skip on main);
+  - repros for BUG-01-06 to 01-09 and a dead-end clip scene in `qa/repros/physics/`;
+  - `qa/reports/evidence/01-physics/BUG-01-06_force_roll_dead_end.png`.
+- **Promoted repros:** the promoted BUG-01-01 to 01-04 repros were removed from `qa/repros/physics/`; the BUG-01-01 to 01-03 clip scenes stay.

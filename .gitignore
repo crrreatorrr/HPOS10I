@@ -3,8 +3,9 @@
 /android/
 export_credentials.cfg
 
-# Build output
-build/
+# Build output (build/.gdignore stays so Godot never imports recorded frames)
+build/*
+!build/.gdignore
 
 # Agent worktrees (lead only)
 .worktrees/
