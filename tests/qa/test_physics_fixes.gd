@@ -252,3 +252,197 @@ func test_moved_constants_are_read_live() -> void:
 	assert_eq(skid, &"skid", "skid_min_speed")
 	assert_near(turned, -1.0, 1e-6, "turnaround_speed")
 	assert_near(coin_speed, 5.0, 1e-6, "coin_scatter_speed_first")
+
+
+# --- Re-check #2 @ 94dcac3: BUG-01-06..09 and the new head-height wall ray ---------
+
+## Flat floor with a 32 px low tunnel from x 100 (ceiling bottom at y -32).
+func _low_tunnel(length := 400.0, closed := false) -> Node2D:
+	var w := L.world(self)
+	L.floor_at(w)
+	L.rect(w, Rect2(100, -332, length, 300))
+	if closed:
+		L.rect(w, Rect2(100 + length, -400, 100, 400))
+	return w
+
+
+func _roll_in(w: Node2D, speed := 3.0) -> Node2D:
+	var p = await L.spawn(self, w, Vector2.ZERO)
+	p.ground_speed = speed
+	press(&"move_down")
+	await physics_frames(1)
+	release(&"move_down")
+	return p
+
+
+func test_bug_01_06_low_dead_end_can_be_left() -> void:
+	if _skip():
+		return
+	# Holding the other way.
+	var p = await _roll_in(_low_tunnel(300.0, true), 4.0)
+	await physics_frames(240)
+	var x0: float = p.global_position.x
+	press(&"move_left")
+	await physics_frames(120)
+	release(&"move_left")
+	assert_true(p.global_position.x < x0 - 20.0, "holding left backs out (x %.1f -> %.1f)" % [x0, p.global_position.x])
+	# No input: turns back off the wall and leaves.
+	p = await _roll_in(_low_tunnel(300.0, true), 4.0)
+	await physics_frames(900)
+	assert_true(p.global_position.x < 100.0, "no input: creeps back out of the entrance (x %.1f)" % p.global_position.x)
+	# Down + jump spin dashes out of a force-roll.
+	p = await _roll_in(_low_tunnel(300.0, true), 4.0)
+	await physics_frames(240)
+	press(&"move_left")
+	await physics_frames(2)
+	release(&"move_left")
+	Dev.send_action(&"move_down", true)
+	await physics_frames(2)
+	Dev.send_action(&"jump", true)
+	await physics_frames(1)
+	Dev.send_action(&"jump", false)
+	await physics_frames(2)
+	assert_eq(p.state, &"spindash", "down + jump starts a spin dash from a force-roll")
+	Dev.send_action(&"move_down", false)
+	await physics_frames(60)
+	assert_true(p.global_position.x < 100.0, "spin dashed out (x %.1f)" % p.global_position.x)
+
+
+func test_force_roll_open_tunnel_every_input() -> void:
+	if _skip():
+		return
+	for mode in ["none", "forward", "back"]:
+		var p = await _roll_in(_low_tunnel())
+		for i in 200:
+			await physics_frames(1)
+			if absf(p.ground_speed) <= 0.51:
+				break
+		if mode == "forward":
+			press(&"move_right")
+		elif mode == "back":
+			press(&"move_left")
+		for i in 900:
+			await physics_frames(1)
+			var head: float = p.global_position.y - p.get_radii().y
+			assert_true(not (p.global_position.x > 100 and p.global_position.x < 500 and head < -32.01),
+					"%s: head inside the ceiling at x %.1f" % [mode, p.global_position.x])
+			if p.global_position.x > 560 or p.global_position.x < 40:
+				break
+		release(&"move_right")
+		release(&"move_left")
+		if mode == "back":
+			assert_true(p.global_position.x < 100.0, "back: out of the entrance (x %.1f)" % p.global_position.x)
+		else:
+			assert_true(p.global_position.x > 500.0, "%s: out of the far end (x %.1f)" % [mode, p.global_position.x])
+
+
+func test_bug_01_07_radius_48_always_exits() -> void:
+	if _skip(true):
+		return
+	for speed in [8.0, 10.0, 12.0]:
+		for phase in [0.0, 3.0, 7.0]:
+			var made := await _loop_world(Vector2(-400.0 - phase, 0), 48.0)
+			var lp: Node2D = made[0]
+			var p = made[1]
+			p.ground_speed = speed
+			press(&"move_right")
+			var exit_x: float = lp.radius + lp.thickness + lp.floor_margin + 40.0
+			var done := false
+			for i in 300:
+				await physics_frames(1)
+				if p.global_position.x > exit_x:
+					done = true
+					break
+			release(&"move_right")
+			assert_true(done, "speed %s phase %s: exits the radius-48 loop" % [speed, phase])
+
+
+func test_bug_01_08_small_loop_entry_has_no_angle_spike() -> void:
+	if _skip(true):
+		return
+	for radius in [64.0, 80.0]:
+		for phase in [0.0, 1.3, 3.7]:
+			var made := await _loop_world(Vector2(-400.0 - phase, 0), radius)
+			var lp: Node2D = made[0]
+			var p = made[1]
+			p.ground_speed = 10.0
+			press(&"move_right")
+			var exit_x: float = lp.radius + lp.thickness + lp.floor_margin + 40.0
+			var last: float = p.ground_angle
+			var was_grounded := true
+			var worst := 0.0
+			for i in 300:
+				await physics_frames(1)
+				if p.grounded and was_grounded:
+					worst = maxf(worst, absf(wrapf(p.ground_angle - last, -180.0, 180.0)))
+				last = p.ground_angle
+				was_grounded = p.grounded
+				if p.global_position.x > exit_x:
+					break
+			release(&"move_right")
+			assert_true(worst < 40.0, "radius %s phase %s: largest grounded angle step %.1f" % [radius, phase, worst])
+			assert_true(p.global_position.x > exit_x, "radius %s phase %s: completed" % [radius, phase])
+
+
+func test_bug_01_09_spring_under_a_narrow_column() -> void:
+	if _skip():
+		return
+	var w := L.world(self)
+	L.floor_at(w)
+	L.rect(w, Rect2(-8, -400, 16, 300))  # column down to y -100
+	var p = await L.spawn(self, w, Vector2.ZERO)
+	p.launch(Vector2(0, -10))
+	for i in 60:
+		await physics_frames(1)
+		var head: float = p.global_position.y - p.get_radii().y
+		assert_true(head >= -100.5 and not L.centre_in_terrain(p), "frame %d: head %.1f above the column's bottom" % [i, head])
+		if head < -100.5:
+			break
+
+
+func test_walkers_stop_at_low_tunnel_mouths_only() -> void:
+	if _skip():
+		return
+	for h in [32.0, 37.0, 38.0, 48.0]:
+		var w := L.world(self)
+		L.floor_at(w)
+		L.rect(w, Rect2(100, -h - 300, 400, 300))
+		var p = await L.spawn(self, w, Vector2.ZERO)
+		p.ground_speed = 3.0
+		press(&"move_right")
+		await physics_frames(120)
+		release(&"move_right")
+		if h < 37.5:
+			assert_near(p.global_position.x, 90.0, 0.01, "%s px mouth blocks a walker" % h)
+		else:
+			assert_true(p.global_position.x > 400.0, "%s px mouth lets a walker in" % h)
+	# Fast runners stop at the mouth too, and can still jump there.
+	var w2 := L.world(self)
+	L.floor_at(w2)
+	L.rect(w2, Rect2(100, -332, 400, 300))
+	var q = await L.spawn(self, w2, Vector2.ZERO)
+	q.ground_speed = 16.0
+	await physics_frames(30)
+	assert_true(q.global_position.x < 100.0 and not L.centre_in_terrain(q), "16 px/f stops at the mouth")
+	press(&"jump")
+	await physics_frames(3)
+	release(&"jump")
+	assert_true(not q.grounded, "can jump at the mouth")
+
+
+func test_head_height_ray_ignores_top_only_and_other_path() -> void:
+	if _skip():
+		return
+	for layer in [L.TOP_ONLY, L.PATH_B, L.PATH_A]:
+		var w := L.world(self)
+		L.floor_at(w)
+		L.rect(w, Rect2(100, -40, 400, 10), layer)  # bottom 30 px above the floor
+		var p = await L.spawn(self, w, Vector2.ZERO)
+		p.ground_speed = 3.0
+		press(&"move_right")
+		await physics_frames(120)
+		release(&"move_right")
+		if layer == L.PATH_A:
+			assert_true(p.global_position.x < 100.0, "own path at head height blocks")
+		else:
+			assert_true(p.global_position.x > 300.0, "layer %d at head height does not block" % layer)
