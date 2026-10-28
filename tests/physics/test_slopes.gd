@@ -200,6 +200,11 @@ func _assert_out_of_v(v: Array, label: String) -> void:
 			"%s: at or beyond the rim (x %.1f, vertex %.1f)" % [label, player.global_position.x, v[0]])
 
 
+## Running into a V at 8 px/f carries him out the far side up to 55 degree
+## sides. On 60 degrees and steeper he leaves the lip, lands on the far side
+## and the steep landing sends him back down (the classic bands), so the
+## bounces die out at the bottom and he must jump or spin dash out (the tests
+## below); he must never end up inside the terrain.
 func test_v_valleys_run_out_with_momentum() -> void:
 	for side in range(30, 75, 5):
 		for dir in [1, -1]:
@@ -210,10 +215,25 @@ func test_v_valleys_run_out_with_momentum() -> void:
 			player.ground_speed = 8.0 * dir
 			var action := &"move_right" if dir > 0 else &"move_left"
 			press(action)
-			await physics_frames(90)
+			var buried := false
+			for i in 90:
+				await physics_frames(1)
+				buried = buried or W.centre_in_terrain(player)
 			release(action)
 			await physics_frames(20)
-			_assert_out_of_v(v, "%d deg V running dir %d" % [side, dir])
+			var label := "%d deg V running dir %d" % [side, dir]
+			if side < 60:
+				_assert_out_of_v(v, label)
+			else:
+				# The bounces die out: at rest at the bottom within 10 s.
+				for i in 600:
+					await physics_frames(1)
+					buried = buried or W.centre_in_terrain(player)
+					if player.grounded and player.state == &"idle":
+						break
+				assert_true(player.grounded and player.state == &"idle",
+						"%s: comes to rest in the V (%s %s)" % [label, player.state, player.global_position])
+			assert_true(not buried, "%s: never inside the terrain" % label)
 			world.queue_free()
 			await physics_frames(1)
 
