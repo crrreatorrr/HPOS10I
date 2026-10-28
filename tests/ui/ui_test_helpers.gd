@@ -41,7 +41,10 @@ static func send_action(action: StringName, pressed: bool) -> void:
 
 static func send_key(physical: Key, pressed: bool) -> void:
 	var event := InputEventKey.new()
+	# A real key event carries both (a US layout: label = position).
 	event.physical_keycode = physical
+	event.keycode = physical
+	event.key_label = physical
 	event.pressed = pressed
 	Input.parse_input_event(event)
 	Input.flush_buffered_events()

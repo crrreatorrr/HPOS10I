@@ -25,6 +25,8 @@ var _saved_free_scene := ""
 func before_each() -> void:
 	menu = H.pause_menu(tree)
 	_saved_free_scene = SceneRouter.get(&"_free_scene")
+	# The menu toggles at most once per frame; start each test on a new one.
+	await physics_frames(1)
 
 
 func after_each() -> void:
@@ -94,6 +96,7 @@ func test_pausing_releases_held_inputs() -> void:
 	H.tap_pause()
 	for action in [&"move_left", &"move_right", &"jump"]:
 		assert_true(not Input.is_action_pressed(action), "%s released on pause" % action)
+	await physics_frames(1)
 	H.tap_pause()
 	await _wait_unpaused()
 	assert_true(not tree.paused, "resumed")
@@ -127,13 +130,29 @@ func test_resume_with_accept_and_mouse() -> void:
 	H.tap_pause()
 	assert_true(menu.get_viewport().gui_get_focus_owner() == menu.get_node("%Resume"), "RESUME focused")
 	H.send_key(KEY_ENTER, true)
+	await physics_frames(3)
+	assert_true(tree.paused, "Enter (also a pause key) does not toggle inside the menu")
 	H.send_key(KEY_ENTER, false)  # buttons fire on release
 	await _wait_unpaused()
 	assert_true(not tree.paused, "Enter on RESUME resumes")
+	await physics_frames(1)
 	H.tap_pause()
 	(menu.get_node("%Resume") as Button).pressed.emit()  # a click or a tap
 	await _wait_unpaused()
 	assert_true(not tree.paused, "clicking RESUME resumes")
+
+
+func test_enter_on_restart_does_not_resume_first() -> void:
+	H.enter_gameplay(self)
+	H.tap_pause()
+	H.send_key(KEY_S, true)
+	H.send_key(KEY_S, false)
+	assert_true((menu.get_node("%Restart") as Button).has_focus(), "RESTART focused")
+	H.send_key(KEY_ENTER, true)
+	await physics_frames(4)
+	assert_true(tree.paused and menu.is_open(), "still in the menu until Enter is released")
+	H.reset_pause(tree)  # don't actually restart the fake level
+	H.send_key(KEY_ENTER, false)
 
 
 func test_menu_navigation_wraps() -> void:
@@ -245,3 +264,12 @@ func _wait_for_scene(path: String) -> bool:
 			return true
 		await physics_frames(1)
 	return false
+
+
+func test_two_pause_presses_in_one_frame_toggle_once() -> void:
+	H.enter_gameplay(self)
+	H.send_key(KEY_P, true)
+	H.send_action(&"pause", true)  # e.g. gamepad Start on the same frame
+	assert_true(tree.paused and menu.is_open(), "opened once, not opened and closed")
+	H.send_key(KEY_P, false)
+	H.send_action(&"pause", false)

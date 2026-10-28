@@ -32,6 +32,7 @@ const QUIET_FRAMES_TO_RESUME := 2
 var _open := false
 var _resume_pending := false
 var _quiet_frames := 0
+var _toggle_frame := -1
 var _last_device := "keyboard"
 var _quiet_focus := false
 
@@ -103,10 +104,23 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"pause"):
+		if _open and event.is_action(&"ui_accept"):
+			# Enter is pause and accept: in the menu it chooses the focused
+			# item (the button fires on release), it doesn't close the menu.
+			get_viewport().set_input_as_handled()
+			return
+		# One toggle per frame: two devices (or a replayed timeline) pressing
+		# pause together must not open and close the menu at once.
+		var frame := Engine.get_process_frames()
+		if frame == _toggle_frame:
+			get_viewport().set_input_as_handled()
+			return
 		if _open:
+			_toggle_frame = frame
 			request_resume()
 			get_viewport().set_input_as_handled()
 		elif SceneRouter.in_gameplay() and not get_tree().paused:
+			_toggle_frame = frame
 			open_menu()
 			get_viewport().set_input_as_handled()
 		return
@@ -118,7 +132,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_step_focus(1)
 	elif event.is_action_pressed(&"move_up"):
 		_step_focus(-1)
-	elif event.is_action_pressed(&"jump"):
+	elif event.is_action_pressed(&"jump") and not event.is_action(&"ui_accept"):
+		# Space and pad A are ui_accept too: the focused button handles those.
 		_focused_button().pressed.emit()
 	else:
 		return
