@@ -11,7 +11,9 @@ class_name Emeralds
 ## write the word anywhere else.
 
 const NAME := "Horcrux Emerald"
+## 48x48 face for the act-clear moment; 16x16 for slots (zone select, pause).
 const ICON_PATH := "res://assets/sprites/common/emerald/emerald.png"
+const ICON_SMALL_PATH := "res://assets/sprites/common/emerald/emerald_small.png"
 
 
 ## GameState's key for one act.
@@ -40,6 +42,8 @@ static func total() -> int:
 	return all_keys().size()
 
 
-## The icon texture, or null until the art exists.
-static func icon() -> Texture2D:
-	return load(ICON_PATH) if ResourceLoader.exists(ICON_PATH) else null
+## The icon texture (48 px, or 16 px when `small`), or null until the art
+## exists; callers draw a placeholder gem then.
+static func icon(small := false) -> Texture2D:
+	var path := ICON_SMALL_PATH if small else ICON_PATH
+	return load(path) if ResourceLoader.exists(path) else null
