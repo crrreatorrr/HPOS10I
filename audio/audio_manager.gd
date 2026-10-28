@@ -15,13 +15,20 @@ extends Node
 ## - Web: browsers keep audio locked until the first user gesture: a key,
 ##   click or tap (gamepad presses don't count for browsers). Until then sound
 ##   effects are skipped and the requested music waits; it starts on that
-##   gesture. If a gamepad is used while still locked, a small hint
-##   (ui/sound_hint) asks for a click or a key press.
+##   gesture. Each gamepad press while still locked shows a short toast
+##   (ui/sound_hint) asking for a click or a key press.
+##   `-- --sound_hint` previews this on desktop: audio starts locked, as on
+##   the web, and the toast shows at once.
 
+## show = true: a gamepad was used while locked (show or re-show the hint);
+## false: audio unlocked (the hint can go).
 signal unlock_hint_changed(show: bool)
 
 const SFX_DIR := "res://audio/sfx/"
 const UNLOCK_HINT_SCENE := "res://ui/sound_hint/sound_hint.tscn"
+## A moving stick sends many events; it re-shows the hint at most this often
+## (in frames). Button presses always do.
+const HINT_REPEAT_FRAMES := 15
 const MUSIC_DIR := "res://audio/music/"
 
 ## Every name from docs/CONTRACTS.md.
@@ -59,6 +66,7 @@ var _streams := {}
 var _locked := false
 ## A gamepad was used while audio was still locked (the hint is showing).
 var _gamepad_while_locked := false
+var _last_hint_frame := -HINT_REPEAT_FRAMES
 var _ducked := false
 
 
@@ -81,9 +89,13 @@ func _ready() -> void:
 	# Load the small effects up front so the first play never hitches.
 	for sfx in SFX_NAMES:
 		_stream(SFX_DIR + String(sfx) + ".ogg")
-	set_locked(OS.has_feature("web"))
+	# Read the flag directly: the Dev autoload is set up after this one.
+	var preview := "--sound_hint" in OS.get_cmdline_user_args()
+	set_locked(OS.has_feature("web") or preview)
 	if _locked and ResourceLoader.exists(UNLOCK_HINT_SCENE):
 		add_child(load(UNLOCK_HINT_SCENE).instantiate())
+	if preview:
+		_gamepad_used_while_locked.call_deferred()
 
 
 func play_sfx(sfx_name: StringName) -> void:
@@ -163,9 +175,17 @@ func _input(event: InputEvent) -> void:
 		return
 	var gamepad := (event is InputEventJoypadButton and event.is_pressed()) \
 			or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.5)
-	if gamepad and not _gamepad_while_locked:
-		_gamepad_while_locked = true
-		unlock_hint_changed.emit(true)
+	if gamepad:
+		_gamepad_used_while_locked(event is InputEventJoypadMotion)
+
+
+func _gamepad_used_while_locked(throttled := false) -> void:
+	var frame := Engine.get_process_frames()
+	if throttled and _gamepad_while_locked and frame - _last_hint_frame < HINT_REPEAT_FRAMES:
+		return
+	_gamepad_while_locked = true
+	_last_hint_frame = frame
+	unlock_hint_changed.emit(true)
 
 
 func _process(_delta: float) -> void:

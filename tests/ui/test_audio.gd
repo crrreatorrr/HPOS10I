@@ -210,15 +210,60 @@ func test_gamepad_never_shows_the_hint_once_unlocked() -> void:
 	assert_true(not hint.visible, "no hint")
 
 
-func test_hint_stays_clear_of_the_hud() -> void:
+func test_hint_is_a_toast_that_comes_back_on_the_next_press() -> void:
 	var hint: SoundHint = add_scene("res://ui/sound_hint/sound_hint.tscn")
-	var hud: Node = add_scene("res://ui/hud/hud.tscn")
-	await tree.process_frame
-	var label := hint.get_node("Root/Label") as Label
-	var font := label.get_theme_font(&"font")
-	var text_width := font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
-	assert_true(text_width <= label.size.x, "text fits its box (%s px)" % text_width)
-	var rect := label.get_global_rect()
-	for name in ["Counters", "Lives"]:
-		var other := hud.find_child(name, true, false) as Control
-		assert_true(not rect.intersects(other.get_global_rect()), "clear of the HUD %s" % name)
+	audio.set_locked(true)
+	var button := InputEventJoypadButton.new()
+	button.button_index = JOY_BUTTON_A
+	button.pressed = true
+	tree.root.push_input(button, true)
+	assert_true(hint.visible, "shown on a gamepad press")
+	var frames := 0
+	while hint.visible and frames < 600:
+		await tree.process_frame
+		frames += 1
+	assert_true(not hint.visible, "fades away by itself")
+	assert_near(frames / 60.0, SoundHint.SHOW_SECONDS, 0.2, "after about %s s" % SoundHint.SHOW_SECONDS)
+	await get_tree_time(0.3)
+	tree.root.push_input(button, true)
+	assert_true(hint.visible, "the next gamepad press brings it back while still locked")
+
+
+func get_tree_time(seconds: float) -> void:
+	await tree.create_timer(seconds, true, false, true).timeout
+
+
+## The toast must sit clear of every HUD and scene widget in gameplay.
+func test_hint_is_clear_in_the_playground_and_the_test_zone() -> void:
+	for scene_path in ["res://playground/physics_playground.tscn", "res://levels/test_zone/test_zone.tscn"]:
+		if not ResourceLoader.exists(scene_path):
+			continue
+		var hint: SoundHint = add_scene("res://ui/sound_hint/sound_hint.tscn")
+		var scene := add_scene(scene_path)
+		var hud: Node = null
+		if scene.find_child("HUD", true, false) == null:
+			hud = add_scene("res://ui/hud/hud.tscn")
+		await physics_frames(5)
+		hint.show_hint()
+		var label := hint.get_node("Root/Label") as Label
+		var box := label.get_global_rect()
+		var text_width := label.get_theme_font(&"font").get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+		assert_true(text_width <= box.size.x, "text fits its box (%s px)" % text_width)
+		var pause_button := Rect2(TouchControls.PAUSE_CENTER - TouchControls.PAUSE_DRAW_SIZE * 0.5,
+				TouchControls.PAUSE_DRAW_SIZE).grow(2)
+		assert_true(not box.intersects(pause_button), "clear of the touch pause button")
+		for node in tree.root.find_children("*", "Control", true, false):
+			var control := node as Control
+			if control == label or not control.is_visible_in_tree():
+				continue
+			if not (control is Label or control is TextureRect):
+				continue
+			if control is Label and (control as Label).text.strip_edges() == "":
+				continue
+			if box.intersects(control.get_global_rect()):
+				fail("%s: hint overlaps %s (%s)" % [scene_path.get_file(), control.get_path(), control.get_global_rect()])
+		scene.queue_free()
+		hint.queue_free()
+		if hud != null:
+			hud.queue_free()
+		await physics_frames(2)
