@@ -39,6 +39,10 @@ and list the request in your final report.
 - **What ships:** `playground/` holds playable demo scenes that ship in the
   web build and show up in the boot menu. `tests/`, `tools/`, `qa/` and
   `docs/` never ship (CI's web check fails the build if they do).
+- **No `static var` in scripts that reference `Player`** (directly or
+  through a class it loads). A static variable near the player ↔
+  scattered-ticket script cycle kept scripts alive at exit, and the smoke
+  test failed on leak messages.
 - **Placeholders:** until art is approved, draw simple shapes (`Polygon2D`,
   `_draw()`, `ColorRect`). Keep them readable and on-model (docs/DESIGN.md):
   Sproto blue and yellow, enemies as pill robots, hazards orange, springs
@@ -150,6 +154,8 @@ The player reads `SceneRouter.current_zone().accessory` (`""`,
 `"wizard_hat"`, `"sunglasses"`) and draws the accessory overlay.
 
 Scattered tickets (`player/scattered_ticket.tscn`) belong to the physics agent.
+Pickup sparkle: `Effects.ticket_sparkle(at: Vector2, parent: Node = null)`
+(player/effects.gd). Every ticket calls it on collect.
 Placed level tickets (`levels/objects/ticket.tscn`) belong to the level agent.
 Both call `GameState.add_tickets(1)` and `Audio.play_sfx(&"ticket")`.
 
@@ -233,6 +239,13 @@ direction difficulty (R1–R5), checkpoints and tickets.
 - Enemy behaviours come from the T1–T4 roster in docs/LEVELS.md, dressed per
   zone (docs/DESIGN.md).
 - `Enemy` exports `tier: int`, so QA's lint can check each act's tier mix.
+- **Difficulty rises inside every act.** `LevelRoot.progress_at(x) -> float`
+  (0 at PlayerStart, 1 at the goal sign) gives an enemy its progress, and
+  `Difficulty.local(progress)` gives the local difficulty to pass to the
+  multipliers.
+- **Bosses** read `Difficulty.boss(zone_id)`: d, weak_window,
+  attacks_per_cycle, telegraph, escalation, desperation, ticket_refills.
+  The last two bosses are very difficult by design (docs/LEVELS.md).
 
 ## Bosses (boss agent: `bosses/`)
 
@@ -330,7 +343,8 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 
 ## Before you report back
 
-1. `godot --headless --path <your worktree> --import` shows no script errors.
+1. `godot --headless --path <your worktree> --import` completes. Import
+   alone doesn't report script errors, so run steps 2 and 3 too.
 2. `godot --headless --fixed-fps 60 --path <your worktree> -s res://tests/run_tests.gd` passes.
 3. `git diff --name-only main...HEAD` lists only your folders.
 4. Commit in small steps with clear messages on your branch.

@@ -11,8 +11,8 @@ var _age := 0
 
 
 func _ready() -> void:
-	collision_layer = 1 << 6  # objects
-	collision_mask = 1 << 4  # player hitbox
+	collision_layer = Layers.OBJECTS
+	collision_mask = Layers.PLAYER
 	monitorable = false
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
@@ -30,6 +30,7 @@ func _physics_process(_delta: float) -> void:
 	for area in get_overlapping_areas():
 		var player := Player.from_area(area)
 		if player != null and player.can_collect_tickets():
+			Effects.ticket_sparkle(global_position, get_parent())
 			GameState.add_tickets(1)
 			Audio.play_sfx(&"ticket")
 			_hidden_frames = RESPAWN_FRAMES

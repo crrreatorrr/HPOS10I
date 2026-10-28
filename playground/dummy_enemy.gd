@@ -11,8 +11,8 @@ var _flash := 0
 
 
 func _ready() -> void:
-	collision_layer = 1 << 5  # enemies
-	collision_mask = 1 << 4  # player hitbox
+	collision_layer = Layers.ENEMIES
+	collision_mask = Layers.PLAYER
 	monitorable = true
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()

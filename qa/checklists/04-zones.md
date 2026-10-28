@@ -46,10 +46,10 @@ The rows of `Difficulty.TARGETS` are the contract: D 0 is the test zone, D 1–8
 Run `godot --headless --path . -s res://tools/qa/level_lint.gd` for the full per-act report; the auto items below run in `tests/qa/test_level_difficulty.gd`.
 
 - [ ] ZN-I1 [auto] `Difficulty.for_stage(zone, act)` gives the D in the LEVELS.md table for every built act (`level_lint.gd -- --list-acts`).
-- [ ] ZN-I2 [auto] Length is within ±25 % of the row's `screens`. Length = walkable width in 424 px screens.
+- [ ] ZN-I2 [auto] Length is within ±25 % of the row's `screens` (45–85 screens from a866341). Length = walkable width in 424 px screens.
 - [ ] ZN-I3 [auto] Enemy density (Enemy nodes per screen) is within ±25 % of `enemies_per_screen`.
 - [ ] ZN-I4 [auto] Every enemy extends `Enemy` and sets `tier` (1–4).
-  - No enemy is above the row's highest tier (error).
+  - No enemy before the finale is above the row's highest tier (error); the finale may go one tier higher (ZN-I14).
   - Each tier's share is within 25 points of the row's mix (warning).
 - [ ] ZN-I5 [auto] The checkpoint count matches `checkpoints`: 1 off is a warning, 2 or more is an error.
   - No gap between start, checkpoints and goal is longer than 1.75× the even spacing (and 3 screens).
@@ -79,6 +79,21 @@ Run `godot --headless --path . -s res://tools/qa/level_lint.gd` for the full per
   - telegraphs = `Difficulty.telegraph(base, D)`, never below 0.35 s.
 
   No per-zone speed constants in `levels/enemies/` (grep).
+- [ ] ZN-I14 [auto] In-act ramp (docs/LEVELS.md "Rising difficulty inside every act", acts with D ≥ 1). Progress is 0 at PlayerStart and 1 at the goal (x proxy of `LevelRoot.progress_at`); the sections are opening 0–25 %, middle 25–75 % and finale 75–100 %. `level_lint` prints each section's density and highest tier. Errors:
+  - finale enemy density below 1.3× the middle (target 1.4×);
+  - the finale's highest tier not one above the act's ceiling (T4 stays T4);
+  - an opening or middle enemy above the act's ceiling.
+
+  Warning: the opening already uses the act's top tier.
+- [ ] ZN-I15 [auto] A checkpoint sits within 1.5 screens of the finale start (progress 0.75) in every act.
+- [ ] ZN-I16 [auto] In the act before a boss (the last act of a zone with a boss):
+  - a checkpoint is within about 2 screens of the arena gate (a node named `BossGate`/`ArenaGate`, otherwise the goal);
+  - the gauntlet ends in a short calm corridor (manual: no enemies in the last ~1 screen before the gate).
+- [ ] ZN-I17 [auto] Finale enemies really are harder:
+  - The base `levels/enemies/enemy_base.gd` (or every enemy script) reads `Difficulty.local(...)` / `progress_at(...)` (source check).
+  - When enemies expose a read-only `local_difficulty`, the finale's median is above the middle's; pre-boss acts climb to about D + 1.5 at the gate.
+  - Runtime probe on a built act: the same enemy scene placed at progress 0.5 and 0.95 moves faster (`speed_mult(local)`) and attacks sooner (`interval_mult`), and its telegraph is never under 0.35 s.
+- [ ] ZN-I18 [manual] The boss approach gauntlet combines every mechanic the zone taught. Its high route is the hardest stretch of the act, and the low route stays survivable.
 - [ ] ZN-I11 [manual] Teach → test → twist: the act's new idea appears first where it is safe (no pit or enemy nearby).
 - [ ] ZN-I12 [manual] Fairness:
   - No blind drops into pits.

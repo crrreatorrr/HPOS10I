@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="2_curve"]
 [ext_resource type="PackedScene" path="res://terrain/loop.tscn" id="3_loop"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="4_player"]
-[ext_resource type="Script" path="res://playground/playground_camera.gd" id="5_camera"]
+[ext_resource type="PackedScene" path="res://camera/game_camera.tscn" id="5_camera"]
 [ext_resource type="Script" path="res://playground/dummy_enemy.gd" id="6_dummy"]
 [ext_resource type="Script" path="res://playground/playground_ticket.gd" id="7_ticket"]
 
@@ -99,31 +99,37 @@ position = Vector2(2400, 0)
 position = Vector2(2576, 0)
 script = ExtResource("2_curve")
 shape = 4
-size = Vector2(400, 64)
+size = Vector2(464, 64)
 
 [node name="SmallLoop" parent="Terrain" instance=ExtResource("3_loop")]
-position = Vector2(3120, 0)
+position = Vector2(3248, 0)
 radius = 80.0
 
 [node name="Hills" type="StaticBody2D" parent="Terrain"]
-position = Vector2(3264, 0)
+position = Vector2(3464, 0)
 script = ExtResource("2_curve")
 shape = 3
 curve = SubResource("Curve2D_hills")
 
 [node name="EndFloor" type="StaticBody2D" parent="Terrain"]
-position = Vector2(3984, 0)
+position = Vector2(4184, 0)
 script = ExtResource("2_curve")
 shape = 4
 size = Vector2(80, 64)
 
 [node name="QuarterPipe" type="StaticBody2D" parent="Terrain"]
-position = Vector2(4064, 0)
+position = Vector2(4264, 0)
 script = ExtResource("2_curve")
 shape = 1
 radius = 96.0
 thickness = 48.0
-wall_height = 224.0
+wall_height = 504.0
+
+[node name="RightWall" type="StaticBody2D" parent="Terrain"]
+position = Vector2(4628, -1400)
+script = ExtResource("2_curve")
+shape = 4
+size = Vector2(64, 1464)
 
 [node name="Dummy" type="Area2D" parent="."]
 position = Vector2(48, 0)
@@ -153,10 +159,5 @@ position = Vector2(240, -19)
 [node name="Player" parent="." instance=ExtResource("4_player")]
 position = Vector2(240, -19)
 
-[node name="Camera" type="Camera2D" parent="."]
-position = Vector2(240, -40)
-limit_left = -64
-limit_top = -600
-limit_right = 4224
-limit_bottom = 64
-script = ExtResource("5_camera")
+[node name="Camera" parent="." instance=ExtResource("5_camera")]
+position = Vector2(240, -3)

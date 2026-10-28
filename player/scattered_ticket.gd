@@ -63,8 +63,8 @@ static func scatter(parent: Node, origin: Vector2, count: int) -> Array[Scattere
 
 func _ready() -> void:
 	add_to_group(&"scattered_ticket")
-	collision_layer = 1 << 6  # objects
-	collision_mask = 1 << 4  # player hitbox
+	collision_layer = Layers.OBJECTS
+	collision_mask = Layers.PLAYER
 	monitorable = false
 	_query.collide_with_areas = false
 
@@ -76,18 +76,18 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 
-	var gravity := PhysicsConstants.accel(p.ticket_gravity)
+	var fall := PhysicsConstants.accel(p.ticket_gravity)
 	var cap := PhysicsConstants.speed(p.speed_cap)
 	var from := global_position
-	global_position += _vel * delta + Vector2(0.0, 0.5 * gravity * delta * delta)
-	_vel.y = minf(_vel.y + gravity * delta, cap)
+	global_position += _vel * delta + Vector2(0.0, 0.5 * fall * delta * delta)
+	_vel.y = minf(_vel.y + fall * delta, cap)
 
 	# Bounce off floors only while falling (sweep from last position: no tunnelling).
 	if _vel.y > 0.0:
 		_query.from = from
 		_query.to = global_position + Vector2(0.0, RADIUS)
-		_query.collision_mask = PlayerSensors.BIT_SOLID | PlayerSensors.BIT_PATH_A \
-				| PlayerSensors.BIT_PATH_B | PlayerSensors.BIT_TOP_ONLY
+		_query.collision_mask = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A \
+				| Layers.TERRAIN_PATH_B | Layers.TERRAIN_TOP_ONLY
 		var hit := get_world_2d().direct_space_state.intersect_ray(_query)
 		if not hit.is_empty():
 			global_position.y = hit.position.y - RADIUS
@@ -100,11 +100,12 @@ func _physics_process(delta: float) -> void:
 				_collect()
 				return
 
-	visible = _age < p.ticket_lifetime_frames - BLINK_FRAMES or (_age / 4) % 2 == 0
+	visible = _age < p.ticket_lifetime_frames - BLINK_FRAMES or posmod(_age, 8) < 4
 	queue_redraw()
 
 
 func _collect() -> void:
+	Effects.ticket_sparkle(global_position, get_parent())
 	GameState.add_tickets(1)
 	Audio.play_sfx(&"ticket")
 	queue_free()
