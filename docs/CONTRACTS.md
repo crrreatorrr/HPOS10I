@@ -203,6 +203,20 @@ crushers. Each side's responsibilities:
   out (up to 10 px sideways). Crushers must telegraph before they close.
 - **Interpolation:** anything that teleports (a platform reset, a respawn)
   calls `reset_physics_interpolation()`.
+- **Level-building rules** (QA-measured):
+  - Reference implementation: `playground/demo_moving_platform.gd`. Its
+    node position updates after the physics step, so use
+    `target_position()` for where it's heading.
+  - Descending platforms that should be ridden move ≤ 6 px/frame.
+  - Where crushing isn't intended, leave ≥ 39 px vertical clearance
+    (≥ 29 px in roll tunnels) and ≥ 19 px horizontal between a moving body
+    and other terrain.
+  - Crushers telegraph for `Difficulty.telegraph(base, local)` (never under
+    0.35 s), including their first cycle after a respawn.
+  - Conveyors: put the `conveyor_speed` meta on a static terrain body and
+    show the direction with chevrons.
+  - One-way moving platforms use `Layers.TERRAIN_TOP_ONLY`.
+  - Never place a checkpoint or PlayerStart on a moving platform.
 
 ## Camera (physics agent: `camera/`)
 
