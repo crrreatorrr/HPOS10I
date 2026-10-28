@@ -70,6 +70,8 @@ func _collect_entries() -> void:
 			var stage_name := "Boss" if stage > zone.acts.size() else "Act %d" % stage
 			if zone.acts.size() == 1 and stage == 1:
 				stage_name = ""
+			if not ZoneRegistry.is_released(zone.id):
+				stage_name += " (WIP)"  # dev menu only; players never see these
 			_entries.append({
 				label = ("%s %s" % [zone.name, stage_name]).strip_edges(),
 				start = SceneRouter.start_zone.bind(zone.id, stage),

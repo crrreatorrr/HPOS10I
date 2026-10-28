@@ -66,6 +66,17 @@ static func all_zones(include_test := false) -> Array:
 	return list
 
 
+## Zones players can pick. The rest exist on main while they are tuned
+## (dev tools and --zone launches still open them); the boot menu and the
+## zone select hide them, and export_presets.cfg keeps their folders out of
+## the web build. Lead-owned: a zone is released after QA passes it.
+const RELEASED: Array[String] = ["z1_retro_rush_hills", "z2_wizard_academy"]
+
+
+static func is_released(id: String) -> bool:
+	return id == TEST_ZONE.id or id in RELEASED
+
+
 static func get_zone(id: String) -> Dictionary:
 	if id == TEST_ZONE.id:
 		return TEST_ZONE
