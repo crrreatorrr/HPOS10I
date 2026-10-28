@@ -29,6 +29,7 @@ Every act gets section A and B; then the zone-specific section.
 - [ ] ZN-B8 [auto] Bot `--policy=fuzz` 18 000 frames: no errors, no NaN, no softlock.
 - [ ] ZN-B9 [manual] Every loop is traversable both ways; path switchers put the player on the right path.
 - [ ] ZN-B10 [manual] Act length about 1.5–4 minutes for a first-time player; routes branch high/low.
+- [ ] ZN-B12 [auto] Every directional object and enemy in the act draws its direction the way it acts: launch, push, conveyor flow, facing shield or visor (02 TL-D7).
 - [ ] ZN-B11 [manual] Web performance: 60 fps in the browser on a mid laptop through the busiest part.
 
 ## C. Moving solids (any zone that has them)
