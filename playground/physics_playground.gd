@@ -6,8 +6,10 @@ extends Node2D
 ## `--accessory=wizard_hat` (or sunglasses) to preview a zone accessory, and
 ## `--start=X` to drop Sproto in at x = X (to try one section).
 
-const HINT := "Arrows/WASD run   Z/X/C/Space jump   Down: roll   Down+Jump: spin dash   F1: overlay"
+const HINT := "Arrows/WASD run   Z/X/C/Space jump   Down: roll   Down+Jump: spin dash   Up/Down: look   F1: overlay"
 const RESPAWN_FRAMES := 120
+## The camera never shows outside this area.
+const LEVEL_BOUNDS := Rect2(-64, -600, 4288, 664)
 
 @onready var player: Player = $Player
 @onready var start: Marker2D = $PlayerStart
@@ -21,6 +23,7 @@ func _ready() -> void:
 	if Dev.args.has("start"):
 		start.global_position = Vector2(float(Dev.args.start), -19.0)
 	player.respawn_at(start.global_position)
+	($Camera as GameCamera).set_level_bounds(LEVEL_BOUNDS)
 	if Dev.args.has("accessory"):
 		player.get_node("Visual/Accessory").set_accessory(str(Dev.args.accessory))
 	player.died.connect(func() -> void: _respawn_in = RESPAWN_FRAMES)

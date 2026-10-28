@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="2_curve"]
 [ext_resource type="PackedScene" path="res://terrain/loop.tscn" id="3_loop"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="4_player"]
-[ext_resource type="Script" path="res://playground/playground_camera.gd" id="5_camera"]
+[ext_resource type="PackedScene" path="res://camera/game_camera.tscn" id="5_camera"]
 [ext_resource type="Script" path="res://playground/dummy_enemy.gd" id="6_dummy"]
 [ext_resource type="Script" path="res://playground/playground_ticket.gd" id="7_ticket"]
 
@@ -153,10 +153,5 @@ position = Vector2(240, -19)
 [node name="Player" parent="." instance=ExtResource("4_player")]
 position = Vector2(240, -19)
 
-[node name="Camera" type="Camera2D" parent="."]
-position = Vector2(240, -40)
-limit_left = -64
-limit_top = -600
-limit_right = 4224
-limit_bottom = 64
-script = ExtResource("5_camera")
+[node name="Camera" parent="." instance=ExtResource("5_camera")]
+position = Vector2(240, -3)

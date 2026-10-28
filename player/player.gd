@@ -309,6 +309,7 @@ func respawn_at(new_position: Vector2) -> void:
 	_leave_ground()
 	_set_ball(false)
 	global_position = new_position
+	reset_physics_interpolation()
 	ground_angle = 0.0
 	_gsp = 0.0
 	_vel = Vector2.ZERO
