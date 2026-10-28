@@ -5,6 +5,10 @@ extends SceneTree
 ## Exit code is 1 if any test fails. Owned by the lead.
 
 
+## A test still running after this many physics frames fails (2 game minutes).
+const TIMEOUT_FRAMES := 7200
+
+
 func _initialize() -> void:
 	_run.call_deferred()
 
@@ -37,9 +41,11 @@ func _run() -> void:
 			var test: TestCase = script.new()
 			test.tree = self
 			await test.before_each()
-			await Callable(test, method.name).call()
+			if not await _run_with_timeout(Callable(test, method.name)):
+				test.fail("timed out after %d physics frames" % TIMEOUT_FRAMES)
 			await test.after_each()
 			test._cleanup()
+			_reset_global_state()
 			await process_frame
 			var label := "%s :: %s" % [path.trim_prefix("res://tests/"), method.name]
 			if test._failures.is_empty():
@@ -52,6 +58,30 @@ func _run() -> void:
 
 	print("\n%d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
+
+
+## Runs a (possibly async) test method; false if it didn't finish in time.
+func _run_with_timeout(method: Callable) -> bool:
+	var done := [false]
+	var runner := func() -> void:
+		await method.call()
+		done[0] = true
+	runner.call()
+	var frames := 0
+	while not done[0] and frames < TIMEOUT_FRAMES:
+		await physics_frame
+		frames += 1
+	return done[0]
+
+
+## Undo anything a test may have left behind in the autoloads or engine.
+func _reset_global_state() -> void:
+	paused = false
+	Engine.time_scale = 1.0
+	root.get_node("GameState").reset_game()
+	var router := root.get_node("SceneRouter")
+	router.zone_id = ""
+	router.stage = 1
 
 
 func _collect(dir_path: String, out: PackedStringArray) -> void:

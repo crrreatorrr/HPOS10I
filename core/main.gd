@@ -11,11 +11,14 @@ var _label: Label
 
 
 func _ready() -> void:
-	if Dev.args.has("scene") and ResourceLoader.exists(Dev.args.scene):
-		SceneRouter.open_scene(Dev.args.scene)
-		return
-	if Dev.args.has("zone"):
-		SceneRouter.start_zone(Dev.args.zone, int(Dev.args.get("stage", "1")))
+	var target := Dev.take_boot_target()
+	if target.has("scene"):
+		if ResourceLoader.exists(target.scene):
+			SceneRouter.open_scene(target.scene)
+			return
+		push_error("[Main] --scene not found: %s" % target.scene)
+	elif target.has("zone"):
+		SceneRouter.start_zone(target.zone, target.stage)
 		return
 	if not Dev.args.has("dev") and ResourceLoader.exists(SceneRouter.TITLE_SCENE):
 		SceneRouter.go_title()

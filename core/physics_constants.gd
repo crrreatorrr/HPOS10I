@@ -2,8 +2,8 @@ class_name PhysicsConstants
 extends Resource
 ## Every movement constant for Sproto, in one place for live tuning.
 ##
-## Values are stored in the classic units from the community Sonic Physics
-## Guide: pixels per frame (speeds) and pixels per frame per frame
+## Values are stored in the classic units from the community Physics Guide:
+## pixels per frame (speeds) and pixels per frame per frame
 ## (accelerations), at a fixed 60 fps. Convert with speed() / accel() before
 ## integrating with delta, or step the controller once per 60 Hz tick.
 ##
@@ -17,6 +17,10 @@ const FPS := 60.0
 @export var deceleration := 0.5
 @export var friction := 0.046875
 @export var top_speed := 6.0
+## Reversing at or above this ground speed (floor mode) starts a skid.
+@export var skid_min_speed := 4.0
+## Pressing against the motion flips ground speed to this when it crosses zero.
+@export var turnaround_speed := 0.5
 
 @export_group("Air")
 @export var air_acceleration := 0.09375
@@ -29,11 +33,15 @@ const FPS := 60.0
 @export var air_drag_max_up := 4.0
 @export var air_drag_min_x := 0.125
 @export var max_fall_speed := 16.0
+## Degrees per frame the angle eases back to 0 while airborne.
+@export var air_angle_ease := 2.8125
 
 @export_group("Slopes")
 @export var slope_factor_normal := 0.125
 @export var slope_factor_roll_up := 0.078125
 @export var slope_factor_roll_down := 0.3125
+## Standing still, the slope factor only applies when it is at least this big.
+@export var slope_stand_min := 0.05078125
 ## Below this ground speed on a steep slope the player slips.
 @export var slip_speed := 2.5
 ## Slopes steeper than this (degrees from flat) can make the player slip.
@@ -80,6 +88,12 @@ const FPS := 60.0
 @export var coin_recollect_delay_frames := 64
 ## Scattered coins disappear after this many frames.
 @export var coin_lifetime_frames := 256
+## Launch speed of the first 16 scattered coins, then the rest.
+@export var coin_scatter_speed_first := 4.0
+@export var coin_scatter_speed_second := 2.0
+@export var coin_gravity := 0.09375
+## Y speed multiplier when a scattered coin hits the floor.
+@export var coin_bounce := -0.75
 
 
 ## Pixels per frame -> pixels per second.

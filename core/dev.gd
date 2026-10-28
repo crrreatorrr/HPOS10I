@@ -16,6 +16,10 @@ var args := {}
 
 var _timeline: Array = []
 var _frame := 0
+## Actions the timeline is holding down. Re-pressed every frame because the
+## OS releases all input when the window loses focus mid-recording.
+var _held := {}
+var _boot_taken := false
 
 
 func _ready() -> void:
@@ -34,9 +38,30 @@ func _physics_process(_delta: float) -> void:
 	while not _timeline.is_empty() and _timeline[0][0] <= _frame:
 		var event: Array = _timeline.pop_front()
 		send_action(event[1], event[2])
+		if event[2]:
+			_held[event[1]] = true
+		else:
+			_held.erase(event[1])
+	for action in _held:
+		if not Input.is_action_pressed(action):
+			send_action(action, true)
 	_frame += 1
-	if _timeline.is_empty():
+	if _timeline.is_empty() and _held.is_empty():
 		set_physics_process(false)
+
+
+## The --scene / --zone boot target, returned only once so returning to the
+## main scene later (e.g. a missing stage) doesn't relaunch it.
+## Returns {scene = path}, {zone = id, stage = n}, or {}.
+func take_boot_target() -> Dictionary:
+	if _boot_taken:
+		return {}
+	_boot_taken = true
+	if args.get("scene") is String:
+		return {scene = args.scene}
+	if args.get("zone") is String:
+		return {zone = args.zone, stage = int(args.get("stage", "1"))}
+	return {}
 
 
 ## Presses or releases an input action as if a real device did it.
@@ -54,5 +79,8 @@ static func load_timeline(path: String) -> Array:
 		push_error("[Dev] bad input timeline: %s" % path)
 		return []
 	var events: Array = data.events
-	events.sort_custom(func(a, b): return a[0] < b[0])
+	# Stable sort: events on the same frame keep their file order.
+	for i in events.size():
+		events[i] = [events[i][0], events[i][1], events[i][2], i]
+	events.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[3] < b[3]))
 	return events

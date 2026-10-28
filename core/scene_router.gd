@@ -2,6 +2,9 @@ extends Node
 ## Moves between title, zone select, acts and boss arenas.
 ## Missing scenes fall back to the dev menu so nothing hard-crashes while
 ## agents are still building their parts.
+##
+## Only the first scene change requested in a frame takes effect, so a goal
+## and a death landing on the same frame can't both fire.
 
 const MAIN_SCENE := "res://core/main.tscn"
 const TITLE_SCENE := "res://ui/title/title_screen.tscn"
@@ -15,61 +18,85 @@ var zone_id := ""
 ## 1-based. Acts are 1..n, the boss arena is n + 1.
 var stage := 1
 
+## Scene opened directly (dev menu, sandboxes); respawn reloads it.
+var _free_scene := ""
+var _change_frame := -1
+
 
 func go_title() -> void:
-	_change_to(TITLE_SCENE if ResourceLoader.exists(TITLE_SCENE) else MAIN_SCENE)
+	if _claim("go_title"):
+		_change_to(_title_or_main())
 
 
 func go_zone_select() -> void:
-	_change_to(ZONE_SELECT_SCENE if ResourceLoader.exists(ZONE_SELECT_SCENE) else MAIN_SCENE)
+	if _claim("go_zone_select"):
+		_change_to(ZONE_SELECT_SCENE if ResourceLoader.exists(ZONE_SELECT_SCENE) else MAIN_SCENE)
 
 
 ## Starts a zone at the given stage (1 = act 1). Resets coins and checkpoint.
 func start_zone(new_zone_id: String, new_stage := 1) -> void:
-	zone_id = new_zone_id
-	stage = new_stage
-	GameState.start_level(zone_id, stage)
-	_load_stage()
+	if _claim("start_zone"):
+		_start_zone(new_zone_id, new_stage)
 
 
 ## Advances act 1 -> act 2 -> boss -> next zone (or ending).
 func next_stage() -> void:
-	var next_path := ZoneRegistry.stage_path(zone_id, stage + 1)
-	if next_path != "":
-		start_zone(zone_id, stage + 1)
+	if not _claim("next_stage"):
+		return
+	if ZoneRegistry.stage_path(zone_id, stage + 1) != "":
+		_start_zone(zone_id, stage + 1)
 		return
 	var next_zone := ZoneRegistry.next_zone_id(zone_id)
 	if next_zone != "":
-		start_zone(next_zone, 1)
+		_start_zone(next_zone, 1)
 	elif ResourceLoader.exists(ENDING_SCENE):
 		_change_to(ENDING_SCENE)
 	else:
-		go_title()
+		_change_to(_title_or_main())
 
 
-## Reloads the current stage after a death, keeping the checkpoint.
+## Call once after the player dies: takes a life (not in sandboxes), then
+## reloads the stage from the checkpoint, or goes to game over.
 func respawn() -> void:
+	if not _claim("respawn"):
+		return
+	if _free_scene == "":
+		GameState.lose_life()
 	if GameState.lives <= 0:
 		if ResourceLoader.exists(GAME_OVER_SCENE):
 			_change_to(GAME_OVER_SCENE)
 		else:
 			GameState.reset_game()
-			go_title()
+			_change_to(_title_or_main())
 		return
 	GameState.restart_from_checkpoint()
-	_load_stage()
+	if _free_scene != "":
+		_change_to(_free_scene)
+	else:
+		_load_stage()
 
 
-## Opens any scene directly (dev menu, tests). Not tied to a zone.
+## Opens any scene directly (dev menu, sandboxes). Not tied to a zone.
 func open_scene(path: String) -> void:
+	if not _claim("open_scene"):
+		return
 	zone_id = ""
 	stage = 1
+	_free_scene = path
 	GameState.start_level("", 1)
 	_change_to(path)
 
 
 func current_zone() -> Dictionary:
 	return ZoneRegistry.get_zone(zone_id)
+
+
+func _start_zone(new_zone_id: String, new_stage: int) -> void:
+	zone_id = new_zone_id
+	stage = new_stage
+	_free_scene = ""
+	GameState.start_level(zone_id, stage)
+	_load_stage()
 
 
 func _load_stage() -> void:
@@ -83,6 +110,20 @@ func _load_stage() -> void:
 	if zone.has("music"):
 		Audio.play_music(zone.music)
 	_change_to(path)
+
+
+func _title_or_main() -> String:
+	return TITLE_SCENE if ResourceLoader.exists(TITLE_SCENE) else MAIN_SCENE
+
+
+## True for the first scene-change request this frame, false for the rest.
+func _claim(request: String) -> bool:
+	var frame := Engine.get_process_frames()
+	if frame == _change_frame:
+		print("[SceneRouter] ignored %s: a scene change is already pending this frame" % request)
+		return false
+	_change_frame = frame
+	return true
 
 
 func _change_to(path: String) -> void:

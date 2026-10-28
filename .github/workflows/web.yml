@@ -26,11 +26,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Cache Godot and web export templates
         id: godot-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/godot
@@ -55,19 +55,30 @@ jobs:
       - name: Import project
         run: ~/godot/godot --headless --path . --import
 
+      - name: Originality scan
+        run: tools/qa/originality_scan.sh .
+
       - name: Run tests
         run: ~/godot/godot --headless --fixed-fps 60 --path . -s res://tests/run_tests.gd
+
+      # `godot --import` exits 0 even on script parse errors; this catches them
+      # and runs every scene for a few frames.
+      - name: Script and scene smoke test
+        env:
+          SMOKE_IMPORT: "0"
+        run: GODOT="$HOME/godot/godot" tools/qa/scene_smoke.sh .
 
       - name: Export web build
         run: |
           mkdir -p build/web
           ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
           touch build/web/.nojekyll
-          du -sh build/web
-          ls -la build/web
+
+      - name: Check web build (single-threaded, sizes, audio formats)
+        run: tools/qa/web_check.sh build/web
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-build
           path: build/web
@@ -76,7 +87,7 @@ jobs:
 
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && vars.PAGES_ENABLED == 'true'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: build/web
 
@@ -89,4 +100,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

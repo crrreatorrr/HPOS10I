@@ -11,7 +11,7 @@ built in Godot 4 with classic 16-bit physics.
 
 ## Play
 
-- **In your browser:** link coming with the first published build.
+- **In your browser:** https://crrreatorrr.github.io/HPOS10I/ (desktop or mobile)
 - **From source:** install [Godot 4.7.2](https://godotengine.org/download), then
   open `project.godot` and press **F5**, or run:
 

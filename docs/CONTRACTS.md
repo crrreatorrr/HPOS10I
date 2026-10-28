@@ -15,8 +15,11 @@ Each agent works on its own branch and only touches its own folders.
 | Boss agent | `bosses` | `bosses/`, `tests/bosses/` |
 | Art agent | `art` | `assets/`, `tools/art/`, `prompts.md` |
 | UI/audio agent | `ui-audio` | `ui/`, `audio/`, `tests/ui/` |
+| QA agent | `qa` | `qa/`, `tools/qa/`, `tests/qa/` |
 
-Other agents' folders are **read-only** to you. If you need a shared-file
+Other agents' folders are **read-only** to you. The QA agent reads
+everything and changes nothing outside its folders: bugs go back to the
+owning agent. If you need a shared-file
 change (a physics constant, input action, autoload, collision layer, a change
 to this file), do not edit it. Use a local fallback marked `# LEAD-REQUEST`
 and list the request in your final report.
@@ -83,7 +86,7 @@ func is_attacking() -> bool     # jump/roll/spindash: touching an enemy destroys
 func is_invincible() -> bool
 func hurt(source_position: Vector2) -> void   # knockback, scatter coins, or die at 0 coins
 func kill() -> void                           # instant death (pits, crush)
-func bounce_off(target_y: float) -> void      # rebound after destroying an enemy / hitting a boss
+func bounce_off(target_y: float, reverse_x := false) -> void  # rebound off an enemy; bosses pass reverse_x = true
 func launch(velocity_pf: Vector2) -> void     # airborne launch (springs). Not attacking.
 func push_ground(speed_pf: float, lock_frames := 16) -> void  # horizontal springs, boosters
 func set_control_lock(frames: int) -> void
@@ -92,6 +95,14 @@ func freeze(frozen: bool) -> void             # cutscenes, goal, boss defeat
 func play_pose(pose: StringName) -> void      # e.g. &"victory"
 func respawn_at(position: Vector2) -> void
 var clamp_rect: Rect2           # non-empty: player is kept inside (autoscroll). Crushed against a wall = kill().
+
+# Also available (read-only helpers)
+var collision_path: int         # 0 = A, 1 = B
+var control_lock: int           # frames left
+var crouching: bool
+var spindash_charge: float
+func get_radii() -> Vector2     # current width/height radius
+func can_collect_coins() -> bool
 ```
 
 The player reads `SceneRouter.current_zone().accessory` (`""`,
@@ -142,7 +153,10 @@ the camera. It also adds these when they exist:
 - `res://ui/touch_controls/touch_controls.tscn`
 - parallax layers from `res://assets/backgrounds/<zone_id>/`
 
-On player death it waits about 2 s, then calls `SceneRouter.respawn()`.
+On player death (`Player.died`) it stops `GameState.timer_running`, waits
+about 2 s, then calls `SceneRouter.respawn()` once. `respawn()` takes the
+life; nothing else calls `GameState.lose_life()`. Scenes opened directly
+(sandboxes) respawn without losing lives.
 After the goal sign or a boss it shows the tally (`res://ui/tally/score_tally.tscn`,
 signal `finished`), then calls `SceneRouter.next_stage()`.
 
@@ -220,6 +234,17 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 | `ui/touch_controls/touch_controls.tscn` | Shown only when `DisplayServer.is_touchscreen_available()` |
 | `ui/tally/score_tally.tscn` | Emits `finished` |
 | `ui/game_over/game_over.tscn`, `ui/ending/ending.tscn` | |
+
+## Merge gate
+
+1. The agent finishes and reports.
+2. The QA agent reviews the branch against `qa/checklists/` and writes
+   `qa/reports/<NN>-<branch>.md` with a verdict and bugs by severity:
+   - **blocker:** must fix before merge
+   - **major:** fix this step
+   - **minor:** backlog
+3. The owner fixes blockers. QA re-checks them.
+4. The lead runs the game, records a clip, merges with `--no-ff` and pushes. CI deploys.
 
 ## Before you report back
 
