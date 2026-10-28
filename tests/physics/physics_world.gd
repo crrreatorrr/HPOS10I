@@ -73,3 +73,28 @@ static func settle(test: TestCase, player: Player, feet: Vector2) -> void:
 ## Bottom of the player's sensor box.
 static func feet_y(player: Player) -> float:
 	return player.global_position.y + player.get_radii().y
+
+
+## A quarter pipe (CurveTerrain) with its bottom at `bottom`, curving up to the
+## right (or left) over `radius`, with a vertical wall of `wall_height` above.
+static func add_quarter_pipe(world: Node2D, bottom: Vector2, radius: float, rises_to_right: bool,
+		wall_height := 0.0) -> StaticBody2D:
+	var piece := CurveTerrain.new()
+	piece.shape = CurveTerrain.Shape.QUARTER_PIPE
+	piece.radius = radius
+	piece.rises_to_right = rises_to_right
+	piece.wall_height = wall_height
+	piece.thickness = 48.0
+	piece.depth = 64.0
+	piece.position = bottom
+	world.add_child(piece)
+	return piece
+
+
+## True when the player's centre is inside solid terrain of its path.
+static func centre_in_terrain(player: Player) -> bool:
+	var query := PhysicsPointQueryParameters2D.new()
+	query.collide_with_bodies = true
+	query.collision_mask = SOLID | (PATH_A if player.collision_path == Player.PATH_A else PATH_B)
+	query.position = player.global_position
+	return not player.get_world_2d().direct_space_state.intersect_point(query, 1).is_empty()

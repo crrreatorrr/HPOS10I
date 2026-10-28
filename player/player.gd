@@ -797,10 +797,10 @@ func _air_step(p: PhysicsConstants, dt: float) -> void:
 		xsp -= float(int(xsp / 0.125)) / 256.0
 		_vel.x = xsp * fps
 
-	# 4-5. Move and apply gravity. Integrating the constant gravity exactly
-	#      (trapezoid) keeps the jump arc on the continuous curve.
+	# 4-5. Move, then apply gravity (the Guide's order: the position uses this
+	#      frame's speed, gravity only changes the next frame's).
 	var g := PhysicsConstants.accel(p.hurt_gravity if _state == &"hurt" else p.gravity)
-	var displacement := _vel * dt + Vector2(0.0, 0.5 * g * dt * dt)
+	var displacement := _vel * dt
 	_vel.y = minf(_vel.y + g * dt, PhysicsConstants.speed(p.max_fall_speed))
 	_cap_velocity(p)
 
@@ -829,6 +829,7 @@ func _move_in_air(p: PhysicsConstants, displacement: Vector2) -> void:
 		if _vel.y < 0.0:
 			_air_ceiling_check(p)
 		elif _air_floor_check(p):
+			_finish_landing_frame(step * (steps - i - 1))
 			return
 		if grounded:
 			return
@@ -838,6 +839,19 @@ func _move_in_air(p: PhysicsConstants, displacement: Vector2) -> void:
 			step.x = 0.0
 		if before.y < 0.0 and _vel.y >= 0.0:
 			step.y = 0.0
+
+
+## Landing in a sub-step: the rest of this frame's motion is still applied
+## and the feet snapped to the ground again (the Guide moves the whole frame
+## first, then snaps), unless that would leave the ground.
+func _finish_landing_frame(remaining: Vector2) -> void:
+	if remaining == Vector2.ZERO:
+		return
+	var before := global_position
+	global_position += remaining
+	if not _ground_floor_check(SNAP_MAX):
+		global_position = before
+		_ground_floor_check(SNAP_MAX)
 
 
 func _air_wall_check(p: PhysicsConstants) -> void:
@@ -930,7 +944,7 @@ func _leave_ground() -> void:
 
 func _dead_step(p: PhysicsConstants, dt: float) -> void:
 	var g := PhysicsConstants.accel(p.gravity)
-	global_position += _vel * dt + Vector2(0.0, 0.5 * g * dt * dt)
+	global_position += _vel * dt
 	_vel.y = minf(_vel.y + g * dt, PhysicsConstants.speed(p.max_fall_speed))
 	_death_frames += 1
 	if _death_frames == p.died_delay_frames:
