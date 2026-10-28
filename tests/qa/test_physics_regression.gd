@@ -37,12 +37,20 @@ func _flat(feet := Vector2.ZERO) -> void:
 
 
 ## Crouch, then one press of jump: the spin dash starts (input events, as a timeline sends them).
+## Dev.send_action queues an event that Godot applies on the next process
+## frame. At a low render rate (--fixed-fps 30: 2 physics ticks per frame)
+## that is too late for a 1-2 tick wait, so flush it at once.
+func _send(action: StringName, pressed: bool) -> void:
+	Dev.send_action(action, pressed)
+	Input.flush_buffered_events()
+
+
 func _start_spindash() -> void:
-	Dev.send_action(&"move_down", true)
+	_send(&"move_down", true)
 	await physics_frames(3)
-	Dev.send_action(&"jump", true)
+	_send(&"jump", true)
 	await physics_frames(1)
-	Dev.send_action(&"jump", false)
+	_send(&"jump", false)
 	await physics_frames(2)
 
 
@@ -648,7 +656,7 @@ func test_spindash_uphill_on_22_degrees() -> void:
 		await physics_frames(30)
 		await _start_spindash()
 		assert_eq(p.state, &"spindash", "%s deg: spin dash starts facing uphill" % angle)
-		Dev.send_action(&"move_down", false)
+		_send(&"move_down", false)
 		await physics_frames(2)
 		assert_near(absf(p.ground_speed), 8.0, 0.2, "%s deg: release speed" % angle)
 
