@@ -75,3 +75,39 @@ func test_display_scaling_choice() -> void:
 func test_in_gameplay_is_false_in_menus() -> void:
 	assert_true(SceneRouter.MENU_SCENES.has(SceneRouter.MAIN_SCENE), "main is a menu")
 	assert_true(SceneRouter.MENU_SCENES.has(SceneRouter.TITLE_SCENE), "title is a menu")
+
+
+func test_difficulty_rises_through_the_game() -> void:
+	var order := [["test_zone", 1], ["z1_retro_rush_hills", 1], ["z1_retro_rush_hills", 2],
+		["z2_wizard_academy", 1], ["z2_wizard_academy", 2], ["z3_capital_mansion", 1],
+		["z3_capital_mansion", 2], ["z4_neon_rush_remix", 1], ["z4_neon_rush_remix", 2]]
+	var previous := -1
+	for entry in order:
+		var d := Difficulty.for_stage(entry[0], entry[1])
+		assert_true(d > previous, "%s act %d should be harder than the act before" % entry)
+		previous = d
+	assert_eq(Difficulty.for_stage("z2_wizard_academy", 3), 4, "boss uses act 2's difficulty")
+	assert_eq(Difficulty.for_stage("", 1), Difficulty.DEFAULT, "playgrounds use the default")
+
+
+func test_difficulty_targets_never_get_easier() -> void:
+	for d in range(1, Difficulty.MAX + 1):
+		var a: Dictionary = Difficulty.targets(d - 1)
+		var b: Dictionary = Difficulty.targets(d)
+		assert_true(b.enemies_per_screen >= a.enemies_per_screen, "enemy density at D%d" % d)
+		assert_true(b.direction >= a.direction, "direction difficulty at D%d" % d)
+		assert_true(b.screens >= a.screens, "length at D%d" % d)
+		assert_true(b.tickets_per_screen <= a.tickets_per_screen, "ticket generosity at D%d" % d)
+		var total := 0
+		for tier in b.tiers:
+			total += b.tiers[tier]
+		assert_eq(total, 100, "tier mix at D%d adds to 100" % d)
+
+
+func test_difficulty_multipliers() -> void:
+	assert_eq(Difficulty.speed_mult(1), 1.0, "D1 speed")
+	assert_near(Difficulty.speed_mult(8), 1.42, 0.001, "D8 speed")
+	assert_near(Difficulty.interval_mult(8), 0.65, 0.001, "D8 interval")
+	assert_eq(Difficulty.speed_mult(0), 1.0, "test zone is not easier than D1 for enemies")
+	assert_eq(Difficulty.telegraph(0.4, 8), Difficulty.MIN_TELEGRAPH, "telegraph floor")
+	assert_near(Difficulty.telegraph(1.0, 8), 0.72, 0.001, "D8 telegraph")
