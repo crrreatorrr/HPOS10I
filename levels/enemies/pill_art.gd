@@ -20,6 +20,10 @@ const EYE := Color(1.0, 0.3, 0.24)
 const EYE_GLOW := Color(1.0, 0.78, 0.62)
 const METAL := Color(0.62, 0.64, 0.72)
 const METAL_DARK := Color(0.32, 0.33, 0.42)
+## Telegraph flash (visor, spike tips, cannon glow).
+const FLASH := Color(1.0, 0.95, 0.55)
+const SPIKE := Color(1.0, 0.56, 0.12)
+const SPIKE_DARK := Color(0.72, 0.3, 0.06)
 
 
 ## Points of a horizontal capsule (straight part ±half_length, end radius r).
@@ -67,9 +71,10 @@ static func draw_capsule(canvas: CanvasItem, half_length: float, r: float, front
 
 
 ## A dark visor slit with one or two glowing eye dots, centred at `at`.
-static func draw_visor(canvas: CanvasItem, at: Vector2, width: float, eyes: int, blink := false) -> void:
+## `flash` lights the whole slit (a telegraph before an attack).
+static func draw_visor(canvas: CanvasItem, at: Vector2, width: float, eyes: int, blink := false, flash := false) -> void:
 	canvas.draw_rect(Rect2(at - Vector2(width / 2.0 + 1.0, 2.5), Vector2(width + 2.0, 5.0)), OUTLINE)
-	canvas.draw_rect(Rect2(at - Vector2(width / 2.0, 1.5), Vector2(width, 3.0)), VISOR)
+	canvas.draw_rect(Rect2(at - Vector2(width / 2.0, 1.5), Vector2(width, 3.0)), FLASH if flash else VISOR)
 	if blink:
 		return
 	var xs := PackedFloat32Array([0.0]) if eyes == 1 else PackedFloat32Array([-width / 4.0, width / 4.0])
