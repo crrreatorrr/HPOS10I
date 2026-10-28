@@ -38,6 +38,11 @@ const TOP_ONLY_GRACE := 8.0
 ## A grounded floor reading that differs from the current angle by more than
 ## this is re-measured from the surface around the hit.
 const SUSPICIOUS_ANGLE_STEP := 45.0
+## Below this ground speed (px/frame) Sproto settles flat across the bottom
+## of any V, so he can come to rest (and crouch) there.
+const VALLEY_REST_SPEED := 0.5
+## Reach of the downward A/B probe that recognises a sharp V from a wall mode.
+const VALLEY_PROBE_REACH := 48.0
 ## Feet within this distance of a surface count as touching it.
 const CONTACT_EPSILON := 0.05
 ## bounce_off() trims this from the rebound speed (px/frame).
@@ -95,6 +100,7 @@ var _air_locked := false  # no air control (roll jump, hurt)
 var _skidding := false
 var _hit_wall := false  # a ground wall sensor stopped Sproto this frame
 var _wall_blocked := false  # ... last frame (read by the force-roll)
+var _in_valley := false  # standing flat across the bottom of a V
 var _invincible_frames := 0
 var _death_frames := 0
 var _frozen := false
@@ -110,7 +116,11 @@ static func from_area(area: Area2D) -> Player:
 	return null
 
 
+## Physics Guide ranges, boundaries inclusive: floor 0-45 and 315-360, right
+## wall 46-134, ceiling 135-225, left wall 226-314. The angle is rounded to
+## 0.001 deg first so float noise never lands a boundary angle on the wrong side.
 static func mode_for_angle(angle: float) -> int:
+	angle = fposmod(snappedf(angle, 0.001), 360.0)
 	if angle <= 45.0 or angle >= 315.0:
 		return FLOOR
 	if angle < 135.0:
@@ -548,6 +558,8 @@ func _move_on_ground(p: PhysicsConstants, dt: float) -> void:
 func _ground_wall_check(p: PhysicsConstants) -> void:
 	if ground_angle > 90.0 and ground_angle < 270.0:
 		return
+	if _in_valley:
+		return  # both sides of the V are floor, handled by the floor sensors
 	var side := signf(_gsp)
 	var dir := mode_right(collision_mode) * side
 	var label := "F" if side > 0.0 else "E"
@@ -566,6 +578,11 @@ func _ground_wall_check(p: PhysicsConstants) -> void:
 			hit = top
 	if hit == null:
 		return
+	if dir.y > 0.5 and _is_opposite_steep_slope(hit.angle) and _steep_valley_below():
+		# Running down a steep side of a V, the "wall" ahead is the other side:
+		# this is the valley floor. Go on in floor mode (see _ground_floor_check).
+		collision_mode = FLOOR
+		return
 	global_position -= dir * (p.push_radius - hit.distance)
 	_gsp = 0.0
 	_vel = Vector2.ZERO
@@ -576,16 +593,32 @@ func _ground_wall_check(p: PhysicsConstants) -> void:
 ## `tolerance` < 0 uses the classic min(|speed| + 4, 14) window.
 func _ground_floor_check(p: PhysicsConstants, tolerance := -1.0) -> bool:
 	var r := get_radii()
+	# At the bottom of a sharp V the wall-mode offset would put the centre into
+	# the other side: switch to floor mode as soon as A/B straddle it. The two
+	# modes place the centre far apart there, so allow the whole sensor reach.
+	if (collision_mode == RIGHT_WALL or collision_mode == LEFT_WALL) \
+			and angle_from_flat(ground_angle) < 90.0 and _steep_valley_below():
+		collision_mode = FLOOR
+		tolerance = maxf(tolerance, VALLEY_PROBE_REACH)
 	var down := mode_down(collision_mode)
 	var hit := sensors.cast_pair(PackedStringArray(["A", "B", "AB"]), global_position,
 			mode_right(collision_mode), down, r.x, r.y + SNAP_MAX,
 			_terrain_mask(collision_mode == FLOOR))
 	if hit == null:
 		return false
+	# A on a "\" slope and B on a "/" one: straddling the bottom of a V. Stand
+	# there as if on flat ground, like the classic games: always when both sides
+	# are steeper than 45 deg (no wall mode fits there), and on gentler V's only
+	# when nearly at rest, so crossing them at speed is unchanged.
+	var pair := sensors.last_pair
+	var at_rest := absf(_gsp) <= PhysicsConstants.speed(VALLEY_REST_SPEED)
+	var valley := collision_mode == FLOOR and pair[0] != null and pair[1] != null \
+			and _is_valley(pair[0].angle, pair[1].angle, not at_rest)
 	var gap := hit.distance - r.y
 	# A reading far from the current angle is checked against the surface
 	# around the hit: real corners agree, polygon-vertex artefacts do not.
-	if grounded and absf(wrapf(hit.angle - ground_angle, -180.0, 180.0)) > SUSPICIOUS_ANGLE_STEP:
+	if not valley and grounded \
+			and absf(wrapf(hit.angle - ground_angle, -180.0, 180.0)) > SUSPICIOUS_ANGLE_STEP:
 		hit.angle = sensors.surface_angle(hit)
 	if tolerance < 0.0:
 		var along := absf(_vel.x if collision_mode == FLOOR or collision_mode == CEILING else _vel.y)
@@ -593,13 +626,70 @@ func _ground_floor_check(p: PhysicsConstants, tolerance := -1.0) -> bool:
 	if gap > tolerance:
 		return false
 	global_position += down * gap
-	ground_angle = hit.angle
-	collision_mode = mode_for_angle(hit.angle)
+	if valley and at_rest:
+		# Come to rest where both sensors touch: steady, so he can stay, crouch
+		# and jump there.
+		var rest := _valley_rest_position(pair[0], pair[1])
+		if rest.is_finite() and rest.distance_to(global_position) < r.y:
+			global_position = rest
+	_in_valley = valley
+	ground_angle = 0.0 if valley else hit.angle
+	collision_mode = mode_for_angle(ground_angle)
 	return true
 
 
+## Centre position at the bottom of a V where A and B touch the two sides at
+## the same height. INF when the sides are parallel.
+func _valley_rest_position(left: PlayerSensors.Hit, right: PlayerSensors.Hit) -> Vector2:
+	var r := get_radii()
+	var dl := Vector2(cos(deg_to_rad(left.angle)), -sin(deg_to_rad(left.angle)))
+	var dr := Vector2(cos(deg_to_rad(right.angle)), -sin(deg_to_rad(right.angle)))
+	var denom := dl.cross(dr)
+	if absf(denom) < 0.000001:
+		return Vector2.INF
+	var vertex := left.position + dl * ((right.position - left.position).cross(dr) / denom)
+	var tl := tan(deg_to_rad(angle_from_flat(left.angle)))
+	var tr := tan(deg_to_rad(angle_from_flat(right.angle)))
+	var u := r.x * (tl - tr) / (tl + tr)
+	return Vector2(vertex.x + u, vertex.y - (r.x - u) * tl - r.y)
+
+
+## True for a steep (> 45 deg) slope leaning the other way from the current ground.
+func _is_opposite_steep_slope(angle: float) -> bool:
+	if collision_mode != RIGHT_WALL and collision_mode != LEFT_WALL:
+		return false
+	return angle_from_flat(angle) > 45.0 and angle_from_flat(angle) < 90.0 \
+			and signf(sin(deg_to_rad(angle))) != signf(sin(deg_to_rad(ground_angle)))
+
+
+## Casts A/B straight down from the centre: true when they stand on opposite
+## slopes steeper than 45 deg (the bottom of a sharp V, where a wall mode's
+## sideways offset would put the centre into the other side).
+func _steep_valley_below() -> bool:
+	var r := get_radii()
+	sensors.cast_pair(PackedStringArray(["A", "B"]), global_position, Vector2.RIGHT, Vector2.DOWN,
+			r.x, VALLEY_PROBE_REACH, _terrain_mask(true))
+	var pair := sensors.last_pair
+	return pair[0] != null and pair[1] != null and _is_valley(pair[0].angle, pair[1].angle, true)
+
+
+## A (left) on a slope descending to the right and B (right) on one rising:
+## the sensors straddle the bottom of a V. With `steep_only`, both sides must
+## be steeper than 45 deg.
+static func _is_valley(left_angle: float, right_angle: float, steep_only: bool) -> bool:
+	var left := angle_from_flat(left_angle)
+	var right := angle_from_flat(right_angle)
+	if left < 1.0 or right < 1.0 or left >= 90.0 or right >= 90.0:
+		return false
+	if left_angle < 180.0 or right_angle > 180.0:
+		return false
+	return not steep_only or (left > 45.0 and right > 45.0)
+
+
+## Keeps a standing-still player (spin dash) on the ground. The full snap window
+## is allowed: switching to the ball hitbox can lift the feet off a V's sides.
 func _stick_to_ground(p: PhysicsConstants) -> void:
-	if not _ground_floor_check(p):
+	if not _ground_floor_check(p, SNAP_MAX):
 		_leave_ground()
 	var a := deg_to_rad(ground_angle)
 	_vel = Vector2(cos(a), -sin(a)) * _gsp
@@ -732,6 +822,10 @@ func _air_floor_check(p: PhysicsConstants) -> bool:
 	var depth := r.y - hit.distance
 	if hit.top_only and depth > _vel.y / PhysicsConstants.FPS + TOP_ONLY_GRACE:
 		return false
+	# Landing across the bottom of a sharp V: as if on flat ground.
+	var pair := sensors.last_pair
+	if pair[0] != null and pair[1] != null and _is_valley(pair[0].angle, pair[1].angle, true):
+		return _land(p, 0.0)
 	return _land(p, hit.angle)
 
 
@@ -771,6 +865,7 @@ func _attach(p: PhysicsConstants, angle: float, speed: float) -> bool:
 
 func _leave_ground() -> void:
 	grounded = false
+	_in_valley = false
 	collision_mode = FLOOR
 	crouching = false
 	_skidding = false
@@ -803,7 +898,10 @@ func _terrain_mask(include_top_only: bool) -> int:
 
 ## Longest sub-step: shorter than every sensor reach.
 func _max_step(p: PhysicsConstants) -> float:
-	return maxf(2.0, minf(p.push_radius, p.roll_height_radius) - 2.0)
+	var step := maxf(2.0, minf(p.push_radius, p.roll_height_radius) - 2.0)
+	# Across a V a horizontal step must stay short enough for the floor sensors
+	# to follow a side up to 70 deg.
+	return step * 0.5 if _in_valley else step
 
 
 func _cap_velocity(p: PhysicsConstants) -> void:

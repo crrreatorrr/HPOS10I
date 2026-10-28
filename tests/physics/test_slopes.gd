@@ -102,3 +102,149 @@ func test_slow_run_up_steep_slope_slips_back() -> void:
 	assert_true(top < -5.0, "got some way up")
 	assert_true(top > -150.0, "but not over the top")
 	assert_true(player.global_position.x < 0.0, "came back down")
+
+
+## A crest (up = true) or valley of two straight sides meeting at a sharp
+## vertex, `height` px high or deep, starting at x 100 on a flat floor at y 0.
+## Returns the x where it ends.
+func _sharp_shape(left_deg: float, right_deg: float, height: float, up: bool) -> float:
+	var x1 := 100.0 + height / tan(deg_to_rad(left_deg))
+	var x2 := x1 + height / tan(deg_to_rad(right_deg))
+	var tip := Vector2(x1, -height if up else height)
+	if up:
+		W.add_floor(world)
+		W.add_polygon(world, PackedVector2Array([Vector2(100, 0), tip, Vector2(x2, 0)]))
+	else:
+		W.add_floor(world, -3000.0, 100.0)
+		W.add_floor(world, x2, 3000.0)
+		W.add_polygon(world, PackedVector2Array([Vector2(100, 0), tip, Vector2(x2, 0),
+				Vector2(x2, 300), Vector2(100, 300)]))
+	return x2
+
+
+func _run_over_sharp_shapes(up: bool) -> void:
+	for sides in [[45.0, 45.0], [45.0, 22.5], [26.6, 26.6]]:
+		for dir in [1, -1]:
+			for speed in [2.0, 4.0, 6.0, 10.0, 16.0]:
+				world = W.new_world(self)
+				var far := _sharp_shape(sides[0], sides[1], 24.0, up)
+				var start := Vector2(0.0 if dir > 0 else far + 100.0, 0.0)
+				player = W.spawn_player(world, start)
+				await W.settle(self, player, start)
+				player.ground_speed = speed * dir
+				var action := &"move_right" if dir > 0 else &"move_left"
+				press(action)
+				var label := "%s %s/%s dir %d speed %s" % ["crest" if up else "valley", sides[0], sides[1], dir, speed]
+				var worst := 0.0
+				var last := absf(player.ground_speed)
+				for i in 120:
+					await physics_frames(1)
+					if player.grounded:
+						worst = maxf(worst, last - absf(player.ground_speed))
+					last = absf(player.ground_speed)
+				release(action)
+				# Holding forward, a frame can lose at most the slope factor on 45 deg.
+				assert_true(worst <= 0.125 * sin(deg_to_rad(45.0)) + 0.001,
+						"%s: lost %.3f px/frame in one frame" % [label, worst])
+				var past := player.global_position.x > far + 20.0 if dir > 0 else player.global_position.x < 80.0
+				assert_true(past and player.grounded, "%s: got over (x %.1f)" % [label, player.global_position.x])
+				world.queue_free()
+				await physics_frames(1)
+
+
+func test_sharp_crests_keep_speed() -> void:
+	await _run_over_sharp_shapes(true)
+
+
+func test_sharp_valleys_keep_speed() -> void:
+	await _run_over_sharp_shapes(false)
+
+
+const V_DEPTH := 64.0
+
+
+## A sharp V of `side_deg` sides, V_DEPTH deep, between two floors at the top.
+## Returns [vertex x, half width].
+func _v_valley(side_deg: float) -> Array:
+	world = W.new_world(self)
+	var half := V_DEPTH / tan(deg_to_rad(side_deg))
+	W.add_floor(world, -3000.0, 0.0, -V_DEPTH)
+	W.add_polygon(world, PackedVector2Array([Vector2(0, -V_DEPTH), Vector2(half, 0),
+			Vector2(2.0 * half, -V_DEPTH), Vector2(2.0 * half, 300), Vector2(0, 300)]))
+	W.add_floor(world, 2.0 * half, 3000.0, -V_DEPTH)
+	return [half, half]
+
+
+## Drops Sproto into the V and waits for him to come to rest at the bottom.
+func _rest_in_v(side_deg: float) -> Array:
+	var v := _v_valley(side_deg)
+	player = W.spawn_player(world, Vector2(-100.0, -V_DEPTH))
+	await W.settle(self, player, Vector2(-100.0, -V_DEPTH))
+	player.respawn_at(Vector2(v[0] - 3.0, -40.0))
+	var still := 0
+	for i in 900:
+		await physics_frames(1)
+		still = still + 1 if player.grounded and player.state == &"idle" else 0
+		if still >= 10:
+			break
+	assert_true(still >= 10, "%s deg V: at rest at the bottom (%s)" % [side_deg, player.state])
+	assert_eq(player.ground_angle, 0.0, "%s deg V: settled flat" % side_deg)
+	return v
+
+
+## Out = standing on the floor at the top, at or beyond the V's rim.
+func _assert_out_of_v(v: Array, label: String) -> void:
+	assert_true(player.grounded and absf(W.feet_y(player) + V_DEPTH) < 0.1,
+			"%s: on the floor at the top (feet %.1f, x %.1f)" % [label, W.feet_y(player), player.global_position.x])
+	assert_true(absf(player.global_position.x - v[0]) >= v[1] - player.get_radii().x,
+			"%s: at or beyond the rim (x %.1f, vertex %.1f)" % [label, player.global_position.x, v[0]])
+
+
+func test_v_valleys_run_out_with_momentum() -> void:
+	for side in range(30, 75, 5):
+		for dir in [1, -1]:
+			var v := _v_valley(float(side))
+			var start := Vector2(-150.0 if dir > 0 else 2.0 * v[1] + 150.0, -V_DEPTH)
+			player = W.spawn_player(world, start)
+			await W.settle(self, player, start)
+			player.ground_speed = 8.0 * dir
+			var action := &"move_right" if dir > 0 else &"move_left"
+			press(action)
+			await physics_frames(90)
+			release(action)
+			await physics_frames(20)
+			_assert_out_of_v(v, "%d deg V running dir %d" % [side, dir])
+			world.queue_free()
+			await physics_frames(1)
+
+
+func test_v_valleys_jump_out() -> void:
+	for side in range(30, 75, 5):
+		var v := await _rest_in_v(float(side))
+		press(&"move_right")
+		press(&"jump")
+		await physics_frames(100)
+		release(&"jump")
+		release(&"move_right")
+		await physics_frames(40)
+		_assert_out_of_v(v, "%d deg V jump" % side)
+		world.queue_free()
+		await physics_frames(1)
+
+
+func test_v_valleys_spindash_out() -> void:
+	for side in range(30, 75, 5):
+		var v := await _rest_in_v(float(side))
+		press(&"move_down")
+		await physics_frames(2)
+		for i in 3:
+			press(&"jump")
+			await physics_frames(2)
+			release(&"jump")
+			await physics_frames(2)
+		assert_eq(player.state, &"spindash", "%d deg V: spin dash charging" % side)
+		release(&"move_down")
+		await physics_frames(150)
+		_assert_out_of_v(v, "%d deg V spin dash" % side)
+		world.queue_free()
+		await physics_frames(1)

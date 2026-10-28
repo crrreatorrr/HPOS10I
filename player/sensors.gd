@@ -13,6 +13,8 @@ const BIT_PATH_B := 4
 const BIT_TOP_ONLY := 8
 ## Offset of the two side rays used to re-measure a surface angle.
 const SURFACE_PROBE_OFFSET := 0.5
+## A re-measured angle this close (degrees) to the reported one confirms it.
+const SURFACE_AGREEMENT := 1.0
 
 
 ## One sensor result.
@@ -35,6 +37,8 @@ class Hit:
 
 ## Every cast this frame: {label, from, to, hit (bool), point}.
 var casts: Array[Dictionary] = []
+## The two side hits (or nulls) of the last cast_pair(), in label order.
+var last_pair: Array[Hit] = [null, null]
 
 var _space: PhysicsDirectSpaceState2D
 var _query := PhysicsRayQueryParameters2D.new()
@@ -107,8 +111,10 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 
 ## Surface angle at a hit, measured from two parallel rays 0.5 px either side
 ## of the original one: the line through their hits is the surface, whatever
-## normal the physics server reported at a polygon vertex. Falls back to the
-## reported angle when either ray misses.
+## normal the physics server reported at a polygon vertex. The reported angle
+## is kept when it faces the ray and matches the surface on either side of the
+## hit (a real corner, where the probe may straddle the vertex). Falls back to
+## the reported angle when a side ray misses.
 func surface_angle(hit: Hit) -> float:
 	var side := hit.dir.orthogonal() * SURFACE_PROBE_OFFSET
 	var length := hit.length + SURFACE_PROBE_OFFSET * 4.0
@@ -121,11 +127,25 @@ func surface_angle(hit: Hit) -> float:
 		if result.is_empty():
 			return hit.angle
 		points.append(result.position)
-	var tangent := points[0] - points[1]
-	if tangent.length_squared() < 0.0001:
+	var measured := _secant_angle(points[0], points[1], hit.dir)
+	if is_nan(measured):
 		return hit.angle
+	if hit.normal.dot(hit.dir) < -0.001:
+		for check in [measured, _secant_angle(points[0], hit.position, hit.dir),
+				_secant_angle(hit.position, points[1], hit.dir)]:
+			if not is_nan(check) and absf(wrapf(check - hit.angle, -180.0, 180.0)) < SURFACE_AGREEMENT:
+				return hit.angle
+	return measured
+
+
+## Angle of the surface through two hit points, facing against `dir`; NAN when
+## the points are too close to define a line.
+static func _secant_angle(from: Vector2, to: Vector2, dir: Vector2) -> float:
+	var tangent := to - from
+	if tangent.length_squared() < 0.01:
+		return NAN
 	var normal := tangent.orthogonal().normalized()
-	if normal.dot(hit.dir) > 0.0:
+	if normal.dot(dir) > 0.0:
 		normal = -normal
 	return angle_from_normal(normal)
 
@@ -138,6 +158,7 @@ func cast_pair(labels: PackedStringArray, center: Vector2, side: Vector2, dir: V
 		half_width: float, length: float, mask: int) -> Hit:
 	var first := cast(labels[0], center - side * half_width, dir, length, mask)
 	var second := cast(labels[1], center + side * half_width, dir, length, mask)
+	last_pair = [first, second]
 	if first == null and second == null and labels.size() > 2:
 		return cast(labels[2], center, dir, length, mask)
 	if first == null:
