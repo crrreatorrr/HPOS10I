@@ -60,3 +60,18 @@ func test_boot_menu_lists_the_playground() -> void:
 	dev.args.erase("dev")
 	var labels: Array = main._entries.map(func(entry): return entry.label)
 	assert_true(labels.has("Physics Playground"), "boot menu entries: %s" % [labels])
+
+
+func test_display_scaling_choice() -> void:
+	var base := Vector2(424, 240)
+	var integer := Window.CONTENT_SCALE_STRETCH_INTEGER
+	var fractional := Window.CONTENT_SCALE_STRETCH_FRACTIONAL
+	assert_eq(Display.choose_stretch(Vector2(1280, 720), base, false), integer, "desktop 720p")
+	assert_eq(Display.choose_stretch(Vector2(1920, 1080), base, false), integer, "desktop 1080p")
+	assert_eq(Display.choose_stretch(Vector2(800, 450), base, false), fractional, "small window")
+	assert_eq(Display.choose_stretch(Vector2(2532, 1170), base, true), fractional, "phone")
+
+
+func test_in_gameplay_is_false_in_menus() -> void:
+	assert_true(SceneRouter.MENU_SCENES.has(SceneRouter.MAIN_SCENE), "main is a menu")
+	assert_true(SceneRouter.MENU_SCENES.has(SceneRouter.TITLE_SCENE), "title is a menu")
