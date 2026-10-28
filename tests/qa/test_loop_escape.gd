@@ -7,7 +7,8 @@ extends TestCase
 ## Scenarios: drops into the ring and onto the feet, slow ground entries
 ## (run and roll) from both sides, spin dashes and hurt knockback inside,
 ## respawns in the ring, and jumps into the ring from both run-ups.
-## Arms itself with terrain/loop_guard.gd (the BUG-02-01 fix); skips before.
+## Arms itself with the BUG-02-01 and BUG-02-03 fixes (terrain/loop_guard.gd,
+## physics da12a3b); skips before.
 ## Owned by QA.
 
 const L := preload("res://tests/qa/qa_physics_lib.gd")
@@ -31,6 +32,12 @@ func _skip() -> bool:
 		return true
 	if not ResourceLoader.exists("res://terrain/loop_guard.gd"):
 		print("  SKIP qa/test_loop_escape.gd: the BUG-02-01 fix (terrain/loop_guard.gd) is not merged yet")
+		return true
+	# BUG-02-03 (r48: standing inside and holding right) is fixed in physics
+	# da12a3b; until then the strict two-way rule would fail at r48.
+	var guard_src := FileAccess.get_file_as_string("res://terrain/loop_guard.gd")
+	if not guard_src.contains("_half_width("):
+		print("  SKIP qa/test_loop_escape.gd: physics da12a3b (BUG-02-03) not merged yet")
 		return true
 	return false
 
@@ -74,22 +81,15 @@ func _try(radius: float, label: String, setup: Callable, hold: StringName) -> St
 	return ""
 
 
-## Holding EITHER direction must walk him out: the accepted rule after the
-## BUG-02-01 fix, so a player can always leave the way he chooses. For the
-## smallest loops (radius under 80) only one direction is required: from a
-## standstill inside an r48 ring, holding right pushes on the steep right
-## quarter without ever rolling back past the bottom centre, so the guard
-## never opens that way (QA 03e note); holding left walks out.
+## Holding EITHER direction must walk him out, at every radius: the accepted
+## rule after the BUG-02-01 and BUG-02-03 fixes, so a player can always leave
+## the way he chooses. Returns the failures.
 func _scenario(radius: float, label: String, setup: Callable) -> PackedStringArray:
 	var out := PackedStringArray()
 	for hold in [&"move_left", &"move_right"]:
 		var result: String = await _try(radius, label, setup, hold)
 		if result != "":
 			out.append(result)
-	if radius < 80.0 and out.size() < 2:
-		for f in out:
-			print("  INFO (one-way, r < 80) " + f)
-		return PackedStringArray()
 	return out
 
 

@@ -144,3 +144,21 @@ LEVELS.md rules:
 - Holding left walks out, and a spin dash goes through. It doesn't affect radius 80 and up (playground and test-zone loops are 80/112).
 - `test_loop_escape.gd` logs these cases and only requires one direction below r80.
 - Fix idea: let the guard also open the way ahead for a standing or pushing Sproto once he is past the bottom centre, not only after a turn back.
+
+## Re-check: BUG-02-03, physics @ 57f6879 (da12a3b + 57f6879, on main 13f7faa): FIXED, MERGE
+
+- **Fix:** the guard now opens the way as soon as all of Sproto is past the bottom centre (his half-width + 1 px), not 20 px past it.
+- **Checks:** 0 import errors; 389 passed, 0 failed (about 2 min); smoke 24/24; 0 originality hits.
+- **`tests/qa/test_loop_escape.gd` tightened:** both directions are now required at **every** radius (48/80/112/200), and all 28 tests pass on 57f6879. The test arms itself only with the da12a3b guard (it looks for `_half_width(` in `terrain/loop_guard.gd`), so main 13f7faa stays green.
+- **Frame identity vs 883c648 (playground):** fuzz seeds 5 and 9 and runner jump-every 240 are byte-identical. The two runs that differ (jump-every 45 and 90) change only inside a loop after a turn back, now switching a few frames earlier, and they end in identical states.
+- **Test zone runner:** reaches the goal at every jump interval (never, 30, 45, 60, 90, 120, 150, 240): frames 1599–2204, 0 deaths, no stuck period. Jump-every 90 now takes 1843 frames instead of 2449.
+- **F1 panel:** line spacing is +1 (57f6879); closes the polish note in 07-ui.
+
+## Note: frame-rate assumptions (new tool)
+
+- **`tools/qa/suite_framerates.sh`** runs the suite at `--fixed-fps` 30, 60 and 144. Physics stays at 60 Hz; only the process frames per tick change. A run without `--fixed-fps` would tick in real time, minutes per test.
+- **Results on 57f6879:**
+  - 144: 1 failure, `ui/test_audio.gd :: test_hint_is_a_toast_that_comes_back_on_the_next_press`. It counts process frames, and the UI agent is fixing it.
+  - 30: the same UI test fails, plus one QA test, `test_spindash_uphill_on_22_degrees`.
+- **The QA test failure was a test bug, now fixed:** its `Dev.send_action` input is queued until the next process frame, so at 2 ticks per frame it landed a tick late. `tests/qa/test_physics_regression.gd` now flushes the event immediately. All QA tests pass at 30, 60 and 144.
+- Suggest the lead add a weekly or pre-release run of `suite_framerates.sh`; it's too slow for every push.
