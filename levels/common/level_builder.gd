@@ -170,7 +170,7 @@ func hill(rise: int, plateau: int, steep := false, enemy_path := "", props := {}
 
 ## A 32 px stump to jump with a walker behind it, where a blocked bot's
 ## standing jump comes down.
-func stump(enemy_path := WALKER, props := {}) -> Node2D:
+func stump(enemy_path := WALKER, props := {}, after := 256) -> Node2D:
 	paint.flat(96)
 	var s := x
 	paint.flat(32)
@@ -178,7 +178,7 @@ func stump(enemy_path := WALKER, props := {}) -> Node2D:
 	var node := enemy(enemy_path, Vector2(s + 32 + 78, ground), props.merged({patrol_distance = 8.0}))
 	for t in [[s - 8, -64], [s + 24, -76], [s + 56, -72], [s + 88, -56]]:
 		ticket(t[0], ground + t[1] + TICKET_UP)
-	paint.flat(256)
+	paint.flat(after)
 	return node
 
 
@@ -352,12 +352,21 @@ func waterfall(x0: float, y0: float, w := 48.0, h := 128.0) -> void:
 # --- Wizard Academy sections ---------------------------------------------------------
 
 ## A stone staircase up: `steps` risers of `rise` px (too tall to walk: hop
-## each one), each with a `tread` px landing and a ticket over it.
-func stairs_up(steps: int, rise := 32, tread := 64) -> void:
+## each one), each with a `tread` px landing and a ticket over it, then a
+## `landing` px flat with tickets at the top (keep enemies off it).
+func stairs_up(steps: int, rise := 32, tread := 64, landing := 128) -> void:
 	for i in steps:
 		paint.cliff(ground - rise)
 		ticket(x + tread / 2, ground)
 		paint.flat(tread)
+	flat(landing, 32, 64)
+
+
+## A stair hump: `steps` risers up and `steps` drops back down to this level
+## (the castle's landings between halls).
+func stair_hump(steps := 3) -> void:
+	stairs_up(steps, 32, 64, 64)
+	stairs_down(steps)
 
 
 ## A stone staircase down: `steps` drops of `drop` px with `tread` px landings.
@@ -382,8 +391,8 @@ func hall(length: int, height := 176, ticket_step := 96) -> void:
 ## (steps - 1) * 32 px higher, after a `runup`: pillar steps that fold flat
 ## into the floor and rise again on a timer. Arriving while it is flat, wait
 ## at the ledge's foot: the top step lifts you up.
-func shifting_flight(steps := 5, runup := 128, props := {}) -> Node2D:
-	flat(runup)
+func shifting_flight(steps := 5, runup := 192, props := {}) -> Node2D:
+	flat(maxi(runup, 192), 32, 64)  # where you may wait: tickets, no enemy
 	var x0 := x
 	var base := ground
 	var settings := {steps = steps, pillars = true, step_size = Vector2(48, 16), rise = Vector2(48, -32),
@@ -402,8 +411,8 @@ func shifting_flight(steps := 5, runup := 128, props := {}) -> Node2D:
 ## foot of a cliff rises `travel` px to the ledge on a telegraphed timer,
 ## waits there, and sinks back. Its body reaches into the floor, so nothing
 ## can get under it. Hop on, ride up, step off.
-func bookshelf_lift(travel := 96, runup := 128, props := {}) -> Node2D:
-	flat(runup)
+func bookshelf_lift(travel := 96, runup := 192, props := {}) -> Node2D:
+	flat(maxi(runup, 192), 32, 64)  # where you may wait: tickets, no enemy
 	var x0 := x
 	var settings := {size = Vector2(64, 64 + travel), travel = Vector2(0, -travel), close_speed = 2.0,
 			open_speed = 1.5, rest_frames = 120, out_frames = 100, telegraph_seconds = 0.6}
@@ -420,8 +429,8 @@ func bookshelf_lift(travel := 96, runup := 128, props := {}) -> Node2D:
 ## A shelf gate: a bookshelf flush with the floor that rises `height` px out of
 ## it on a telegraphed timer, blocking the hall, then sinks again. Standing on
 ## it just gives a ride (no ceiling above it).
-func shelf_gate(height := 96, runup := 96, props := {}) -> Node2D:
-	flat(runup)
+func shelf_gate(height := 96, runup := 192, props := {}) -> Node2D:
+	flat(maxi(runup, 192), 32, 64)  # where you may wait: tickets, no enemy
 	var settings := {size = Vector2(48, height), travel = Vector2(0, -height), close_speed = 2.0,
 			open_speed = 1.5, rest_frames = 150, out_frames = 60, telegraph_seconds = 0.6}
 	settings.merge(props, true)
@@ -455,11 +464,19 @@ func book_hall(length: int, count: int, height := 176) -> void:
 
 
 ## A flat of `width` px with an enemy `at` px in (feet on the floor, or
-## `up` px above it for flyers).
+## `up` px above it for flyers). Most of its tickets lie just past the enemy,
+## so a Sproto who takes the hit runs through it (invincible) and picks some
+## back up before the next one.
 func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}) -> Node2D:
 	var x0 := x
 	var floor_y := ground
-	flat(width, 32, 64)
+	paint.flat(width)
+	if at >= 96:
+		ticket(x0 + 32, floor_y)
+	var tx := x0 + at + 48
+	while tx <= x0 + width + 16:
+		ticket(tx, floor_y)
+		tx += 40
 	return enemy(enemy_path, Vector2(x0 + at, floor_y - up), props)
 
 
@@ -476,7 +493,10 @@ func broom_chase(length := 2560, speed := 90.0, obstacles := true) -> Node2D:
 		var piece := mini(320, length - done)
 		if obstacles and k % 4 == 1 and piece == 320:
 			paint.flat(160)
-			paint.cliff(ground - 32).flat(32).cliff(ground + 32)  # a low hurdle
+			var hall_floor := ground
+			paint.cliff(hall_floor - 32)  # a low hurdle
+			paint.flat(32)
+			paint.cliff(hall_floor)
 			paint.flat(128)
 			arc(x - 144, floor_y, 3, 64, 56)
 		elif obstacles and k % 4 == 3 and piece == 320:

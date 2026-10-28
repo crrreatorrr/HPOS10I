@@ -136,10 +136,6 @@ func _pilot(f: int, p) -> void:
 		else:
 			_jump(f, "blocked")
 		return
-	# A low step ahead (a stair riser, a stump): hop it like a person would.
-	if _step_ahead(pos, gs):
-		_jump(f, "hop up a step", JUMP_HOLD)
-		return
 	# A breakable wall ahead: roll into it (the secret).
 	for wall in _walls:
 		if not is_instance_valid(wall):
@@ -148,6 +144,10 @@ func _pilot(f: int, p) -> void:
 		if d.x > 0.0 and d.x < 40.0 + gs * 10.0 and absf(d.y) < 64.0 and gs > 2.5 and not wall.call(&"is_broken"):
 			_roll(f, "roll into the breakable wall")
 			return
+	# A low step ahead (a stair riser, a stump): hop it like a person would.
+	if _step_ahead(pos, gs):
+		_jump(f, "hop up a step", JUMP_HOLD)
+		return
 	# Pellets rolling at him: jump them.
 	for pellet in get_nodes_in_group(&"pellets"):
 		var d: Vector2 = (pellet as Node2D).global_position - pos

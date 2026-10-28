@@ -41,26 +41,27 @@ func _build() -> void:
 	var K := LevelBuilder.KNIGHT
 	var L := LevelBuilder.LANTERN
 	var left := {facing = -1}
+	var right := {direction = 1}
 
 	# Opening: teach (courtyard at 0, academy halls up to -384).
 	b.start(640)
 	b.flat(192)
-	b.guard(W, 320, 192)
+	b.stump(W, {}, 160)
 	b.stairs_up(3)                            # into the academy (-96)
 	b.hall(384)
 	b.candles(1, 256, {low_frames = 200})     # a first candle, on its own
-	b.guard(H, 320, 192)
+	b.stump(H, {}, 160)
 	b.shifting_flight(5, 128)                 # a first shifting staircase (-224)
 	b.flat(128)
 	b.guard(SB, 320, 192, 64.0)
-	b.stump(W)
+	b.stump(W, {}, 160)
 	b.bookshelf_lift(96, 128)                 # a first bookshelf lift (-384)
 	b.flat(128)
-	b.guard(W, 384, 256)
+	b.stump(W, {}, 160)
 	b.book_hall(512, 2)
-	b.guard(H, 320, 192)
+	b.stump(H, {}, 160)
 	b.guard(SB, 320, 192, 64.0)
-	b.flat(320)
+	b.stair_hump(3)
 	print("checkpoint 1 at ", b.x, " ground ", b.ground)
 	b.checkpoint()
 
@@ -68,66 +69,68 @@ func _build() -> void:
 	b.candles(3, 160)                         # no enemy for 2 screens: hazards only
 	b.stairs_up(4)                            # -512
 	b.flat(64)
-	b.guard(K, 384, 256)
+	b.guard(K, 384, 256, 0.0, right)
 	b.hall(448)
 	b.enemy(DV, Vector2(b.x - 224, b.ground - 150))
-	b.guard(W, 320, 192)
-	b.stump(H)
+	b.stump(W, {}, 160)
+	b.stump(H, {}, 160)
 	b.guard(SB, 320, 192, 64.0)
-	b.shifting_flight(5, 128, {first_delay = 90})  # the tower walk (-640)
+	b.shifting_flight(5, 128, {first_delay = 90, hold_frames = 240})  # the tower walk (-640)
 	b.flat(128)
 	b.guard(P, 384, 288, 0.0, left)
-	b.guard(W, 320, 192)
+	b.stump(W, {}, 160)
 	b.guard(DV, 320, 192, 150.0)
-	b.flat(320)
+	b.stair_hump(3)
 	print("checkpoint 2 at ", b.x, " ground ", b.ground)
 	b.checkpoint()
 	b.book_hall(512, 2)                       # no enemy for 2 screens: hazards only
 	b.stairs_down(4)                          # -512
 	b.flat(128)
 	b.guard(SB, 320, 192, 64.0)
-	b.stump(K)
-	b.guard(H, 320, 192)
+	b.guard(K, 320, 224, 0.0, right)
+	b.stump(H, {}, 160)
 	b.guard(C, 384, 256)
 	b.shelf_gate(96, 96)
 	b.drop(64)                                # -448
-	b.flat(448)
+	b.stair_hump(3)
+	b.flat(64)
 	print("checkpoint 3 at ", b.x, " ground ", b.ground)
 	b.checkpoint()
 	b.shelf_gate(96, 128)                     # no enemy for 2 screens: hazards only
 	b.candles(2, 160)
 	b.flat(128)
-	b.guard(W, 320, 192)
+	b.stump(W, {}, 160)
 	b.guard(SB, 320, 192, 64.0)
-	b.guard(K, 384, 256)
+	b.guard(K, 384, 256, 0.0, right)
 	b.guard(DV, 320, 192, 150.0)
 	b.flat(128)
-	b.bookshelf_lift(96, 128)                 # -608
+	b.bookshelf_lift(96, 128, {rest_frames = 210})  # -608
 	b.flat(128)
-	b.guard(H, 320, 192)
+	b.stump(H, {}, 160)
 	b.hall(448)
 	b.enemy(DV, Vector2(b.x - 224, b.ground - 150))
 	b.guard(P, 384, 288, 0.0, left)
-	b.stump(K)
-	b.shifting_flight(4, 128, {first_delay = 120})  # -704
+	b.guard(K, 320, 224, 0.0, right)
+	b.shifting_flight(4, 128, {first_delay = 120, hold_frames = 240})  # -704
 	b.flat(128)
 	b.stairs_down(3)                          # -608
 	b.candles(2, 160)
-	b.guard(W, 320, 192)
+	b.stump(W, {}, 160)
 	b.guard(SB, 320, 192, 64.0)
-	b.flat(448)
+	b.stair_hump(3)
+	b.flat(64)
 
 	# Finale: twist (denser, faster; T4 lanterns), down to the gardens at 0.
 	print("checkpoint 4 at ", b.x, " ground ", b.ground)
 	b.checkpoint()
 	b.candles(2, 192)                         # no enemy for 2 screens: hazards only
-	b.shifting_flight(4, 128, {first_delay = 60})  # -704
+	b.shifting_flight(4, 128, {first_delay = 60, hold_frames = 240})  # -704
 	b.flat(128)
-	b.guard(K, 320, 224)
+	b.guard(K, 320, 224, 0.0, right)
 	b.book_hall(384, 1)
 	b.enemy(L, Vector2(b.x - 128, b.ground - 176))
 	b.guard(DV, 256, 160, 150.0)
-	b.guard(W, 256, 160)
+	b.stump(W, {}, 160)
 	b.guard(SB, 256, 160, 64.0)
 	b.hall(320)
 	b.enemy(L, Vector2(b.x - 160, b.ground - 150))
@@ -135,17 +138,17 @@ func _build() -> void:
 	b.guard(SB, 256, 160, 64.0)
 	b.drop(96)                                # -608
 	b.guard(DV, 256, 160, 150.0)
-	b.stump(W)
+	b.stump(W, {}, 160)
 	b.drop(128)                               # -480
-	b.guard(H, 256, 160)
+	b.stump(H, {}, 160)
 	b.guard(SB, 256, 160, 64.0)
 	b.guard(P, 320, 224, 0.0, left)
 	b.drop(160)                               # -320
-	b.guard(K, 256, 160)
+	b.guard(K, 256, 160, 0.0, right)
 	b.guard(DV, 256, 160, 150.0)
 	b.drop(160)                               # -160
-	b.guard(W, 256, 160)
-	b.guard(H, 256, 160)
+	b.stump(W, {}, 160)
+	b.stump(H, {}, 160)
 	b.stairs_down(5)                          # 0: the gardens
 	b.guard(SB, 256, 160, 64.0)
 	b.goal(256, 384)

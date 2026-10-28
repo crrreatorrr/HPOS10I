@@ -27,7 +27,7 @@ const FLAME_HOT := Color(1.0, 0.4, 0.12)
 ## Frames with the flame low at difficulty 1 (scaled by interval_mult).
 @export var low_frames := 150
 ## Frames the flame stays up.
-@export var flare_frames := 75
+@export var flare_frames := 60
 @export var telegraph_seconds := 0.5
 ## How tall the flare is above the wick, px.
 @export var flare_height := 40.0
