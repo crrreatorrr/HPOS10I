@@ -1,0 +1,142 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/hud/hud.gd" id="1_hud"]
+[ext_resource type="Theme" path="res://ui/theme/game_theme.tres" id="2_theme"]
+
+[node name="HUD" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_hud")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+
+[node name="Counters" type="Control" parent="Root"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 140.0
+offset_bottom = 42.0
+mouse_filter = 2
+
+[node name="ScoreLabel" type="Label" parent="Root/Counters"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 5.0
+offset_right = 74.0
+offset_bottom = 16.0
+mouse_filter = 2
+theme_type_variation = &"HudLabel"
+text = "SCORE"
+
+[node name="ScoreValue" type="Label" parent="Root/Counters"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 74.0
+offset_top = 5.0
+offset_right = 136.0
+offset_bottom = 16.0
+mouse_filter = 2
+theme_type_variation = &"HudValue"
+text = "0"
+horizontal_alignment = 2
+
+[node name="TimeLabel" type="Label" parent="Root/Counters"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 17.0
+offset_right = 74.0
+offset_bottom = 28.0
+mouse_filter = 2
+theme_type_variation = &"HudLabel"
+text = "TIME"
+
+[node name="TimeValue" type="Label" parent="Root/Counters"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 74.0
+offset_top = 17.0
+offset_right = 136.0
+offset_bottom = 28.0
+mouse_filter = 2
+theme_type_variation = &"HudValue"
+text = "0:00"
+horizontal_alignment = 2
+
+[node name="TicketIcon" type="TextureRect" parent="Root/Counters"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 3.0
+offset_top = 30.0
+offset_right = 16.0
+offset_bottom = 39.0
+mouse_filter = 2
+stretch_mode = 2
+
+[node name="TicketsLabel" type="Label" parent="Root/Counters"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 29.0
+offset_right = 74.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme_type_variation = &"HudLabel"
+text = "TICKETS"
+
+[node name="TicketsValue" type="Label" parent="Root/Counters"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 74.0
+offset_top = 29.0
+offset_right = 136.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme_type_variation = &"HudValue"
+text = "0"
+horizontal_alignment = 2
+
+[node name="Lives" type="Control" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 0
+offset_left = 6.0
+offset_top = 216.0
+offset_right = 70.0
+offset_bottom = 236.0
+mouse_filter = 2
+
+[node name="Head" type="TextureRect" parent="Root/Lives"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 1.0
+offset_right = 16.0
+offset_bottom = 17.0
+mouse_filter = 2
+stretch_mode = 2
+
+[node name="LivesName" type="Label" parent="Root/Lives"]
+layout_mode = 0
+offset_left = 19.0
+offset_right = 64.0
+offset_bottom = 10.0
+mouse_filter = 2
+theme_type_variation = &"OutlineLabel"
+theme_override_colors/font_color = Color(1, 0.86, 0.34, 1)
+text = "SPROTO"
+
+[node name="LivesValue" type="Label" parent="Root/Lives"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 19.0
+offset_top = 8.0
+offset_right = 64.0
+offset_bottom = 19.0
+mouse_filter = 2
+theme_type_variation = &"HudValue"
+text = "x 3"
