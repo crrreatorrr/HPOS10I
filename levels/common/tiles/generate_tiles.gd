@@ -60,6 +60,24 @@ const PALETTES := {
 		plank = Color(0.5, 0.32, 0.2),
 		plank_dark = Color(0.26, 0.15, 0.1),
 	},
+	# Capital Mansion: white marble blocks under a crimson carpet runner with
+	# a gold edge; pale wooden planks.
+	"z3_capital_mansion": {
+		style = "bricks",
+		grass_light = Color(0.98, 0.84, 0.4),
+		grass = Color(0.78, 0.16, 0.22),
+		grass_mid = Color(0.6, 0.1, 0.16),
+		grass_dark = Color(0.4, 0.06, 0.1),
+		soil_light = Color(0.98, 0.98, 1.0),
+		soil_a = Color(0.88, 0.88, 0.92),
+		soil_b = Color(0.8, 0.8, 0.86),
+		soil_dark = Color(0.56, 0.56, 0.66),
+		soil_deep = Color(0.42, 0.42, 0.52),
+		rim = Color(0.3, 0.3, 0.4),
+		plank_light = Color(0.96, 0.86, 0.7),
+		plank = Color(0.82, 0.68, 0.5),
+		plank_dark = Color(0.5, 0.36, 0.24),
+	},
 }
 ## Hanging grass tuft length (px) by world x within a 32 px repeat.
 const TUFTS := [0, 0, 1, 2, 1, 0, 0, 0, 0, 1, 0, 0, 0, 2, 3, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0]

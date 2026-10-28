@@ -5,7 +5,8 @@ extends RefCounted
 ## shadow along the lower side, a white dashed shine on the coloured half, a
 ## seam band with bolts, a dark visor slit with glowing eye dots and a small
 ## antenna. No text or markings. Palettes: the basic mint/white set (Zone 1
-## and the test zone) and Wizard Academy's purple/cream.
+## and the test zone), Wizard Academy's purple/cream and Capital Mansion's
+## navy/white.
 
 const OUTLINE := Color(0.12, 0.12, 0.2)
 const MINT := Color(0.47, 0.9, 0.68)
@@ -32,9 +33,15 @@ const CREAM := Color(0.98, 0.93, 0.8)
 const CREAM_SHADE := Color(0.84, 0.76, 0.6)
 const GOLD := Color(0.98, 0.8, 0.3)
 
+## Capital Mansion (docs/DESIGN.md): navy and white.
+const NAVY := Color(0.18, 0.26, 0.52)
+const NAVY_SHADE := Color(0.1, 0.15, 0.36)
+const SILVER := Color(0.8, 0.84, 0.9)
+
 ## [coloured half, its shade, white half, its shade].
 const BASIC := [MINT, MINT_SHADE, WHITE, WHITE_SHADE]
 const WIZARD := [PURPLE, PURPLE_SHADE, CREAM, CREAM_SHADE]
+const MANSION := [NAVY, NAVY_SHADE, WHITE, WHITE_SHADE]
 
 
 ## Points of a horizontal capsule (straight part ±half_length, end radius r).

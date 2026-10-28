@@ -151,7 +151,7 @@ func test_act_2_ends_in_a_calm_corridor_by_a_checkpoint() -> void:
 
 
 func test_act_1_recorded_run_reaches_the_goal_then_act_2() -> void:
-	var result := _run_bot(["--zone=" + ZONE, "--stage=1", "--policy=none", "--inputs=" + RUNS[1], "--frames=5400"])
+	var result := _run_bot(["--zone=" + ZONE, "--stage=1", "--policy=none", "--inputs=" + RUNS[1], "--frames=6000"])
 	if result.is_empty():
 		return
 	_check_run(result, 1)
@@ -160,7 +160,7 @@ func test_act_1_recorded_run_reaches_the_goal_then_act_2() -> void:
 
 
 func test_act_2_recorded_run_takes_the_secret_and_reaches_the_goal() -> void:
-	var result := _run_bot(["--zone=" + ZONE, "--stage=2", "--policy=none", "--inputs=" + RUNS[2], "--frames=6000"])
+	var result := _run_bot(["--zone=" + ZONE, "--stage=2", "--policy=none", "--inputs=" + RUNS[2], "--frames=7800"])
 	if result.is_empty():
 		return
 	_check_run(result, 2)

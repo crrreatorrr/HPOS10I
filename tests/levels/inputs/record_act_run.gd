@@ -51,6 +51,11 @@ var _busy_until := 0
 var _slow_frames := 0
 var _airborne := false
 var _walls: Array = []
+## No step hops until this frame: after backing off for a run-up, he runs
+## at the slope instead of hopping at its foot (a quarter pipe reads as a step).
+var _no_hop_until := 0
+var _backoffs := 0
+var _creep_frames := 0
 
 
 func _initialize() -> void:
@@ -127,11 +132,15 @@ func _pilot(f: int, p) -> void:
 		return
 	var pos: Vector2 = p.global_position
 	var gs: float = p.ground_speed
-	# Blocked (a wall or a slope too steep to run up): hop.
+	# Blocked (a wall), or creeping up a slope too slowly: hop, or back off
+	# for a run-up (a person wouldn't crawl up a hill at walking pace).
+	var on_slope := absf(wrapf(float(p.ground_angle), -180.0, 180.0)) > 5.0
 	_slow_frames = _slow_frames + 1 if absf(gs) < 0.4 else 0
-	if _slow_frames > 20:
+	_creep_frames = _creep_frames + 1 if on_slope and gs < 1.5 else 0
+	if _slow_frames > 20 or _creep_frames > 30:
 		_slow_frames = 0
-		if absf(wrapf(float(p.ground_angle), -180.0, 180.0)) > 5.0:
+		_creep_frames = 0
+		if on_slope:
 			_back_off(f, "too slow for the slope: back off for a run-up")
 		else:
 			_jump(f, "blocked")
@@ -145,7 +154,7 @@ func _pilot(f: int, p) -> void:
 			_roll(f, "roll into the breakable wall")
 			return
 	# A low step ahead (a stair riser, a stump): hop it like a person would.
-	if _step_ahead(pos, gs):
+	if f >= _no_hop_until and _step_ahead(pos, gs):
 		_jump(f, "hop up a step", JUMP_HOLD)
 		return
 	# Pellets rolling at him: jump them.
@@ -174,7 +183,7 @@ func _pilot(f: int, p) -> void:
 		var level := (d.y > -120.0 and d.y < 0.0) if flying else absf(d.y - FEET) < 40.0
 		if not (d.x > 0.0 and d.x < reach and level):
 			continue
-		if kind in ["walker", "chaser"] and gs >= 3.0 and flat or kind == "armored" and gs >= 5.0 and flat:
+		if kind in ["walker", "chaser", "armored"] and gs >= 5.0 and flat:
 			_roll_through(f, "roll through %s" % enemy.name)
 		elif kind == "spike" or shielded or flying:
 			_jump(f, "jump over %s" % enemy.name if not flying else "jump at %s" % enemy.name, JUMP_HOLD)
@@ -186,8 +195,8 @@ func _pilot(f: int, p) -> void:
 ## True when solid terrain stands just ahead at foot height but not at head
 ## height (a step up to hop), on flat ground.
 func _step_ahead(pos: Vector2, gs: float) -> bool:
-	if gs < 0.0:
-		return false
+	if gs < 0.0 or absf(wrapf(float(_player.ground_angle), -180.0, 180.0)) > 5.0:
+		return false  # already on a slope (a quarter pipe's wall is no step): keep running
 	var space := root.get_world_2d().direct_space_state
 	var reach := 20.0 + gs * 6.0
 	var low := PhysicsRayQueryParameters2D.create(pos + Vector2(0, 12), pos + Vector2(reach, 12), TERRAIN)
@@ -229,11 +238,14 @@ func _jump(f: int, why: String, hold := -1) -> void:
 
 
 func _back_off(f: int, why: String) -> void:
+	_backoffs += 1
+	var frames := 80 + 40 * mini(_backoffs, 3)  # a longer run-up each time it fails
+	_no_hop_until = f + frames * 3
 	_later(f, 0, &"move_right", false)
 	_later(f, 0, &"move_left", true)
-	_later(f, 50, &"move_left", false)
-	_later(f, 50, &"move_right", true)
-	_busy_until = f + 52
+	_later(f, frames, &"move_left", false)
+	_later(f, frames, &"move_right", true)
+	_busy_until = f + frames + 2
 	print("record: f%d x=%.0f %s" % [f, _player.global_position.x, why])
 
 

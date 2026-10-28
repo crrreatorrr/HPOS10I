@@ -47,6 +47,18 @@ const SPELLBOOK := "res://levels/enemies/z2/spellbook_pill.tscn"
 const SPELLBOOK_DIVER := "res://levels/enemies/z2/spellbook_diver.tscn"
 const KNIGHT := "res://levels/enemies/z2/knight_pill.tscn"
 const LANTERN := "res://levels/enemies/z2/lantern_pill.tscn"
+# Capital Mansion (Zone 3).
+const CONVEYOR := "res://levels/objects/z3/conveyor.tscn"
+const SECURITY_BEAM := "res://levels/objects/z3/security_beam.tscn"
+const DOOR := "res://levels/objects/z3/door.tscn"
+const FLOOR_SWITCH := "res://levels/objects/z3/floor_switch.tscn"
+const DRONE := "res://levels/enemies/z3/drone_pill.tscn"
+const DRONE_DIVER := "res://levels/enemies/z3/drone_diver.tscn"
+const CLERK := "res://levels/enemies/z3/clerk_pill.tscn"
+const BOUNCER := "res://levels/enemies/z3/bouncer_pill.tscn"
+const SECURITY_PILL := "res://levels/enemies/z3/security_pill.tscn"
+const CHANDELIER := "res://levels/enemies/z3/chandelier_pill.tscn"
+const CAMERA := "res://levels/enemies/z3/camera_pill.tscn"
 
 const SCREEN := 424
 ## Sproto's centre stands this far above the floor.
@@ -73,6 +85,9 @@ var soil := Color(0.75, 0.44, 0.2)
 var grass := Color(0.36, 0.82, 0.24)
 ## Colour of back walls (caves, halls).
 var cave := CAVE
+## Spacing of the tickets past a guard()'s enemy, and whether one lies before it.
+var guard_ticket_step := 40
+var guard_lead_ticket := true
 
 ## [x, what] of every spring landing, loop exit and checkpoint so far.
 var safe_marks: Array = []
@@ -355,6 +370,7 @@ func waterfall(x0: float, y0: float, w := 48.0, h := 128.0) -> void:
 ## each one), each with a `tread` px landing and a ticket over it, then a
 ## `landing` px flat with tickets at the top (keep enemies off it).
 func stairs_up(steps: int, rise := 32, tread := 64, landing := 128) -> void:
+	paint.flat(32)  # the first riser stands clear of whatever was just placed
 	for i in steps:
 		paint.cliff(ground - rise)
 		ticket(x + tread / 2, ground)
@@ -464,19 +480,25 @@ func book_hall(length: int, count: int, height := 176) -> void:
 
 
 ## A flat of `width` px with an enemy `at` px in (feet on the floor, or
-## `up` px above it for flyers). Most of its tickets lie just past the enemy,
-## so a Sproto who takes the hit runs through it (invincible) and picks some
-## back up before the next one.
-func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}) -> Node2D:
+## `up` px above it for flyers). Two tickets always lie right past the enemy
+## (the flat is widened to fit them), then more every `ticket_step` px, so a
+## Sproto who takes the hit runs through it (invincible) and picks some back
+## up before the next enemy; one lies before it as well.
+func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}, ticket_step := 0) -> Node2D:
+	if ticket_step <= 0:
+		ticket_step = guard_ticket_step
 	var x0 := x
 	var floor_y := ground
+	width = maxi(width, (at + 120 + 15) / 16 * 16)  # tiles are 16 px
 	paint.flat(width)
-	if at >= 96:
+	if at >= 96 and guard_lead_ticket:
 		ticket(x0 + 32, floor_y)
-	var tx := x0 + at + 48
+	ticket(x0 + at + 40, floor_y)
+	ticket(x0 + at + 88, floor_y)
+	var tx := x0 + at + 88 + ticket_step
 	while tx <= x0 + width + 16:
 		ticket(tx, floor_y)
-		tx += 40
+		tx += ticket_step
 	return enemy(enemy_path, Vector2(x0 + at, floor_y - up), props)
 
 
@@ -508,6 +530,145 @@ func broom_chase(length := 2560, speed := 90.0, obstacles := true) -> Node2D:
 		done += piece
 		k += 1
 	return section
+
+
+# --- Capital Mansion sections --------------------------------------------------------
+
+## A conveyor belt set into the floor: `length` px carrying `speed` px/frame
+## (+ right, - left; a belt against the way slows a runner, never stops him).
+func conveyor(length := 256, speed := -3.0) -> Node2D:
+	var x0 := x
+	var floor_y := ground
+	paint.skip(length)
+	paint.solid(Rect2i(x0, floor_y + 48, length, FILL_BOTTOM - floor_y - 48))
+	var belt := place(CONVEYOR, "Conveyor%d" % _next("conveyor"), Vector2(x0, floor_y),
+			{size = Vector2(length, 48), speed = speed}, terrain)
+	row(x0 + 48, floor_y, maxi(1, (length - 96) / 96), 96)
+	return belt
+
+
+## A hall of `length` px under a ceiling `height` px up, with `count`
+## security beams from the ceiling to the floor, firing out of step.
+func beam_hall(length: int, count: int, height := 160, props := {}) -> void:
+	var x0 := x
+	var floor_y := ground
+	hall(length, height)
+	for i in count:
+		var bx := x0 + (i + 1) * length / (count + 1)
+		var settings := {length = float(height), first_delay = (i * 53) % 120}
+		settings.merge(props, true)
+		place(SECURITY_BEAM, "SecurityBeam%d" % _next("beam"), Vector2(bx, floor_y - height), settings)
+
+
+## A locked hall: a floor switch, then `gap` px on a door across the hall
+## that the switch opens (pressed in passing, the door slides into the
+## ceiling slab above it before Sproto reaches it at a run).
+func switch_door(gap := 320, height := 96) -> void:
+	var x0 := x
+	var floor_y := ground
+	paint.flat(96)
+	var pad := place(FLOOR_SWITCH, "FloorSwitch%d" % _next("switch"), Vector2(x0 + 48, floor_y))
+	flat(gap - 96, 32, 64)
+	paint.solid(Rect2i(x - 32, floor_y - height - 32 - height, 96, height + 32))  # the slab the door slides into
+	backwall(Rect2(x - 32, floor_y - height, 96, height))
+	var door := place(DOOR, "HallDoor%d" % _next("door"), Vector2(x, floor_y), {size = Vector2(32.0, float(height))})
+	pad.set(&"doors", [pad.get_path_to(door)] as Array[NodePath])
+	paint.flat(32)
+	flat(96)
+
+
+## A ballroom: a tall hall of `length` px (ceiling `height` up) with a
+## chandelier pill (T4) hanging over its middle and a row of tickets.
+func ballroom(length := 512, height := 192) -> Node2D:
+	var x0 := x
+	var floor_y := ground
+	hall(length, height)
+	return enemy(CHANDELIER, Vector2(x0 + length / 2, floor_y - height + 24))
+
+
+## A camera post: a camera pill (T4 sniper) on top of a 64 px terrace with a
+## roll tunnel under it, covering the `approach` px of hall in front. Its line
+## of fire to a target on the floor passes over a runner's head, so running
+## at it is safe; standing in its sight is not.
+func camera_post(approach := 384, length := 192) -> Node2D:
+	var base := ground
+	flat(approach, 32, 64)
+	var t0 := x
+	paint.cliff(base - 64).flat(length)
+	paint.cliff(base)
+	paint.carve(Rect2i(t0, base - 48, length, 48))
+	paint.floor_at(t0, t0 + length, base)
+	backwall(Rect2(t0, base - 48, length, 48))
+	row(t0 + 48, base, length / 64, 48)
+	row(t0 + 24, base - 64, 3, 40)  # a bot that lands on top has tickets before the camera
+	var cam := enemy(CAMERA, Vector2(t0 + length - 24, base - 64))
+	paint.flat(96)
+	return cam
+
+
+## A rooftop run: a booster, then `count` roof gaps of `gap` px between
+## `roof` px roofs, each roof `step` px lower than the last, so a run at
+## speed clears every gap (jumping clears them with room to spare).
+func rooftops(count := 3, roof := 256, gap := 48, step := 24, runup := 192) -> void:
+	paint.flat(runup)
+	place(BOOSTER, "SpeedBooster%d" % _next("booster"), Vector2(x - 48, ground), {facing = 1})
+	for i in count:
+		flat(roof, 48, 64)
+		paint.skip(gap)
+		paint.cliff(ground + step)
+	flat(roof, 48, 64)
+
+
+## A bunker shaft: a drop of `depth` px (2 screens or more) down a walled
+## shaft to a lower level, with tickets down the wall.
+func shaft_down(depth := 480, width := 96) -> void:
+	var x0 := x
+	var top_y := ground
+	paint.cliff(top_y + depth)
+	paint.flat(width)
+	# The shaft's far wall, from high up down to 48 px above the lower floor
+	# (the way on is under it), so the drop reads as a shaft.
+	paint.solid(Rect2i(x0 + width, top - 200, 16, (top_y + depth - 64) - (top - 200)))
+	backwall(Rect2(x0, top_y - 64, width, depth + 64))
+	for k in range(64, depth - 32, 96):
+		ticket_at(Vector2(x0 + width / 2, top_y + k))
+
+
+## A lift shaft up: a bookshelf-style lift (levels/objects/z2) of `travel`
+## px, dressed as a service lift, up a walled shaft onto the level above.
+func lift_up(travel := 192, runup := 192) -> Node2D:
+	return bookshelf_lift(travel, runup, {rest_frames = 180, out_frames = 120, close_speed = 2.5})
+
+
+## The bunker exit: at the end of the route a shaft drops Sproto into a
+## lower corridor that runs LEFT on a conveyor to the arena gate: the
+## checkpoint and the goal are at its left end (the exit reached by
+## travelling left, docs/LEVELS.md R4). The route's end wall stands right of
+## the shaft. Returns nothing; the goal is placed here.
+func leftward_exit(corridor_len := 640, depth := 240) -> void:
+	var x0 := x
+	var top_y := ground
+	var low_y := top_y + depth
+	# The corridor below the ground already painted: carve it, floor it with a leftward belt.
+	paint.flat(96)
+	var shaft_x := x
+	paint.cliff(low_y)
+	paint.flat(96)
+	paint.solid(Rect2i(x, top - 200, 48, FILL_BOTTOM - top + 200))  # the end wall
+	var left := shaft_x - corridor_len
+	paint.carve(Rect2i(left, low_y - 128, corridor_len, 128))
+	paint.solid(Rect2i(left - 48, low_y - 200, 48, 200 + 64))  # the corridor's left wall
+	paint.solid(Rect2i(left, low_y, corridor_len, FILL_BOTTOM - low_y))
+	backwall(Rect2(left, low_y - 128, corridor_len + 96, 128))
+	var belt := place(CONVEYOR, "ExitConveyor", Vector2(left + 128, low_y), {size = Vector2(corridor_len - 128, 48), speed = -9.0}, terrain)
+	belt.z_index = 1
+	paint.carve(Rect2i(left + 128, low_y, corridor_len - 128, 48))
+	leftward_marker(Rect2(left, low_y - 160, corridor_len, 32), "LeftwardBunkerExit")
+	for k in range(0, corridor_len - 128, 96):
+		ticket_at(Vector2(left + 192 + k, low_y))
+	var cp := place(CHECKPOINT, "Checkpoint%d" % _next("checkpoint"), Vector2(left + 112, low_y - STAND))
+	mark(left + 112, "checkpoint")
+	place(GOAL_SIGN, "GoalSign", Vector2(left + 48, low_y))
 
 
 ## A checkpoint post at x (Sproto's centre height above the ground there).
