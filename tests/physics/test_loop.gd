@@ -21,7 +21,6 @@ func _setup(start_x: float) -> void:
 func _run(direction: int, goal_x: float, limit := 600) -> Dictionary:
 	var modes := {}
 	var airborne := false
-	var lowest := INF
 	for i in limit:
 		await physics_frames(1)
 		modes[player.collision_mode] = true

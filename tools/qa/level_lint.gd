@@ -27,7 +27,7 @@ func _run() -> void:
 			for path in Lint.level_scenes():
 				var act := Diff.act_of(path)
 				if not act.is_empty():
-					print("ACT %s %d %d %s" % [act.zone, act.stage, act.d, path])
+					print("ACT %s %d %s %s" % [act.zone, act.stage, str(act.d), path])
 			quit(0)
 			return
 	if scenes.is_empty():
@@ -54,8 +54,8 @@ func _run() -> void:
 		if not act.is_empty():
 			var m := Diff.measure(root as Node2D)
 			acts.append({path = path, d = act.d, m = m})
-			print("  difficulty D%d (%s act %d): %s" % [act.d, act.zone, act.stage, Diff.summary(m)])
-			for f in Diff.check(m, act.d, Diff.targets(act.d)):
+			print("  difficulty D%s (%s act %d%s): %s" % [str(act.d), act.zone, act.stage, ", before the boss" if act.pre_boss else "", Diff.summary(m)])
+			for f in Diff.check(m, act.d, Diff.targets(act.d), act.pre_boss):
 				counts[f.severity] += 1
 				print("  %-5s %-28s %s" % [f.severity.to_upper(), f.rule, f.detail])
 		print("  -> %d error(s), %d warning(s)" % [counts.error, counts.warn])
@@ -64,7 +64,7 @@ func _run() -> void:
 		await process_frame
 	if acts.size() > 1:
 		print("level_lint: act-to-act order (%d acts)" % acts.size())
-		for f in Diff.check_order(acts):
+		for f in Diff.check_order(acts) + Diff.check_local_source():
 			print("  %-5s %-28s %s" % [f.severity.to_upper(), f.rule, f.detail])
 			if f.severity == "error":
 				errors += 1

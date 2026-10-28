@@ -197,3 +197,36 @@ Both are minor for a dev playground. Owner: physics (playground).
 | BUG-03-04 stray lip pixels at loop bases | minor | backlog |
 | Playground lint (`loop.intrusion`, `loop.runup` at x 3120) | minor | backlog |
 | BUG-01-12, BUG-01-13 | minor | backlog (01-physics) |
+
+## 03c: re-check @ a59f32d (fixes f8a9a58, merge 55ec57f, follow-up a59f32d)
+
+- **Scope:**
+  - `physics` HEAD a59f32d, which already contains main 1ecdd37 (`git archive` of the branch).
+  - Also 55ec57f, for the steps in between.
+  - Target mode is interpolation **ON**.
+- **Verdict: MERGE.**
+  - Every bug from 03/03b is fixed.
+  - The follow-up commit (InputLabels hint, Tuning `bounce_trim`/`died_delay_frames`, `Layers.*`) changes no behaviour.
+  - Nothing major or blocking is open.
+
+| Check | Result |
+|---|---|
+| Import / tests | Clean. **221 passed, 0 failed**, with the lead's error-failing runner (TestErrorLogger). The 15 camera probes now run instead of skipping, and all pass. |
+| `scene_smoke.sh` / originality | 9 run, 9 passed / 0 hits |
+| Level lint, playground | **0 errors, 0 warnings.** The small loop moved to x 3248 (footprint 3040–3456) and now has a 400 px run-up. |
+| BUG-03-01, snap smear | **FIXED.** `_snap_to_target` places the camera, then resets interpolation. Re-recorded `cam_strip` with `--interp` at 144 Hz (on 55ec57f and again on a59f32d) and 120 Hz: the respawn is a clean cut. The background phase jumps straight to its new value, and Sproto's first visible frame is at his normal screen x (211). There are no in-between frames; before the fix there were 2 at 144 Hz and 1 at 120 Hz. Steady scroll is unchanged: 2/3 px alternating at 144 Hz, 3 px at 120 Hz, and 0/6 px judder with interpolation off. |
+| BUG-03-02, autoscroll `clamp_rect` 1 frame late | still open; minor (backlog) |
+| BUG-03-03, blink | **FIXED.** The blink follows `invincible_frames_left()`, so it is 7.5 Hz at any refresh rate. |
+| BUG-03-04, stray lip pixels | **FIXED.** QA's textured material set at both loops now shows 0 highlight pixels in the air (24 before). 1–2 single green tuft-tip pixels remain on the curved rings; those are the fixture's own tufts, not the wrap bug. |
+| Trajectories | **Identical** on a59f32d with `--trace=1`, comparing four variants per policy: base, interpolation ON, interpolation ON + effects off + textured terrain, and effects off + textured terrain. Both policies, fuzz seed 5 and runner jump-every 90, gave byte-identical traces across the variants and against 55ec57f. The Layers/Tuning refactor is behaviour-neutral: every bit value is unchanged (hitbox 16, tickets 64/16), and `died_delay_frames` = 60 and `bounce_trim` = 1.0 match the old constants. |
+| Long runs with interpolation ON | **Clean.** 3 × 18,000 ticks (fuzz seeds 7 and 8, runner jump-every 45 with 97 spin dashes): 0 errors, 0 NaN, 0 orphans. Nodes return to 204 (peak 266), and static memory stays flat at 31.3 MB. |
+| Full-QA items owned by physics | FQ-09 respawn 2 s: **FIXED** (120 frames from `kill()`; `test_playground_flow` INFO). FQ-20 allocations: **FIXED** (sensor ray records only while F1 shows, label arrays built once, PathSwitcher idle when empty). FQ-21 numbers outside tuning: **FIXED** (two tuning fields; the others named). FQ-22 `test_loop` unused `lowest`: **FIXED**. The playground hint (FQ-07) is built from InputLabels. |
+
+**Notes:**
+- The old `PlayerSensors.BIT_*` and `CurveTerrain.LAYER_*` constants were removed. The only other references are in the `levels` and `art` branches' stale copies of `player/scattered_ticket.gd`, a physics-owned file that this branch updates, so the merge is safe.
+- The level agent should use `Layers.*` from now on.
+
+**Still open on this branch (all minor, backlog):**
+- BUG-03-02.
+- BUG-01-12 and BUG-01-13.
+- FQ-26: the F1 overlay ships in the public build.

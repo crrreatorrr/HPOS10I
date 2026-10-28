@@ -1,0 +1,22 @@
+{
+  "events": [
+    [30, "move_up", true],
+    [250, "move_up", false],
+    [280, "move_down", true],
+    [450, "jump", true],
+    [452, "jump", false],
+    [456, "jump", true],
+    [458, "jump", false],
+    [462, "jump", true],
+    [464, "jump", false],
+    [468, "jump", true],
+    [470, "jump", false],
+    [474, "jump", true],
+    [476, "jump", false],
+    [480, "move_down", false],
+    [560, "move_right", true],
+    [700, "jump", true],
+    [716, "jump", false],
+    [1260, "move_right", false]
+  ]
+}

@@ -263,3 +263,70 @@ Rule: integer scaling when the window is at least 2× the 424×240 base on both 
   - a `CONTRACTS.md`-vs-code checker that labels each finding DRIFT, PENDING or NOT-YET;
   - a `prompts.md` row linter.
 - QA owns the follow-up for both, and for FQ-23.
+
+## Re-check: main @ 1ecdd37 (lead fixes 4592d04, 1ecdd37), physics @ a59f32d
+
+How I checked:
+- A planted crashing test.
+- A probe of the timer after a return to the menu.
+- Command-line runs of the robustness cases.
+- The `choose_stretch` rule recomputed for the display table.
+- `web_check` on the CI artifact of run 40666285557 (main 1ecdd37).
+- Reading the docs and the code.
+- For physics: `qa/reports/03-camera.md` 03c.
+
+| ID | Status | Evidence |
+|---|---|---|
+| FQ-01 | **FIXED** | 03c: a clean cut at 144/120 Hz |
+| FQ-02 | **FIXED** | A planted null call now gives `FAIL … 1 unexpected engine/script error(s)` and exit 1. |
+| FQ-03 | **FIXED** | CONTRACTS has the "Core autoloads and helpers" table (GameState signals, properties and methods, including `lose_tickets`), the input actions and the Dev flag table. |
+| FQ-04 | **FIXED** | The live artifact has `fileSizes` keyed `index.pck?v=1ecdd379185d`; `web_check` 0 FAIL, 0 WARN. |
+| FQ-05 | **FIXED** | Integer scaling only when it covers at least 85 % of the fractional fit. See the table below this one. |
+| FQ-06 | open (ui-audio) | No pause menu yet. The README now says Esc pauses only outside fullscreen. |
+| FQ-07 | **FIXED** (desktop) | The menu compares `physical_keycode` digits. Menu and playground hints come from InputLabels. Web label learning still needs the lead's browser check. |
+| FQ-08 | **FIXED** | Deadzones are 0.45 for left/right and 0.75 for up/down. |
+| FQ-09 | **FIXED** | 120 frames from `kill()` to respawn. |
+| FQ-10 | **FIXED** | The timer runs on physics ticks. After `reset_game()` + `go_title()`, `timer_running` is false and `level_time` stays 0.000 over 60 frames. |
+| FQ-11 | **FIXED** | Tuning load falls back with `push_error`. A bare `--inputs` gives a clean `[Dev]` error, and a missing `--scene` a clean `[Main]` error. No script errors. |
+| FQ-12 | **FIXED** | 03c (BUG-03-04) |
+| FQ-13 | **FIXED** | 03c (BUG-03-03) |
+| FQ-14 | open (minor) | First load is still 10.1 MB gzip; no slim template yet. |
+| FQ-15 | **FIXED** | Pinned SHA-512 sums are checked with `sha512sum -c` before unzipping. The cache key changed, so the next run re-verifies. |
+| FQ-16 | mostly fixed | Touch rows say "(coming)", and dev flags and `gate.sh` are listed. Still left: README line 17 "Every push to main redeploys automatically" (deploys need every check to pass), and line 51 "every movement constant lives in physics_constants.tres". Both polish. |
+| FQ-17 | **FIXED** | Pill robots have a 1 px outline like every sprite. Zone and boss guardrails are added. |
+| FQ-18 | mostly fixed | Layer heights and anchoring are in the contract. `CONTRACTS.md:333` still says "`--import` shows no script errors" (polish; `gate.sh` is the real gate). |
+| FQ-19 | **FIXED** | `core/layers.gd`. Physics code and test libraries use it (a59f32d); `tests/qa` keeps its own copies (QA follow-up). |
+| FQ-20, FQ-21, FQ-22 | **FIXED** | 03c |
+| FQ-23 | open (qa) | `-d` warning pass not added yet. Physics fixed its shadowing and integer-division warnings. |
+| FQ-24 | open (art) | |
+| FQ-25 | open (ui-audio) | |
+| FQ-26 | open (polish) | The F1 overlay still ships. |
+| FQ-27 | **FIXED** | The loading screen shows "HPOS10I", "Loading the game (about 10 MB)…" and the disclaimer. |
+| FQ-28 | **FIXED** | The title-screen disclaimer is now required by CONTRACTS, and it is on the loading screen. |
+| FQ-29 | **FIXED** | Display switches on the first touch or key; `--touch` flag. |
+| FQ-30 | **FIXED** | The menu repeats on held WASD/D-pad. |
+| FQ-31, FQ-32, FQ-33 | open (polish) | |
+| FQ-35 | **FIXED** | LEVELS uses `Difficulty.telegraph(seconds)`. |
+
+FQ-05 display table under the new rule:
+
+| Window | Result | Coverage |
+|---|---|---|
+| 1280×720 | 3× | 100 % |
+| 1366×768 | 3× | 94 % |
+| 1920×1080 | 4× | 89 % |
+| 1920×940 | fractional 3.9× | 3× would be 77 % |
+| 1440×790 | 3× | 91 % |
+| 2560×1440 | 6× | |
+| touch | fractional | |
+
+**Still open after the re-check:**
+- FQ-06, ui-audio: pause menu.
+- FQ-14, lead: web size.
+- FQ-23, qa: warnings pass.
+- FQ-24, art: prompts log.
+- FQ-25, ui-audio: audio manager.
+- BUG-03-02, physics: autoscroll limit one frame late.
+- Polish: FQ-16 and FQ-18 leftovers, FQ-26, FQ-31 to FQ-33.
+
+None are blockers or majors.

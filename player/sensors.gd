@@ -7,10 +7,6 @@ extends RefCounted
 ## All casts use PhysicsDirectSpaceState2D.intersect_ray and are recorded each
 ## frame so the debug overlay can draw them in world space.
 
-const BIT_SOLID := 1
-const BIT_PATH_A := 2
-const BIT_PATH_B := 4
-const BIT_TOP_ONLY := 8
 ## Offset of the two side rays used to re-measure a surface angle.
 const SURFACE_PROBE_OFFSET := 0.5
 ## A re-measured angle this close (degrees) to the reported one confirms it.
@@ -35,8 +31,10 @@ class Hit:
 	var mask: int
 
 
-## Every cast this frame: {label, from, to, hit (bool), point}.
+## Every cast this frame: {label, from, to, hit (bool), point}, kept only while
+## `recording` is on (the debug overlay turns it on while visible).
 var casts: Array[Dictionary] = []
+var recording := false
 ## The two side hits (or nulls) of the last cast_pair(), in label order.
 var last_pair: Array[Hit] = [null, null]
 
@@ -68,17 +66,19 @@ static func angle_from_normal(n: Vector2) -> float:
 
 ## Terrain mask for the given collision path (0 = A, 1 = B).
 static func terrain_mask(path: int, top_only: bool) -> int:
-	var mask := BIT_SOLID | (BIT_PATH_A if path == 0 else BIT_PATH_B)
+	var mask := Layers.TERRAIN_SOLID | (Layers.TERRAIN_PATH_A if path == 0 else Layers.TERRAIN_PATH_B)
 	if top_only:
-		mask |= BIT_TOP_ONLY
+		mask |= Layers.TERRAIN_TOP_ONLY
 	return mask
 
 
 ## Casts one ray. Returns null when nothing is hit.
 func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) -> Hit:
 	var to := from + dir * length
-	var record := {label = label, from = from, to = to, hit = false, point = to}
-	casts.append(record)
+	var record: Dictionary = {}
+	if recording:
+		record = {label = label, from = from, to = to, hit = false, point = to}
+		casts.append(record)
 	if _space == null:
 		return null
 	_query.from = from
@@ -97,15 +97,17 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 	hit.length = length
 	hit.mask = mask
 	var layer := PhysicsServer2D.body_get_collision_layer(result.rid)
-	hit.top_only = (layer & BIT_TOP_ONLY) != 0 and (layer & (BIT_SOLID | BIT_PATH_A | BIT_PATH_B)) == 0
+	hit.top_only = (layer & Layers.TERRAIN_TOP_ONLY) != 0 \
+			and (layer & (Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_PATH_B)) == 0
 	# A ray that really enters a solid always crosses a surface facing it. A
 	# normal facing along the ray comes from a convex piece the ray only grazes
 	# at a shared vertex (an internal edge of the polygon's decomposition), so
 	# measure the surface instead.
 	if hit.normal.dot(dir) > -0.001:
 		hit.angle = surface_angle(hit)
-	record.hit = true
-	record.point = hit.position
+	if recording:
+		record.hit = true
+		record.point = hit.position
 	return hit
 
 
@@ -158,7 +160,8 @@ func cast_pair(labels: PackedStringArray, center: Vector2, side: Vector2, dir: V
 		half_width: float, length: float, mask: int) -> Hit:
 	var first := cast(labels[0], center - side * half_width, dir, length, mask)
 	var second := cast(labels[1], center + side * half_width, dir, length, mask)
-	last_pair = [first, second]
+	last_pair[0] = first
+	last_pair[1] = second
 	if first == null and second == null and labels.size() > 2:
 		return cast(labels[2], center, dir, length, mask)
 	if first == null:
