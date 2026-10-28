@@ -149,8 +149,9 @@ func test_recorded_run_uses_every_feature_and_reaches_the_goal() -> void:
 	if level != null:
 		var wall := level.get_node(^"Objects/BreakableWall") as BreakableWall
 		assert_true(wall.is_broken(), "the run broke the wall")
-		assert_eq(tree.get_nodes_in_group(&"enemies").filter(func(e: Node) -> bool: return (e as Enemy).alive).size(), 0,
-				"the run beat all %d enemies" % enemies_at_start)
+		var survivors := tree.get_nodes_in_group(&"enemies").filter(func(e: Node) -> bool: return (e as Enemy).alive)
+		assert_eq(survivors.map(func(e: Node) -> String: return "%s at x %.0f" % [e.name, (e as Node2D).global_position.x]),
+				[], "the run beat all %d enemies" % enemies_at_start)
 		assert_true(frame < 1800, "a quick run (goal at frame %d)" % frame)
 	tree.unload_current_scene()
 

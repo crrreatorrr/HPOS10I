@@ -217,10 +217,7 @@ func test_standing_on_a_spring_never_stacks_speed() -> void:
 		await physics_frames(1)
 		top = minf(top, player.velocity.y)
 		deepest = maxf(deepest, -64.0 - (player.global_position.y - player.get_radii().y))
-	# Physics bug reported to the physics agent: after a ceiling hit,
-	# Player._move_in_air keeps applying the frame's remaining sub-steps, so a
-	# fast launch can end a frame up to one sub-step (8 px) inside a ceiling.
-	assert_true(deepest <= 8.0, "never more than one air sub-step into the ceiling (%.2f px)" % deepest)
+	assert_true(deepest <= 0.1, "never pushed into the ceiling (%.2f px deep)" % deepest)
 	assert_true(top >= -10.0 - 1e-4, "never faster than the spring")
 
 

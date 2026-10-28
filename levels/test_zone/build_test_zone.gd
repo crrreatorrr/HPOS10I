@@ -14,10 +14,10 @@ extends SceneTree
 ## Sections by progress (LevelRoot.progress_at): opening (to 25 %) one
 ## enemy, middle one, finale (from 75 %) two, so the finale is the densest.
 ## Checkpoints: one near halfway, one where the finale starts.
-##   start flats (side spring at the wall) -> a stump to jump, with a walker
+##   start flats -> a stump to jump, with a walker
 ##      pill behind it (jump on it)
 ##   -> gentle (1:2) and steep (1:1) hills
-##   -> up spring against a 128 px cliff onto the mesa
+##   -> up spring against a 128 px cliff onto the mesa, a side spring along it
 ##   -> 45 degree descent -> hopper pill at its foot -> the spring gate: a
 ##      40 px passage (too low to jump in, so nobody skips the spring) and a
 ##      diagonal spring just past it that throws Sproto onto a plank bridge
@@ -69,6 +69,7 @@ const HILLS_X := 768
 const MESA_X := 1856
 const MESA_Y := -128
 const MESA_END := 2752
+const SIDE_SPRING_X := 2080
 const GATE := Rect2i(3200, TOP, 96, -40 - TOP)
 const PIT_1 := Vector2i(3456, 3552)
 const PIT_2 := Vector2i(3712, 3808)
@@ -221,7 +222,9 @@ func _build_terrain(terrain: Node2D) -> void:
 # --- Objects and enemies ---------------------------------------------------------
 
 func _build_objects() -> void:
-	_place(SPRING_SIDE, "SpringSide", Vector2(40, 0), {facing = 1})
+	# On the mesa, just past the up spring's landing: a burst of speed along
+	# the top. The next enemy (the hopper) is more than 2 screens ahead.
+	_place(SPRING_SIDE, "SpringSide", Vector2(SIDE_SPRING_X, MESA_Y), {facing = 1})
 	_place(SPRING_UP, "SpringUp", Vector2(MESA_X - 16, 0))
 	# Its trigger starts 18 px past the passage: where Sproto's head sensors
 	# clear the ceiling, so the launch is free and a jump can't come first.
@@ -234,10 +237,11 @@ func _build_objects() -> void:
 	_place(GOAL_SIGN, "GoalSign", Vector2(GOAL_X, 0))
 
 	_place(WALKER, "Walker", Vector2(STUMP.end.x + 78, 0), {patrol_distance = 8.0}, enemies)
-	_place(HOPPER, "Hopper", Vector2(2936, 0), {}, enemies)
+	# Hop phase: grounded when a run boosted by the side spring arrives.
+	_place(HOPPER, "Hopper", Vector2(2936, 0), {first_hop_delay = 80}, enemies)
 	_place(WALKER, "FinaleWalker", Vector2(UPPER.y + 152, 0), {patrol_distance = 16.0}, enemies)
 	var hill_foot := LAST_HILL.x + LAST_HILL.y * 4 + 64
-	_place(HOPPER, "FinaleHopper", Vector2(hill_foot + 24, 0), {first_hop_delay = 20}, enemies)
+	_place(HOPPER, "FinaleHopper", Vector2(hill_foot + 24, 0), {first_hop_delay = 80}, enemies)
 
 
 func _build_tickets() -> void:
