@@ -176,7 +176,7 @@ export class Player {
       let accel = grounded ? (mag > 0.05 ? T.ACCEL : T.DECEL) : T.AIR_ACCEL;
       if (this.skidT > 0) {
         accel = T.DECEL * 1.6;
-        if (Math.random() < 0.6) this.game.fx?.puff(this.pos.x, this.pos.y + 0.05, this.pos.z, { count: 1, size: 0.3, color: 0xf0e6d6, up: 0.6, speed: 1.2 });
+        if (Math.random() < 0.6) this.game.fx?.dust(this.pos.x, this.pos.y, this.pos.z, { count: 1, size: 0.32, color: this._dustColor(), speed: 1.6 });
       }
       this._approach(tx, tz, accel * dt);
       if (mag > 0.1) this.targetFacing = Math.atan2(dx, dz);
@@ -195,7 +195,7 @@ export class Player {
       // gentle steering
       if (mag > 0.1) this.facing = dampAngle(this.facing, Math.atan2(dx, dz), 3, dt);
       this.vel.x = f.x * sp; this.vel.z = f.z * sp;
-      if (this.slideT % 0.06 < dt) this.game.fx?.puff(this.pos.x, this.pos.y + 0.1, this.pos.z, { count: 1, size: 0.3, color: 0xe8dcc8, up: 0.5, speed: 1 });
+      if (this.slideT % 0.05 < dt && grounded) this.game.fx?.dust(this.pos.x - f.x * 0.4, this.pos.y, this.pos.z - f.z * 0.4, { count: 1, size: 0.34, color: this._dustColor(), speed: 1.2, dirX: -f.x * 1.5, dirZ: -f.z * 1.5 });
       if (this.slideT >= T.SLIDE_TIME || !grounded) this._endSlide();
     } else if (this.mode === 'flop') {
       this.flopT += dt;
@@ -228,7 +228,8 @@ export class Player {
         this.flipT = 0;
         this.jumpT = 0;
         audio.play('doubleJump');
-        this.game.fx?.puff(this.pos.x, this.pos.y, this.pos.z, { count: 5, size: 0.35, color: 0xffffff, up: -1, speed: 2 });
+        this.game.fx?.puff(this.pos.x, this.pos.y + 0.1, this.pos.z, { count: 5, size: 0.3, color: 0xffffff, up: -1.5, speed: 2.2, life: 0.4, grow: 1 });
+        this.game.fx?.shock(this.pos.x, this.pos.y - 0.05, this.pos.z, { radius: 1.1, life: 0.3, k: 0.6, color: 0xeaf6ff });
       }
     }
     // variable jump height
@@ -256,12 +257,23 @@ export class Player {
     const h = dt / steps;
     const wasGrounded = this.body.grounded;
     rideGround(this.body);
+    // external push (boss wind gusts, suction): moved through collision like normal velocity, cleared each frame
+    const px = this.mode === 'dead' ? 0 : this.pushX || 0, pz = this.mode === 'dead' ? 0 : this.pushZ || 0;
+    this.vel.x += px; this.vel.z += pz;
     for (let i = 0; i < steps; i++) moveBody(stage.world, this.body, h);
+    this.vel.x -= px; this.vel.z -= pz;
+    this.pushX = 0; this.pushZ = 0;
     if (wasGrounded && !this.body.grounded && this.vel.y <= 0) this.canDouble = true; // walked off a ledge
     if (this.body.grounded) { this.airBiteUsed = false; this.canDouble = false; }
 
     // ---- idle timer ----
     const hs = Math.hypot(this.vel.x, this.vel.z);
+    // little dust kicks from the paws at full run
+    this.stepT = (this.stepT || 0) - dt;
+    if (this.mode === 'normal' && this.body.grounded && hs > T.RUN * 0.7 && this.stepT <= 0) {
+      this.stepT = 0.2;
+      this.game.fx?.dust(this.pos.x - (this.vel.x / hs) * 0.3, this.pos.y, this.pos.z - (this.vel.z / hs) * 0.3, { count: 1, size: 0.2, color: this._dustColor(), speed: 0.6, life: 0.35 });
+    }
     if (this.mode === 'normal' && this.body.grounded && hs < 0.3 && this.biteT < 0) this.idleTime += dt;
     else this.idleTime = 0;
     // after a while, turn to look at the camera like a proper 90s mascot
@@ -269,7 +281,11 @@ export class Player {
 
     // ---- interactions + hazards ----
     this._interact(stage);
-    if (this.pos.y < stage.killYAt(this.pos, this.body) && this.mode !== 'dead') this.die('fall');
+    if (this.pos.y < stage.killYAt(this.pos, this.body) && this.mode !== 'dead') {
+      const wy = stage.track?.waterAt(this.body.s ?? 0);
+      if (wy != null) { this.game.fx?.splash(this.pos.x, wy, this.pos.z); audio.play('land'); }
+      this.die('fall');
+    }
 
     this._animate(dt);
     this._updateShadow(stage);
@@ -289,9 +305,12 @@ export class Player {
     this.jumpCut = false;
     this.canDouble = true;
     this.jumpT = 0;
+    if (this.body.grounded) this.game.fx?.dust(this.pos.x, this.pos.y, this.pos.z, { count: 3, size: 0.24, color: this._dustColor(), speed: 1.8 });
     this.body.grounded = false;
     audio.play('jump');
   }
+
+  _dustColor() { return this.game.stage?.theme?.dust ?? 0xf0e8d8; }
 
   // External bounce (enemy stomp, backpack, trampoline). Holding jump bounces higher.
   bounce(v, { allowCut = true } = {}) {
@@ -362,7 +381,8 @@ export class Player {
     }
     if (impact < -6) {
       audio.play('land');
-      this.game.fx?.puff(this.pos.x, this.pos.y + 0.05, this.pos.z, { count: 4, size: 0.3, color: 0xf2ead8, up: 0.4, speed: 2.2 });
+      const n = impact < -14 ? 7 : 4;
+      this.game.fx?.dust(this.pos.x, this.pos.y, this.pos.z, { count: n, size: impact < -14 ? 0.36 : 0.28, color: this._dustColor(), speed: 2.6 });
     }
   }
 

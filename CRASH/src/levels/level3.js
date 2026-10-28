@@ -128,8 +128,9 @@ export function buildLevel3(game, stage, tickets) {
   // --- decor ---
   k.banks(-6, END, (x, y, d) => {
     const r = Math.random();
-    if (r < 0.35) k.pipe(x, y, d, rand(4, 9));
-    else if (r < 0.6) k.vat(x, y, d, rand(1.2, 1.8));
+    if (r < 0.32) k.pipe(x, y, d, rand(4, 9));
+    else if (r < 0.55) k.vat(x, y, d, rand(1.2, 1.8));
+    else if (r < 0.66) k.vent(x, y, d);
     else k.cones(x, y, d, Math.floor(rand(2, 5)));
   }, { every: 4.5 });
   k.edges(-4, END, (x, y, d) => k.cones(x, y, d, Math.floor(rand(1, 3))), { every: 6 });
@@ -148,7 +149,9 @@ export function buildBoss3Arena(game, stage, tickets) {
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     const r = 20;
-    k.cones(Math.cos(a) * r, -2, Math.sin(a) * r, 6);
+    const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+    stage.block(cx - 1, -16, -cz - 1, cx + 1, -2, -cz + 1, 'wall', { solid: false });
+    k.cones(cx, -2, cz, 6);
     k.pipe(Math.cos(a + 0.2) * (r + 4), -6, Math.sin(a + 0.2) * (r + 4), rand(10, 16));
   }
   for (const [x, z] of [[-14, -14], [14, -14], [-14, 14], [14, 14]]) stage.block(x - 1, -6, z - 1, x + 1, 9, z + 1, 'wall', { solid: false });

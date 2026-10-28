@@ -51,6 +51,6 @@ export function installDevTools(game) {
   };
   window.T = T;
   // Browsers pause requestAnimationFrame in hidden tabs; keep the game ticking for automated playtests.
-  setInterval(() => { if (document.hidden) game.loop(performance.now(), true); }, 16);
+  setInterval(() => { if (document.hidden && game.ui) game.loop(performance.now(), true); }, 16);
   import('./art/assets.js').then((m) => { window.__assets = m.Assets; });
 }

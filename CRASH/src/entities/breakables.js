@@ -13,9 +13,8 @@ import { TUNING } from '../player/player.js';
 // ---------- shared explosion ----------
 export function explode(stage, x, y, z, r, { kind = 'flat', source = null, color = 0xffd27a } = {}) {
   const game = stage.game;
-  game.fx.ring(x, y, z, { color: 0xfff2c0, radius: r });
-  game.fx.puff(x, y + 0.3, z, { count: 14, size: 0.8, color: 0xd8c8b0, speed: 4, up: 3, life: 0.9 });
-  game.fx.sparkle(x, y + 0.6, z, { count: 14, color, size: 0.9, speed: 6 });
+  game.fx.explosion(x, y, z, { radius: r, color });
+  game.fx.ring(x, y, z, { color: 0xf0e0c8, radius: r * 0.8, count: 10, size: 0.5 });
   game.camera.shake(0.5, 0.35);
   audio.play('explosion');
   for (const e of stage.entities) {

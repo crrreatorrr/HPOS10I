@@ -164,11 +164,13 @@ export function buildLevel1(game, stage, tickets) {
   // --- decor ---
   k.banks(-6, END, (x, y, d) => {
     const r = Math.random();
-    if (r < 0.45) k.palm(x, y, d, rand(4.5, 7));
-    else if (r < 0.85) k.bush(x, y, d, rand(0.9, 1.5));
-    else k.rock(x, y, d, rand(0.6, 1.1));
+    if (r < 0.42) k.palm(x, y, d, rand(4.5, 7));
+    else if (r < 0.75) k.bush(x, y, d, rand(0.9, 1.5));
+    else if (r < 0.88) k.fern(x, y, d, rand(1.1, 1.5));
+    else k.rock(x, y, d, rand(0.6, 1.1), 0x8a8a7a, { moss: true });
   }, { every: 3.6 });
   k.edges(-4, END, (x, y, d) => (Math.random() < 0.6 ? k.fern(x, y, d, rand(0.8, 1.2)) : k.flowers(x, y, d)), { every: 3 });
+  k.grass(-4, END, { every: 1.1 });
   for (let d = 12; d < END; d += 26) k.bgDog(pick([-1, 1]) * rand(5.4, 6.4), 2.6, d + rand(-4, 4), { height: 1.1 });
 
   return {
@@ -193,9 +195,13 @@ export function buildBoss1Arena(game, stage, tickets) {
     const a = (i / 18) * Math.PI * 2;
     const x = Math.cos(a) * 11.2, z = Math.sin(a) * 11.2;
     if (Math.abs(x) > 11.5 || Math.abs(z) > 11.5) continue;
-    if (i % 3 === 0) k.bush(x, 0, -z, 1.0); else k.flowers(x, 0, -z);
+    if (i % 3 === 0) k.bush(x, 0, -z, 1.0); else if (i % 3 === 1) k.flowers(x, 0, -z); else k.fern(x, 0, -z, 1.1);
   }
-  for (const [x, z] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) k.rock(x, 0, -z, 1.2);
+  for (const [x, z] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) k.rock(x, 0, -z, 1.2, 0x8a8a7a, { moss: true });
+  for (let i = 0; i < 48; i++) {
+    const a = rand(0, Math.PI * 2), r = rand(9.8, 11.6);
+    k.tuft(Math.cos(a) * r, 0, -Math.sin(a) * r, rand(0.8, 1.2));
+  }
   k.sphere(-9, 0, -9);
   k.sphere(9, 0, -9);
   k.tix(-6, 0, -6, 6, 0, -6, 7);

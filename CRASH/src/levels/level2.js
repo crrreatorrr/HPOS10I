@@ -89,9 +89,10 @@ export function buildLevel2(game, stage, tickets) {
     const r = Math.random();
     if (r < 0.3) k.post(x, y, d, rand(4, 8));
     else if (r < 0.55) k.yarnPile(x, y, d);
-    else k.rock(x, y, d, rand(0.8, 1.6), 0xc0643a);
+    else k.rock(x, y, d, rand(0.8, 1.6), 0xc0643a, { strata: true });
   }, { every: 5 });
-  k.edges(4, END, (x, y, d) => k.rock(x, y, d, rand(0.3, 0.6), 0xb05a30), { every: 4 });
+  k.edges(4, END, (x, y, d) => k.rock(x, y, d, rand(0.3, 0.6), 0xb05a30, { strata: true }), { every: 4 });
+  k.grass(4, END, { color: 0xc8a050, every: 1.8, size: 0.85 });
   for (let d = D(15); d < END; d += 34) k.bgDog(pick([-1, 1]) * rand(6, 7), 3.2, d, { height: 1.1 });
 
   const cat = new ChaseCat(stage, track, D(-13));
@@ -116,7 +117,11 @@ export function buildBoss2Arena(game, stage, tickets) {
   stage.block(-12.5, -6, 12.5, 12.5, 4, 17, 'ground');
   for (const [x, z] of [[-15, -15], [15, -15], [-15, 15], [15, 15], [0, -15], [-15, 0], [15, 0]]) k.post(x, 4, -z, rand(5, 9));
   for (const [x, z] of [[-11, -11], [11, -11], [-11, 8], [11, 8]]) k.yarnPile(x, 0, -z);
-  for (const [x, z] of [[-11.5, 0], [11.5, -4], [5, -11.5], [-6, -11.5]]) k.rock(x, 0, -z, 0.9, 0xc0643a);
+  for (const [x, z] of [[-11.5, 0], [11.5, -4], [5, -11.5], [-6, -11.5]]) k.rock(x, 0, -z, 0.9, 0xc0643a, { strata: true });
+  for (let i = 0; i < 36; i++) {
+    const a = rand(0, Math.PI * 2), r = rand(10.5, 12.2);
+    k.tuft(Math.cos(a) * r, 0, -Math.sin(a) * r, rand(0.7, 1.0), 0xd8b060);
+  }
   k.sphere(-9, 0, -9);
   k.tix(-6, 0, -9, 6, 0, -9, 7);
   return {

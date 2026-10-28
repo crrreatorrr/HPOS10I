@@ -2,7 +2,7 @@
 // Platforms: static, moving, crumbling, sinking lily pads, flipping planks, cracked floors (belly flop to break).
 // Interactions: Bone Switch (builds a ghost bridge), Rope drawbridge (bite the rope), bounce mushrooms,
 // updraft fans, swinging cone hammers, cone stampers, rolling coconuts, conveyor belts.
-// Decor: palms, bushes, ferns, flowers, rocks, fences, scratch posts, pipes, vats, cone stacks.
+// Decor (palms, bushes, rocks, pipes...) lives in world/decor.js.
 import * as THREE from 'three';
 import { Entity } from './entity.js';
 import { Solid } from '../world/physics.js';
@@ -12,6 +12,7 @@ import { canvasTex, rand, pick, damp } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { makeShadow, textSprite } from './fx.js';
 import { TUNING } from '../player/player.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 const UPV = new THREE.Vector3(0, 1, 0);
 
@@ -131,27 +132,70 @@ export class CrumblePlatform extends Entity {
 
 // Lily pad: sinks while you stand on it, floats back up when you leave.
 let padTex;
+// Lily pad leaf: a disc with the classic notch, slightly domed, veins on top, rolled darker rim.
+function lilyGeo(r) {
+  const shape = new THREE.Shape();
+  const a0 = 0.32, a1 = Math.PI * 2 - 0.06;
+  shape.moveTo(0, 0);
+  for (let i = 0; i <= 40; i++) { const a = a0 + ((a1 - a0) * i) / 40; shape.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  shape.lineTo(0, 0);
+  const g = new THREE.ExtrudeGeometry(shape, { depth: 0.06, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.05, bevelSegments: 2, curveSegments: 40 });
+  g.rotateX(-Math.PI / 2);
+  const p = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z) / r;
+    p.setY(i, p.getY(i) + (1 - d * d) * 0.08); // gentle dome
+    uv.setXY(i, x / (2 * r) + 0.5, -z / (2 * r) + 0.5);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 export class LilyPad extends Entity {
   constructor(stage, x, y, z, { r = 1.3 } = {}) {
     super(stage, x, y, z);
-    padTex ||= canvasTex(128, 128, (g) => {
-      g.fillStyle = '#3fae46'; g.beginPath(); g.arc(64, 64, 62, 0.25, Math.PI * 2 - 0.05); g.lineTo(64, 64); g.fill();
-      g.strokeStyle = '#2a8a34'; g.lineWidth = 3;
-      for (let i = 0; i < 10; i++) { const a = 0.3 + i * 0.6; g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + Math.cos(a) * 58, 64 + Math.sin(a) * 58); g.stroke(); }
+    padTex ||= canvasTex(256, 256, (g) => {
+      const grd = g.createRadialGradient(128, 128, 10, 128, 128, 128);
+      grd.addColorStop(0, '#6ad05a'); grd.addColorStop(0.75, '#46b246'); grd.addColorStop(0.95, '#2f8f3a'); grd.addColorStop(1, '#25782e');
+      g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+      g.strokeStyle = 'rgba(30,110,40,0.75)'; g.lineWidth = 3; g.lineCap = 'round';
+      for (let i = 0; i < 13; i++) {
+        const a = 0.45 + i * 0.44;
+        g.beginPath(); g.moveTo(128, 128);
+        g.quadraticCurveTo(128 + Math.cos(a + 0.12) * 70, 128 + Math.sin(a + 0.12) * 70, 128 + Math.cos(a) * 118, 128 + Math.sin(a) * 118);
+        g.stroke();
+      }
+      g.fillStyle = 'rgba(255,255,255,0.18)';
+      for (let i = 0; i < 26; i++) { g.beginPath(); g.arc(rand(30, 226), rand(30, 226), rand(2, 5), 0, 7); g.fill(); }
     });
     this.r = r;
-    this.pad = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.14, 20), [toon(0x2f8a36), new THREE.MeshLambertMaterial({ map: padTex }), toon(0x2f8a36)]);
-    this.pad.position.y = -0.07;
+    this.pad = new THREE.Mesh(lilyGeo(r), [new THREE.MeshLambertMaterial({ map: padTex }), toon(0x2a7a32)]);
+    this.pad.position.y = -0.1;
     this.pad.rotation.y = rand(0, 6);
     this.obj.add(this.pad);
-    const flower = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), toon(0xff7ab0));
-    flower.position.set(r * 0.4, 0.1, 0.2);
+    // water lily: two rings of petals around a yellow heart
+    const flower = new THREE.Group();
+    const petal = new THREE.SphereGeometry(0.1, 6, 4);
+    for (let i = 0; i < 10; i++) {
+      const inner = i >= 6, a = (i / (inner ? 4 : 6)) * Math.PI * 2 + (inner ? 0.4 : 0);
+      const m = new THREE.Mesh(petal, toon(inner ? 0xffd0e6 : 0xff7ab0));
+      m.scale.set(0.7, 0.55, 1.6);
+      m.position.set(Math.cos(a) * (inner ? 0.07 : 0.13), inner ? 0.1 : 0.05, Math.sin(a) * (inner ? 0.07 : 0.13));
+      m.rotation.set(inner ? -0.9 : -0.5, -a + Math.PI / 2, 0, 'YXZ');
+      flower.add(m);
+    }
+    const heart = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), toon(0xffd23f));
+    heart.position.y = 0.1;
+    flower.add(heart);
+    flower.position.set(r * 0.42, 0.12, -r * 0.2);
     this.pad.add(flower);
     this.solid = stage.world.add(new Solid({ x: x - r * 0.8, y: y - 0.14, z: z - r * 0.8 }, { x: x + r * 0.8, y, z: z + r * 0.8 }, { kind: 'moving' }));
     this.interactive = false;
     this.alwaysActive = true;
     this.sink = 0;
     this.t = rand(0, 6);
+    this.rippleT = rand(0, 2);
+    this.wasOn = false;
   }
   update(dt) {
     this.t += dt;
@@ -161,8 +205,15 @@ export class LilyPad extends Entity {
     this.pos.y = this.home.y - this.sink + bob;
     this.obj.position.y = this.pos.y;
     this.pad.rotation.z = Math.sin(this.t * 1.6) * 0.03;
+    this.pad.rotation.x = Math.sin(this.t * 1.3 + 1) * 0.02;
     this.solid.setCenter(this.pos.x, this.pos.y - 0.14, this.pos.z, this.r * 1.6, 0.14, this.r * 1.6);
     this.solid.enabled = this.sink < 1.3;
+    // rings on the water: a big one when Nobu lands, small lazy ones otherwise (faster while sinking)
+    const wy = this.home.y - 0.08;
+    if (on && !this.wasOn) { this.fx.ripple(this.pos.x, wy, this.pos.z, { radius: this.r * 2.2, life: 1, k: 0.4 }); this.fx.ripple(this.pos.x, wy, this.pos.z, { radius: this.r * 1.5, life: 0.7, k: 0.3 }); }
+    this.wasOn = on;
+    this.rippleT -= dt * (on ? 2.5 : 1);
+    if (this.rippleT <= 0) { this.rippleT = rand(1.4, 2.4); this.fx.ripple(this.pos.x, wy, this.pos.z, { radius: this.r * 1.8, life: 1.2, k: on ? 0.3 : 0.16 }); }
   }
 }
 
@@ -435,7 +486,12 @@ export class UpdraftFan extends Entity {
       p.body.grounded = false;
       p.canDouble = true;
     }
-    if (Math.random() < dt * 20) this.fx.puff(this.pos.x + rand(-0.8, 0.8), this.pos.y + 0.6, this.pos.z + rand(-0.8, 0.8), { count: 1, size: 0.25, color: 0xe8f6ff, up: 9, speed: 0.2, life: 0.8 });
+    if (Math.random() < dt * 16) {
+      const a = rand(0, Math.PI * 2), r = rand(0, 0.85);
+      this.fx.smokeCard(this.pos.x + Math.cos(a) * r, this.pos.y + 0.6, this.pos.z + Math.sin(a) * r, {
+        vx: -Math.sin(a) * 0.8, vy: rand(7, 10), vz: Math.cos(a) * 0.8, size: 0.2, life: 0.75, colors: [0xeaf8ff], grow: 1.6, g: 0, drag: 1, alpha: 0.55, fadeAt: 0.25,
+      });
+    }
   }
 }
 
@@ -487,17 +543,38 @@ export class Crusher extends Entity {
   constructor(stage, x, y, z, { w = 2.2, d = 2.2, period = 2.6, phase = 0, top = 4.2, yaw = 0 } = {}) {
     super(stage, x, y, z);
     this.w = w; this.d = d; this.period = period; this.phase = phase; this.top = top;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d), toon(0x5a5a70));
-    body.position.y = 0.6;
-    body.castShadow = true;
-    const stripes = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.22, d + 0.02), new THREE.MeshLambertMaterial({ map: Assets.tiled('tex_l3_platform') }));
-    stripes.position.y = 0.12;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.8, 12), toon(0xc9b8ff));
-    cone.position.y = 1.6;
-    const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 8, 8), toon(0x9a9ab0));
-    piston.position.y = 5.2;
+    // stamping head: rounded steel block, hazard-striped skirt, rivets, hydraulic piston with chrome bands
+    const body = new THREE.Mesh(new RoundedBoxGeometry(w, 1.0, d, 3, 0.12), toon(0x5c5478));
+    body.position.y = 0.72;
+    const skirt = new THREE.Mesh(new RoundedBoxGeometry(w + 0.08, 0.3, d + 0.08, 2, 0.06), new THREE.MeshLambertMaterial({ map: Assets.tiled('tex_l3_platform') }));
+    skirt.position.y = 0.15;
+    const cap = new THREE.Mesh(new RoundedBoxGeometry(w * 0.62, 0.3, d * 0.62, 2, 0.08), toon(0x786a9a));
+    cap.position.y = 1.36;
     this.head = new THREE.Group();
-    this.head.add(body, stripes, cone, piston);
+    this.head.add(body, skirt, cap);
+    const rivet = new THREE.SphereGeometry(0.06, 6, 4);
+    const rivetMat = toon(0xb8b0d0);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const yy of [0.45, 1.0]) {
+      const r = new THREE.Mesh(rivet, rivetMat);
+      r.position.set(sx * (w / 2 - 0.16), yy, sz * (d / 2 + 0.01));
+      this.head.add(r);
+    }
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 8, 12), toon(0xc8c8dc));
+    piston.position.y = 5.5;
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.9, 12), toon(0x4a4060));
+    sleeve.position.y = 1.9;
+    this.head.add(piston, sleeve);
+    for (const yy of [2.5, 4.0, 6.0]) {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.1, 12), toon(0xffd23f));
+      band.position.y = yy;
+      this.head.add(band);
+    }
+    // warning lamp: flashes red while the head is about to drop
+    this.lampMat = new THREE.MeshBasicMaterial({ color: 0x551111 });
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), this.lampMat);
+    lamp.position.set(0, 1.62, 0);
+    this.head.add(lamp);
+    this.head.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.obj.add(this.head);
     this.obj.rotation.y = yaw;
     this.warn = makeShadow(w * 1.3);
@@ -518,10 +595,13 @@ export class Crusher extends Entity {
     else y = 0;
     if (y === 0 && this.lastY > 0.01) {
       if (this.distToPlayer() < 14) { audio.play('stomp'); this.game.camera.shake(0.25, 0.2); }
-      this.fx.puff(this.pos.x, this.pos.y + 0.1, this.pos.z, { count: 6, size: 0.4, color: 0xbbbbcc, speed: 3 });
+      this.fx.ring(this.pos.x, this.pos.y, this.pos.z, { color: 0xd8d0f0, radius: Math.max(this.w, this.d) * 0.75, count: 12, size: 0.42 });
+      this.fx.sparkle(this.pos.x, this.pos.y + 0.2, this.pos.z, { count: 8, color: 0xffd080, size: 0.35, speed: 5, up: 3 });
     }
     this.lastY = y;
     this.head.position.y = y;
+    const alarm = c > 0.5 && c < 0.8;
+    this.lampMat.color.setHex(alarm && (this.t * 8) % 1 < 0.5 ? 0xff3030 : 0x551111);
     this.warn.material.opacity = 0.3 + (c > 0.5 && c < 0.8 ? 0.5 : 0);
     this.dangerous = y < 1.3 && c >= 0.72;
     this.box.min.y = this.pos.y + y; this.box.max.y = this.pos.y + y + 1.2;
@@ -691,130 +771,4 @@ export function logMesh(stage, pos, yaw, length) {
   grp.rotation.y = yaw;
   log.castShadow = true;
   stage.scene.add(grp);
-}
-
-// ---------------- decor (merged into one mesh per stage) ----------------
-const D = {};
-function dgeo() {
-  if (D.ready) return D;
-  // palm frond: a long tapered leaf that droops, built from a bent strip
-  const frond = (() => {
-    const g = new THREE.BufferGeometry();
-    const pos = [], idx = [];
-    const N = 8;
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      const x = t * 2.8, y = Math.sin(t * Math.PI * 0.85) * 0.7 - t * t * 1.5;
-      const w = Math.sin(t * Math.PI) * 0.5 + 0.06;
-      pos.push(x, y, -w, x, y + 0.12, 0, x, y, w);
-      if (i) { const b = i * 3; idx.push(b - 3, b, b - 2, b - 2, b, b + 1, b - 2, b + 1, b - 1, b - 1, b + 1, b + 2); }
-    }
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    return g;
-  })();
-  Object.assign(D, {
-    ready: true,
-    frond,
-    trunk: new THREE.CylinderGeometry(0.17, 0.24, 1, 8),
-    ring: new THREE.TorusGeometry(0.22, 0.06, 5, 10),
-    blob: new THREE.SphereGeometry(1, 10, 7),
-    rock: new THREE.DodecahedronGeometry(1, 0),
-    box: new THREE.BoxGeometry(1, 1, 1),
-    cyl: new THREE.CylinderGeometry(1, 1, 1, 10),
-    cone: new THREE.ConeGeometry(1, 1, 10),
-    blade: new THREE.ConeGeometry(0.06, 0.7, 3),
-    flower: new THREE.SphereGeometry(0.12, 6, 4),
-    torus: new THREE.TorusGeometry(1, 0.25, 6, 14),
-  });
-  return D;
-}
-
-export function palm(stage, x, y, z, h = 5) {
-  const G = dgeo();
-  const segs = 7;
-  let px = x, pz = z;
-  const bendX = rand(-0.5, 0.5), bendZ = rand(-0.5, 0.5);
-  for (let i = 0; i < segs; i++) {
-    const t = i / segs;
-    const sy = y + (i + 0.5) * (h / segs);
-    px = x + bendX * t * t * 2; pz = z + bendZ * t * t * 2;
-    const k = 1 - t * 0.35;
-    stage.decor(G.trunk, i % 2 ? 0x8a5a2a : 0xa06a34, new THREE.Vector3(px, sy, pz), { x: bendZ * 0.3 * t, z: -bendX * 0.3 * t }, new THREE.Vector3(k, h / segs, k));
-    stage.decor(G.ring, 0x6a4420, new THREE.Vector3(px, sy + h / segs / 2, pz), { x: Math.PI / 2 }, k);
-  }
-  const topY = y + h;
-  const n = 8;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + rand(-0.2, 0.2);
-    stage.decor(G.frond, i % 2 ? 0x3fb03e : 0x2c9432, new THREE.Vector3(px, topY, pz), new THREE.Euler(0, a, rand(-0.15, 0.15), 'YXZ'), rand(0.85, 1.15));
-  }
-  for (let i = 0; i < 3; i++) stage.decor(G.blob, 0x5a3a14, new THREE.Vector3(px + rand(-0.2, 0.2), topY - 0.25, pz + rand(-0.2, 0.2)), null, 0.17);
-}
-
-export function bush(stage, x, y, z, s = 1, color = 0x3fa03a) {
-  const G = dgeo();
-  const c = new THREE.Color(color);
-  for (let i = 0; i < 5; i++) {
-    const cc = c.clone().offsetHSL(rand(-0.02, 0.02), 0, rand(-0.08, 0.06));
-    stage.decor(G.blob, cc.getHex(), new THREE.Vector3(x + rand(-0.6, 0.6) * s, y + (0.35 + rand(0, 0.35)) * s, z + rand(-0.5, 0.5) * s), { y: rand(0, 3) }, new THREE.Vector3(s * rand(0.5, 0.8), s * rand(0.45, 0.65), s * rand(0.5, 0.8)));
-  }
-  if (Math.random() < 0.7) for (let i = 0; i < 3; i++) stage.decor(G.flower, pick([0xff5a8a, 0xffd23f, 0xffffff, 0xff8a3a]), new THREE.Vector3(x + rand(-0.5, 0.5) * s, y + 0.85 * s, z + rand(-0.4, 0.4) * s), null, 1.3);
-}
-
-export function fern(stage, x, y, z, s = 1, color = 0x46b84a) {
-  const G = dgeo();
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2;
-    stage.decor(G.blade, color, new THREE.Vector3(x + Math.cos(a) * 0.15 * s, y + 0.3 * s, z + Math.sin(a) * 0.15 * s), new THREE.Euler(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6), s * 1.3);
-  }
-}
-
-export function flowers(stage, x, y, z) {
-  const G = dgeo();
-  for (let i = 0; i < 4; i++) {
-    const fx = x + rand(-0.6, 0.6), fz = z + rand(-0.6, 0.6);
-    stage.decor(G.blade, 0x3aa83a, new THREE.Vector3(fx, y + 0.2, fz), null, 0.6);
-    stage.decor(G.flower, pick([0xff5a8a, 0xffd23f, 0xffffff, 0xb07aff]), new THREE.Vector3(fx, y + 0.45, fz), null, 1.1);
-  }
-}
-
-export function rock(stage, x, y, z, s = 1, color = 0x8a8a7a) {
-  const c = new THREE.Color(color).offsetHSL(0, 0, rand(-0.06, 0.06));
-  stage.decor(dgeo().rock, c.getHex(), new THREE.Vector3(x, y + s * 0.35, z), { x: rand(0, 3), y: rand(0, 3) }, new THREE.Vector3(s, s * 0.75, s));
-}
-
-export function fencePost(stage, x, y, z) {
-  stage.decor(dgeo().box, 0xc89058, new THREE.Vector3(x, y + 0.55, z), null, new THREE.Vector3(0.14, 1.1, 0.14));
-}
-
-export function scratchPost(stage, x, y, z, h = 6) {
-  const G = dgeo();
-  stage.decor(G.cyl, 0xc9a26b, new THREE.Vector3(x, y + h / 2, z), null, new THREE.Vector3(0.7, h, 0.7));
-  for (let i = 0; i < h / 0.5; i++) stage.decor(G.torus, 0xb08a50, new THREE.Vector3(x, y + 0.3 + i * 0.5, z), { x: Math.PI / 2 }, new THREE.Vector3(0.72, 0.72, 0.3));
-  stage.decor(G.box, 0xe8467a, new THREE.Vector3(x, y + h + 0.15, z), null, new THREE.Vector3(2, 0.3, 2));
-}
-
-export function yarnPile(stage, x, y, z) {
-  const G = dgeo();
-  const cols = [0xe8467a, 0x46a8e8, 0xffd23f, 0x7ad04a];
-  for (let i = 0; i < 3; i++) stage.decor(G.blob, cols[i % 4], new THREE.Vector3(x + rand(-0.6, 0.6), y + 0.45, z + rand(-0.6, 0.6)), null, 0.48);
-}
-
-export function pipe(stage, x, y, z, h, color = 0x7a5aa0) {
-  const G = dgeo();
-  stage.decor(G.cyl, color, new THREE.Vector3(x, y + h / 2, z), null, new THREE.Vector3(0.4, h, 0.4));
-  stage.decor(G.cyl, 0xffd23f, new THREE.Vector3(x, y + h * 0.7, z), null, new THREE.Vector3(0.48, 0.25, 0.48));
-}
-
-export function vat(stage, x, y, z, s = 1.6) {
-  const G = dgeo();
-  stage.decor(G.cyl, 0x5a4a70, new THREE.Vector3(x, y + s * 0.6, z), null, new THREE.Vector3(s, s * 1.2, s));
-  stage.decor(G.cyl, 0x6aff7a, new THREE.Vector3(x, y + s * 1.22, z), null, new THREE.Vector3(s * 0.9, 0.05, s * 0.9));
-}
-
-export function coneStack(stage, x, y, z, n = 3) {
-  const G = dgeo();
-  for (let i = 0; i < n; i++) stage.decor(G.cone, i % 2 ? 0xd8d0ff : 0xc8b8f8, new THREE.Vector3(x, y + 0.4 + i * 0.25, z), { x: Math.PI }, new THREE.Vector3(0.55, 0.6, 0.55));
 }

@@ -7,8 +7,8 @@ import { ConedDog, backgroundDog } from '../entities/dogs.js';
 import {
   StaticPlatform, MovingPlatform, CrumblePlatform, LilyPad, FlipPlank, CrackedFloor, BouncePad, BoneSwitch, RopeBridge,
   UpdraftFan, SwingHammer, Crusher, CoconutRoller, conveyorStrip, sign, bossGate, logMesh,
-  palm, bush, fern, flowers, rock, fencePost, scratchPost, yarnPile, pipe, vat, coneStack,
 } from '../entities/props.js';
+import { palm, bush, fern, flowers, tuft, rock, fencePost, scratchPost, yarnPile, pipe, vat, vent, coneStack } from '../world/decor.js';
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
 
@@ -119,27 +119,56 @@ export function makeKit(game, stage, tickets, track = null) {
     gate(d, label, color) { const p = W(0, 0, d); return bossGate(stage, p.x, p.y, p.z, label, color, yawAt(d) + Math.PI); },
     water(d0, d1, { w = 8.6, y = -1.2, color = 0x3aa8d8 } = {}) {
       track.waterZone(d0, d1, y);
-      const pos = [], idx = [];
-      const segs = Math.ceil((d1 - d0) / 1);
+      const pos = [], uv = [], idx = [];
+      const segs = Math.ceil((d1 - d0) / 0.5), cols = 12;
       for (let i = 0; i <= segs; i++) {
         const s = d0 + ((d1 - d0) * i) / segs;
-        const a = W(-w / 2, y, s), b = W(w / 2, y, s);
-        pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
-        if (i) { const q = i * 2; idx.push(q - 2, q, q - 1, q - 1, q, q + 1); }
+        for (let j = 0; j <= cols; j++) {
+          const p = W(-w / 2 + (w * j) / cols, y, s);
+          pos.push(p.x, p.y, p.z);
+          uv.push(j / cols, s);
+          if (i && j) { const b = i * (cols + 1) + j, a = b - (cols + 1); idx.push(a - 1, b - 1, b, a - 1, b, a); }
+        }
       }
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
       g.setIndex(idx); g.computeVertexNormals();
-      const m = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color, transparent: true, opacity: 0.82, shininess: 90, side: THREE.DoubleSide }));
+      const m = new THREE.Mesh(g, waterMaterial(color, w));
+      m.receiveShadow = true;
       stage.scene.add(m);
-      stage.add({ pos: m.position, alwaysActive: true, interactive: false, update(dt) { m.material.color.setHSL(0.54, 0.62, 0.52 + Math.sin(performance.now() / 600) * 0.03); } });
+      stage.add({ pos: m.position, alwaysActive: true, interactive: false, update(dt) { m.material.uniforms.uTime.value += dt; } });
+      // dark depths under the surface so the pond reads as deep
+      const deep = m.clone();
+      deep.material = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(0.25), side: THREE.DoubleSide });
+      deep.position.y = -2.5;
+      stage.scene.add(deep);
     },
     // ---- decor ----
     palm: (x, y, d, h) => { const p = W(x, y, d); palm(stage, p.x, p.y, p.z, h); },
     bush: (x, y, d, s, c) => { const p = W(x, y, d); bush(stage, p.x, p.y, p.z, s, c); },
     fern: (x, y, d, s, c) => { const p = W(x, y, d); fern(stage, p.x, p.y, p.z, s, c); },
     flowers: (x, y, d) => { const p = W(x, y, d); flowers(stage, p.x, p.y, p.z); },
-    rock: (x, y, d, s, c) => { const p = W(x, y, d); rock(stage, p.x, p.y, p.z, s, c); },
+    rock: (x, y, d, s, c, o) => { const p = W(x, y, d); rock(stage, p.x, p.y, p.z, s, c, o); },
+    tuft: (x, y, d, s, c) => { const p = W(x, y, d); tuft(stage, p.x, p.y, p.z, s, c); },
+    vent: (x, y, d) => { const p = W(x, y, d); vent(stage, p.x, p.y, p.z); },
+    // grass along both wall feet and scattered over the banks
+    grass(d0, d1, { color = 0x52b844, every = 1.3, bank = true, size = 1 } = {}) {
+      for (let d = d0; d < d1; d += every * rand(0.6, 1.4)) {
+        const w = track.wallAt(d);
+        const g = track.groundAt(d, 0);
+        if (!w) continue;
+        if (g) {
+          const sx = Math.random() < 0.5 ? -1 : 1;
+          const half = sx < 0 ? w.left : w.right;
+          k.tuft(sx * (half - rand(0.15, 0.5)), g.y - track.heightAt(d), d, size * rand(0.7, 1.1), color);
+        }
+        if (bank) for (const sx of [-1, 1]) {
+          const half = sx < 0 ? w.left : w.right;
+          if (Math.random() < 0.7) k.tuft(sx * (half + rand(0.3, 6)), w.h, d + rand(-0.6, 0.6), size * rand(0.8, 1.3), color);
+        }
+      }
+    },
     fence(x, d0, d1, y = 0) { for (let d = d0; d <= d1; d += 1.4) { const p = W(x, y, d); fencePost(stage, p.x, p.y, p.z); } },
     post: (x, y, d, h) => { const p = W(x, y, d); scratchPost(stage, p.x, p.y, p.z, h); },
     yarnPile: (x, y, d) => { const p = W(x, y, d); yarnPile(stage, p.x, p.y, p.z); },
@@ -176,4 +205,72 @@ export function makeTrack(stage, points) {
   const t = new Track(points);
   stage.setTrack(t);
   return t;
+}
+
+// Cartoon water: deep-to-shallow gradient, drifting caustic contour lines, foam along the banks, gentle swell.
+const WATER_VS = /* glsl */ `
+uniform float uTime;
+varying vec2 vUv;
+varying vec3 vWorld;
+#include <common>
+#include <fog_pars_vertex>
+void main() {
+  vUv = uv;
+  vec3 p = position;
+  p.y += sin(p.x * 0.9 + uTime * 1.4) * 0.035 + sin(p.z * 0.7 - uTime * 1.1) * 0.035;
+  vWorld = p;
+  vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  #include <fog_vertex>
+}`;
+const WATER_FS = /* glsl */ `
+uniform float uTime;
+uniform vec3 uDeep;
+uniform vec3 uShallow;
+uniform float uWidth;
+varying vec2 vUv;
+varying vec3 vWorld;
+#include <common>
+#include <fog_pars_fragment>
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+void main() {
+  vec2 q = vWorld.xz;
+  float edge = min(vUv.x, 1.0 - vUv.x) * uWidth; // metres from the bank
+  vec3 col = mix(uShallow, uDeep, smoothstep(0.2, 2.6, edge));
+  // caustic contour lines drifting across the surface
+  float n = vnoise(q * 0.55 + vec2(uTime * 0.25, uTime * 0.18)) * 0.6 + vnoise(q * 1.3 - vec2(uTime * 0.2, -uTime * 0.31)) * 0.4;
+  float lines = smoothstep(0.4, 0.47, abs(fract(n * 3.0) - 0.5));
+  col = mix(col, vec3(0.8, 0.96, 1.0), lines * 0.55);
+  // sparkles
+  float sp = step(0.985, vnoise(q * 6.0 + uTime * 0.7)) * step(0.6, n);
+  col += sp * 0.5;
+  // foam hugging the banks, wobbling
+  float foamEdge = 0.35 + 0.25 * vnoise(q * 2.2 + uTime * 0.6);
+  float foam = smoothstep(foamEdge, foamEdge - 0.12, edge);
+  col = mix(col, vec3(0.95, 1.0, 1.0), foam * 0.9);
+  gl_FragColor = vec4(col, 0.94);
+  #include <colorspace_fragment>
+  #include <fog_fragment>
+}`;
+
+function waterMaterial(color, width) {
+  const base = new THREE.Color(color);
+  return new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+      uTime: { value: 0 },
+      uDeep: { value: base.clone().multiplyScalar(0.55) },
+      uShallow: { value: base.clone().lerp(new THREE.Color(0x9af0e8), 0.55) },
+      uWidth: { value: width },
+    }]),
+    vertexShader: WATER_VS,
+    fragmentShader: WATER_FS,
+    transparent: true,
+    fog: true,
+    side: THREE.DoubleSide,
+  });
 }
