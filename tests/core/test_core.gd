@@ -289,3 +289,15 @@ func test_timeline_clock_waits_for_the_boot_target() -> void:
 	assert_eq(Dev.timeline_scene({zone = "z1_retro_rush_hills"}),
 			"res://levels/z1_retro_rush_hills/act1.tscn", "stage defaults to 1")
 	assert_eq(Dev.timeline_scene({}), "", "no target: starts at once")
+
+
+## Unreleased zones stay out of the web build until QA passes them.
+func test_unreleased_zones_are_excluded_from_the_web_export() -> void:
+	assert_true(ZoneRegistry.is_released("z1_retro_rush_hills"), "Zone 1 released")
+	assert_true(ZoneRegistry.is_released("test_zone"), "the test zone is always open")
+	assert_true(not ZoneRegistry.is_released("z4_neon_rush_remix"), "Zone 4 not yet")
+	var cfg := FileAccess.get_file_as_string("res://export_presets.cfg")
+	for zone in ZoneRegistry.ZONES:
+		var folder := "levels/%s/*" % zone.id
+		assert_eq(cfg.contains(folder), not ZoneRegistry.is_released(zone.id),
+				"%s export exclusion matches its release state" % zone.id)
