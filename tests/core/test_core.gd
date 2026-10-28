@@ -50,3 +50,13 @@ func test_input_timeline_parses() -> void:
 	var events := Dev.load_timeline("res://tests/inputs/run_right.json")
 	assert_true(events.size() >= 2, "timeline has events")
 	assert_eq(events[0][1], "move_right")
+
+
+func test_boot_menu_lists_the_playground() -> void:
+	var dev := tree.root.get_node("Dev")
+	dev.args["dev"] = true
+	dev._boot_taken = true
+	var main: Node = add_scene("res://core/main.tscn")
+	dev.args.erase("dev")
+	var labels: Array = main._entries.map(func(entry): return entry.label)
+	assert_true(labels.has("Physics Playground"), "boot menu entries: %s" % [labels])

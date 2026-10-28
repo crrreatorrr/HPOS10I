@@ -86,7 +86,8 @@ func _find_scenes(dir_path: String, name_filter: String) -> PackedStringArray:
 		found.append_array(_find_scenes(dir_path.path_join(sub), name_filter))
 	for file in dir.get_files():
 		var name := file.trim_suffix(".remap")
-		if name.ends_with(".tscn") and name.contains(name_filter):
+		# Godot's contains("") is false, so an empty filter must short-circuit.
+		if name.ends_with(".tscn") and (name_filter == "" or name.contains(name_filter)):
 			found.append(dir_path.path_join(name))
 	return found
 
