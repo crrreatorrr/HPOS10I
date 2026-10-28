@@ -39,6 +39,8 @@ const SFX_NAMES: Array[StringName] = [
 	&"break_wall", &"enemy_pop", &"checkpoint", &"goal_sign", &"boss_hit",
 	&"boss_explode", &"boss_telegraph", &"enemy_telegraph", &"one_up", &"menu_move", &"menu_select",
 	&"pause", &"tally_tick",
+	# Not in the CONTRACTS list yet (the lead adds it): the act-clear emerald.
+	&"emerald_get",
 ]
 const MUSIC_NAMES: Array[StringName] = [
 	&"title", &"zone_select", &"z1", &"z2", &"z3", &"z4", &"boss",
