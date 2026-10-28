@@ -226,9 +226,22 @@ static func _find_checkpoints(root: Node) -> Array[Node]:
 		var by_name := String(node.name).to_lower().contains("checkpoint")
 		var by_script := script != null and String(script.get_global_name()).to_lower().contains("checkpoint")
 		var by_scene := node.scene_file_path.to_lower().contains("checkpoint")
-		if by_name or by_script or by_scene:
+		if by_script or by_scene:
+			found.append(node)
+		elif by_name and not _has_checkpoint_below(node):
+			# A plain "Checkpoints" group node is not a checkpoint itself.
 			found.append(node)
 	return found
+
+
+static func _has_checkpoint_below(node: Node) -> bool:
+	for child in node.get_children():
+		var script := child.get_script() as Script
+		if String(child.name).to_lower().contains("checkpoint") or child.scene_file_path.to_lower().contains("checkpoint") \
+				or (script != null and String(script.get_global_name()).to_lower().contains("checkpoint")) \
+				or _has_checkpoint_below(child):
+			return true
+	return false
 
 
 static func _check_spot(out: Array[Dictionary], label: String, at: Vector2, bounds: Rect2,

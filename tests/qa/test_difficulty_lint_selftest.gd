@@ -166,6 +166,35 @@ func test_finale_enemies_must_report_a_higher_local_difficulty() -> void:
 	assert_true(not "difficulty.finale_local" in _rules(Diff.check(good, 1.0, ROW_1), "error"), "finale harder locally")
 
 
+func test_group_nodes_are_containers_not_items() -> void:
+	# A "Tickets" group holding the tickets, and a "Checkpoints" group: the
+	# lint counts what is inside, not the group (level agent report).
+	var grouped := func(w: Node2D, length: float) -> void:
+		var tickets := Node2D.new()
+		tickets.name = "Tickets"
+		w.add_child(tickets)
+		for i in 30:
+			var t := Node2D.new()
+			t.name = "Pickup%d" % i
+			t.set_meta(&"qa", true)
+			t.position = Vector2(300.0 + i * 20.0, -40.0)
+			tickets.add_child(t)
+			var ticket := Node2D.new()
+			ticket.name = "Ticket%d" % i
+			t.add_child(ticket)
+		var cps := Node2D.new()
+		cps.name = "Checkpoints"
+		w.add_child(cps)
+		for x in [_x(0.2), _x(0.9)]:
+			var c := Marker2D.new()
+			c.name = "Checkpoint%d" % int(x)
+			c.position = Vector2(x, -19.0)
+			cps.add_child(c)
+	var m: Dictionary = await _measure(_fixture(ramped_enemies(), [0.35, 0.55, 0.75], 225, grouped))
+	assert_eq(int(m.tickets), 225 + 30, "every ticket inside the group counts")
+	assert_eq(int(m.checkpoints), 3 + 2, "checkpoints inside a group count, the group doesn't")
+
+
 func test_vertical_climb_and_dead_end_raise_the_direction() -> void:
 	var climb := func(w: Node2D, length: float) -> void:
 		# A tower block 600 px tall in the middle (top floor 600 px up), and a

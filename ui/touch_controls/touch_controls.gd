@@ -65,7 +65,7 @@ const COLOR_PRESSED := Color(1.0, 0.8, 0.22, 0.85)
 const COLOR_ICON := Color(1, 1, 1, 0.92)
 const COLOR_JUMP := Color(0.14, 0.2, 0.5, 0.55)
 
-const FONT := preload("res://ui/font/sproto_bold.fnt")
+const FONT := preload("res://ui/font/sproto_bold.res")
 
 ## touch index -> {zone = Zone, pos = Vector2}
 var _fingers := {}

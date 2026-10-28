@@ -1,9 +1,9 @@
 [gd_resource type="Theme" load_steps=11 format=3]
 
-[ext_resource type="FontFile" path="res://ui/font/sproto_small.fnt" id="1_small"]
-[ext_resource type="FontFile" path="res://ui/font/sproto_small_outline.fnt" id="2_small_outline"]
-[ext_resource type="FontFile" path="res://ui/font/sproto_bold.fnt" id="3_bold"]
-[ext_resource type="FontFile" path="res://ui/font/sproto_bold_gold.fnt" id="4_bold_gold"]
+[ext_resource type="FontFile" path="res://ui/font/sproto_small.res" id="1_small"]
+[ext_resource type="FontFile" path="res://ui/font/sproto_small_outline.res" id="2_small_outline"]
+[ext_resource type="FontFile" path="res://ui/font/sproto_bold.res" id="3_bold"]
+[ext_resource type="FontFile" path="res://ui/font/sproto_bold_gold.res" id="4_bold_gold"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_normal"]
 content_margin_left = 6.0

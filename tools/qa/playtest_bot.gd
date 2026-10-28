@@ -17,6 +17,8 @@ extends SceneTree
 ##                           N frames, spin dash after 2 s without progress (default)
 ##   --policy=fuzz           random presses/releases every frame (input spam),
 ##                           including rare pause toggles; see --seed
+##   --no-pause              fuzz: never press pause (the real pause menu can
+##                           otherwise end a run through QUIT TO MENU)
 ##   --policy=none           send nothing; observe only (combine with Dev's
 ##                           --inputs=<path> to replay a timeline)
 ##   --jump-every=N          runner: also jump every N frames (default 240, 0 = off)
@@ -326,7 +328,9 @@ func _fuzz(f: int) -> void:
 	for action in FUZZ_ACTIONS:
 		if _rng.randf() < 0.15:
 			_schedule(f, action, not _held.has(action))
-	if _rng.randf() < 0.003:
+	# The draw happens either way, so --no-pause keeps the same seed's other
+	# presses. With the real pause menu, random presses can choose QUIT.
+	if _rng.randf() < 0.003 and not _args.has("no-pause"):
 		_schedule(f, &"pause", true)
 		_schedule(f + 1, &"pause", false)
 

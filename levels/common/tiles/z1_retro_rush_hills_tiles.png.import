@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://j5whvbbyq2af"
-path="res://.godot/imported/sproto_bold.png-3b6fe067627be7f3ac538f069cea8dd0.ctex"
+uid="uid://dsejywfid4tch"
+path="res://.godot/imported/z1_retro_rush_hills_tiles.png-baa1e7f89805d56296bb0159164cef6c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://ui/font/sproto_bold.png"
-dest_files=["res://.godot/imported/sproto_bold.png-3b6fe067627be7f3ac538f069cea8dd0.ctex"]
+source_file="res://levels/common/tiles/z1_retro_rush_hills_tiles.png"
+dest_files=["res://.godot/imported/z1_retro_rush_hills_tiles.png-baa1e7f89805d56296bb0159164cef6c.ctex"]
 
 [params]
 

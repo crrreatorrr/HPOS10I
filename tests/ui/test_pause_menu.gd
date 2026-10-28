@@ -263,11 +263,15 @@ func _wait_for_scene(path: String) -> bool:
 	return false
 
 
-func test_losing_focus_pauses_on_touch_devices() -> void:
+func test_losing_focus_pauses_on_the_web_only() -> void:
 	H.enter_gameplay(self)
-	menu.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	assert_true(not tree.paused, "desktop: alt-tab does not pause (recordings keep running)")
+	var saved := menu.pause_on_focus_loss
+	menu.pause_on_focus_loss = false  # a desktop build, even with --touch
 	H.set_touch_mode(true)
 	menu.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	H.set_touch_mode(false)
-	assert_true(tree.paused and menu.is_open(), "touch device: a call or tab switch pauses")
+	assert_true(not tree.paused, "desktop: losing focus does not pause (recordings keep running)")
+	menu.pause_on_focus_loss = true  # the web build or a phone
+	menu.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	menu.pause_on_focus_loss = saved
+	assert_true(tree.paused and menu.is_open(), "web: a tab switch or call pauses")
