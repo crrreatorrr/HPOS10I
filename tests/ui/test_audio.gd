@@ -230,12 +230,14 @@ func test_hint_is_a_toast_that_comes_back_on_the_next_press() -> void:
 	button.pressed = true
 	tree.root.push_input(button, true)
 	assert_true(hint.visible, "shown on a gamepad press")
-	var frames := 0
-	while hint.visible and frames < 600:
+	# Time it in game seconds (the frame deltas the toast itself sees), so the
+	# test holds at any frame rate, with or without --fixed-fps.
+	var seconds := 0.0
+	while hint.visible and seconds < 10.0:
 		await tree.process_frame
-		frames += 1
+		seconds += hint.get_process_delta_time()
 	assert_true(not hint.visible, "fades away by itself")
-	assert_near(frames / 60.0, SoundHint.SHOW_SECONDS, 0.2, "after about %s s" % SoundHint.SHOW_SECONDS)
+	assert_near(seconds, SoundHint.SHOW_SECONDS, 0.1, "after about %s s" % SoundHint.SHOW_SECONDS)
 	await get_tree_time(0.3)
 	tree.root.push_input(button, true)
 	assert_true(hint.visible, "the next gamepad press brings it back while still locked")
