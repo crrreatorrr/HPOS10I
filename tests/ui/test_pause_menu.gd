@@ -273,3 +273,13 @@ func test_two_pause_presses_in_one_frame_toggle_once() -> void:
 	assert_true(tree.paused and menu.is_open(), "opened once, not opened and closed")
 	H.send_key(KEY_P, false)
 	H.send_action(&"pause", false)
+
+
+func test_losing_focus_pauses_on_touch_devices() -> void:
+	H.enter_gameplay(self)
+	menu.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	assert_true(not tree.paused, "desktop: alt-tab does not pause (recordings keep running)")
+	H.set_touch_mode(true)
+	menu.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	H.set_touch_mode(false)
+	assert_true(tree.paused and menu.is_open(), "touch device: a call or tab switch pauses")
