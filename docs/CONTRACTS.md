@@ -209,6 +209,19 @@ plays explosions, opens the gate and shows the tally, then goes to the next stag
   - Each is positioned using Sproto's `anchors.json` `head` points.
 - Backgrounds: `assets/backgrounds/<zone_id>/1_far.png` … `4_near.png`.
   Near layers have transparency. Edges are pre-processed to tile seamlessly.
+- Terrain materials: `assets/terrain/<zone_id>/`, all nearest-filtered pixel
+  art in the zone palette:
+  - `fill.png`: patterned dirt or stone, tileable in both directions
+    (64×64 or 128×128).
+  - `top.png`: a grass/edge lip strip, tileable horizontally, transparent
+    below the lip, 16–24 px tall. Its top row sits on the walkable surface.
+  - `side.png` (optional): a cliff/rock face for steep or vertical sides.
+
+  `CurveTerrain` (physics agent) and the level TileSet (level agent) both
+  read these. `LevelRoot.art_zone_id` (defaults to the zone id) chooses
+  the folder for terrain and backgrounds, and LevelRoot calls
+  `CurveTerrain.set_art_zone(id)` on every CurveTerrain in the level. When
+  files are missing, the simple placeholder look stays.
 - Raw generations go in `_raw/` folders. These are git-ignored and contain a
   `.gdignore` file.
 

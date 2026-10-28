@@ -15,6 +15,8 @@ a report. This folder has a `.gdignore`, so Godot and the web export skip it.
 | `tools/qa/web_check.sh` | Static checks on an exported web build. |
 | `tools/qa/playtest_bot.gd` | Automated playtester for any level. |
 | `tests/qa/test_contracts.gd` | Headless contract tests, auto-discovered by `tests/run_tests.gd`. |
+| `tests/qa/test_level_rules.gd`, `tests/qa/qa_level_lint.gd` | Level-design rules (loops, spawns, tunnels, fillets, steps, narrow solids) on every LevelRoot scene. |
+| `tools/qa/level_lint.gd` | The same lint as a CLI report for one scene or all levels. |
 | `tests/qa/inputs/` | Input timelines for repros and edge cases, added during reviews (export-excluded). |
 
 All commands below run from the repo root. `P` is the project to test (a
@@ -114,6 +116,36 @@ signal, are in their groups, and the player has a layer-5 hitbox that
 `Player.from_area()` recognises; base class names and UI scene roots. Each
 check prints `SKIP <reason>` and passes while its target does not exist.
 
+### Level lint: `tools/qa/level_lint.gd`
+
+```bash
+godot --headless --path P -s res://tools/qa/level_lint.gd                     # every LevelRoot scene
+godot --headless --path P -s res://tools/qa/level_lint.gd -- --scene=res://levels/test_zone/test_zone.tscn
+```
+
+The lint loads a scene with its root script stripped (LevelRoot spawns
+nothing), lets the terrain build, scans the floors column by column, and checks
+the level-design rules from the physics review:
+
+| Rule | Severity | What it means |
+|---|---|---|
+| `loop.overlap` | error | two loop footprints overlap |
+| `loop.intrusion` | error | other terrain inside a loop's footprint (radius + thickness + max(112, foot + 64) px each side) |
+| `loop.exit_gap` | warn | no floor just past a loop |
+| `loop.runup` | warn | less than 384 px of run-up into a loop |
+| `spawn.ground` | error | PlayerStart or a checkpoint not over floor within 64 px, or inside terrain |
+| `spawn.bounds` | error | PlayerStart or a checkpoint outside Bounds |
+| `spawn.headroom` | error | PlayerStart or a checkpoint with less than 38 px of headroom |
+| `spawn.loop_zone` | error | PlayerStart or a checkpoint between a loop's ring and its side switcher |
+| `tunnel.mouth` | error | a roll-only gap (under 38 px) with a sloped mouth |
+| `tunnel.tight` | warn | a 38–40 px gap |
+| `corner.fillet` | warn | a fillet under 48 px into a slope of 60° or more, or a sharp V |
+| `step.height` | warn | a 10.5–24 px step |
+| `solid.narrow` | warn | a floor top under 18 px wide |
+
+Exit 1 on errors. `tests/qa/test_level_rules.gd` runs the same checks in CI:
+errors fail, warnings are printed, and it skips while no level exists.
+
 ### Playtest bot: `tools/qa/playtest_bot.gd`
 
 ```bash
@@ -125,7 +157,7 @@ godot --headless --fixed-fps 60 --path P -s res://tools/qa/playtest_bot.gd -- \
 
 | Argument | Meaning |
 |---|---|
-| `--scene=res://...` | Open a scene (sandboxes). No zone is set, so after a death the game goes through the dev menu. |
+| `--scene=res://...` | Open a scene (the playground or a sandbox). No zone is set, so a death respawns without losing a life. |
 | `--zone=<id> --stage=N` | Start a zone stage (real respawns, accessories, music). Prefer this for levels. |
 | `--frames=N` | Physics frames to run (default 3600 = 60 s). 216000 = 1 hour. |
 | `--policy=runner` | Default. Hold right; jump when blocked for 10 frames or every `--jump-every` frames (240; 0 = off); spin dash after 2 s without progress. |
