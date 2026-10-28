@@ -15,7 +15,8 @@ extends RefCounted
 ##   routes             per third of the route: 75th percentile of separate
 ##                      floors per column (rollable, 64 px apart)
 ##   dead_ends          a floor run that ends at a wall it can't jump (> 96 px)
-##                      with no spring nearby, away from the route's ends
+##                      with no spring or lift (moving terrain) within 160 px,
+##                      away from the route's ends
 ##   leftward_screens   goal left of the start, plus nodes named or instanced
 ##                      "leftward"/"reverse" (their width; 1 screen if unknown)
 ##   forced             autoscroll / reverse-run sections (name or scene)
@@ -75,6 +76,7 @@ const ROUTE_GAP := 64.0
 const JUMP_UP := 96.0
 const END_MARGIN := 128.0
 const SPRING_REACH := 160.0
+const LIFT_REACH := 160.0
 const SECTIONS: Array[String] = ["opening", "middle", "finale"]
 const FINALE_DENSITY_MIN := 1.3
 const FINALE_CHECKPOINT_REACH := 1.5  # screens
@@ -203,7 +205,13 @@ static func measure(root: Node2D, is_enemy := Callable()) -> Dictionary:
 	var forced := _all(root, func(n: Node) -> bool: return _named(n, ["autoscroll", "reverse"])).size()
 	var doors := _all(root, func(n: Node) -> bool:
 		return _named(n, ["door", "switch"]) and not _named(n, ["pathswitch", "path_switch"])).size()
-	var dead_end_spots := _dead_end_spots(space, columns, lo + END_MARGIN, hi - END_MARGIN, springs)
+	# Lifts: moving terrain (platform_delta()) carries Sproto up its own wall,
+	# so a wall within LIFT_REACH of one is not a dead end (Z2-02).
+	var lifts: Array[Vector2] = []
+	for n in root.find_children("*", "CollisionObject2D", true, false):
+		if n.has_method(&"platform_delta"):
+			lifts.append((n as Node2D).global_position)
+	var dead_end_spots := _dead_end_spots(space, columns, lo + END_MARGIN, hi - END_MARGIN, springs + lifts)
 	var dead_ends := dead_end_spots.size()
 
 	# In-act ramp, by progress along the route.

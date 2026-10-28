@@ -80,4 +80,4 @@ Evidence in `qa/reports/evidence/09-zone2/`: `act1_opening.png` (the first 160 f
 | ID | Severity | Owner | Finding | Fix |
 |---|---|---|---|---|
 | Z2-01 | polish | levels | Act 1's finale (from x ≈ 21144) has pits the runner bot falls into once in two runs (x 24062); Act 2 likewise at x 20185. Players look before they jump, the bot doesn't, so this is a note, not a bug: confirm the landings are visible (LEVELS.md "no blind drops"). | A ticket arc over each pit, or a look-down cue. |
-| Z2-02 | polish | qa | The dead-end rule counts lift walls and terrace faces. | Lint follow-up above. |
+| Z2-02 | polish | qa | The dead-end rule counts lift walls and terrace faces. | **Done (qa):** walls within 160 px of a lift (any moving-terrain body) no longer count; Zone 2 now reads 3 + 3 dead ends (the finale terrace faces), both acts still R4. Terrace faces stay counted: a wall in the way is a wall, and the acts' R scores depend on them. |
