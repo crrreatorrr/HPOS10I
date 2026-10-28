@@ -4,11 +4,14 @@ Branch: `levels` · Owner: level agent · Scene: `res://levels/test_zone/test_zo
 (zone id `test_zone`, run with `godot --path . -- --zone=test_zone`).
 
 Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
+The physics playground lives at `playground/physics_playground.tscn` and ships
+in the web build (`tests/` never ships). Collectibles are golden tickets
+(`docs/DESIGN.md`).
 
 ## A. Structure
 
 - [ ] TL-A1 [auto] `tests/qa/test_contracts.gd`: root uses `LevelRoot`, has `PlayerStart` (`Marker2D`) and `Bounds` (`ReferenceRect`, non-zero size).
-- [ ] TL-A2 [auto] `tools/qa/scene_smoke.sh`: the level and every scene in `levels/` run 120 frames with no `ERROR`/`WARNING`.
+- [ ] TL-A2 [auto] `tools/qa/scene_smoke.sh`: the level, every scene in `levels/` and `playground/` run 120 frames with no `ERROR`/`WARNING`.
 - [ ] TL-A3 [auto] `ZoneRegistry.stage_path("test_zone", 1)` exists and the dev menu lists it.
 - [ ] TL-A4 [auto] Missing UI/art does not crash: with `ui/` and `assets/backgrounds/` absent the level still runs (LevelRoot checks `ResourceLoader.exists`).
 - [ ] TL-A5 [auto] `PlayerStart` is on solid ground: bot with no input for 120 frames ends `grounded` and not dead.
@@ -75,10 +78,14 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 
 ## J. Bounds, death and respawn
 
-- [ ] TL-J1 [auto] Falling below `Bounds` bottom kills; death waits about 2 s then `SceneRouter.respawn()`.
-- [ ] TL-J2 [auto] Pausing during the 2 s death wait also pauses the wait (no respawn while paused).
-- [ ] TL-J3 [auto] Camera limits equal `Bounds`; the camera never shows outside them.
-- [ ] TL-J4 [auto] Losing the last life goes to game over (or title), not to a crash or a respawn with 0 lives.
+Timing (CONTRACTS): `Player.died` fires about 1 s after `kill()`; LevelRoot then stops the timer, waits about 1 s and calls `SceneRouter.respawn()` once.
+
+- [ ] TL-J1 [auto] Falling below `Bounds` bottom calls `kill()`. `died` fires 60 ± 5 frames later; `SceneRouter.respawn()` runs 60 ± 10 frames after `died` (about 120 frames, 2 s, from `kill()`), exactly once.
+- [ ] TL-J2 [auto] `GameState.timer_running` is false from `died` until the respawn; the timer resumes from the checkpoint time.
+- [ ] TL-J3 [auto] Each death in the test zone costs exactly 1 life (taken by `respawn()`, nothing else calls `lose_life()`); a scene opened directly (`--scene=`, the playground) respawns without losing a life.
+- [ ] TL-J4 [auto] Pausing during the death wait pauses it too (no respawn while paused).
+- [ ] TL-J5 [auto] Camera limits equal `Bounds`; the camera never shows outside them.
+- [ ] TL-J6 [auto] Losing the last life goes to game over (or title), not to a crash or a respawn with 0 lives.
 
 ## K. Edge cases
 
@@ -86,3 +93,28 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 - [ ] TL-K2 [auto] Bot 216 000 frames (1 hour): node count and orphans stable, no errors.
 - [ ] TL-K3 [manual] No visible seams, gaps or overlaps between terrain pieces; objects not half inside terrain.
 - [ ] TL-K4 [manual] Every feature is reachable without frame-perfect inputs.
+
+## R. Level-design rules (from the physics review)
+
+Automated by `tests/qa/test_level_rules.gd`. Errors fail the test, and warnings are printed. For a full report: `godot --headless --path . -s res://tools/qa/level_lint.gd -- --scene=res://levels/test_zone/test_zone.tscn`. The rule names below are the lint's.
+
+- [ ] TL-R1 [auto] Loops (`terrain/loop.tscn`):
+  - Each loop keeps its footprint clear: radius + thickness + max(112, min(foot_radius, radius) + 64) px either side of its centre. That is 240 px for radius 112 and 208 px for radius 80. Nothing else solid is inside the footprint (`loop.intrusion`), and no two footprints overlap (`loop.overlap`).
+  - The floor continues past both ends (`loop.exit_gap`).
+- [ ] TL-R2 [auto] Loop entry speed:
+  - Each loop has 384 px or more of flat or downhill run-up on its entry side, enough to reach 6 px/f from rest (`loop.runup` warns), or a booster or downhill leading in.
+  - Reference numbers: with forward held, 6 px/f completes a radius ≤ 112 loop. Coasting needs about 8.6 px/f at radius 80 and about 10.2 px/f at radius 112.
+  - The bot runner completes every loop in the test zone: no airborne frame inside a loop, path A afterwards.
+- [ ] TL-R3 [auto] `PlayerStart` and every checkpoint:
+  - over floor within 64 px and not inside terrain (`spawn.ground`);
+  - inside `Bounds` (`spawn.bounds`);
+  - with 38 px or more of headroom (`spawn.headroom`);
+  - never between a loop's ring and its side switcher (`spawn.loop_zone`).
+- [ ] TL-R4 [auto] Tunnels:
+  - Any gap lower than 38 px is roll-only, and its mouths are on flat ground under 1° (`tunnel.mouth` is an error).
+  - Walking tunnels are at least 40 px high; 38–40 px warns (`tunnel.tight`).
+  - In play: a walker stops 10 px before a mouth under 37.5 px; a roller enters, creeps through at 0.5 px/f if it slows down, and comes out standing; the head never enters the ceiling.
+- [ ] TL-R5 [auto] Where floor meets a slope of 60° or more, the fillet is 48 px or more (`corner.fillet`). No sharp V valleys with sides of 60° or more.
+- [ ] TL-R6 [auto] Steps are 10 px or less; a 10.5–24 px riser between flat floors warns (`step.height`).
+- [ ] TL-R7 [auto] Solid floor tops are at least 18 px wide (`solid.narrow`).
+- [ ] TL-R8 [manual] Every lint warning is either fixed or accepted with a reason in the level agent's report.
