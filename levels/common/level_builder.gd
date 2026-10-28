@@ -121,9 +121,12 @@ func flat(width: int, ticket_from := -1, ticket_step := 40) -> void:
 
 
 ## A hill: gentle (1:2) or steep (1:1) up `rise`, a plateau, and down again,
-## with tickets over it and an optional enemy at its foot (returned).
+## with tickets over it and an optional enemy `enemy_gap` px past its foot
+## (returned). A gap over 60 px adds a low ticket trail to the enemy: a cue
+## to roll through it (docs/LEVELS.md: an enemy on a fast route is visible
+## 1 s ahead or can be rolled through).
 func hill(rise: int, plateau: int, steep := false, enemy_path := "", props := {}, run_after := 160,
-		enemy_y := 0.0) -> Node2D:
+		enemy_y := 0.0, enemy_gap := 30) -> Node2D:
 	var base := ground
 	var x0 := x
 	if steep:
@@ -143,8 +146,10 @@ func hill(rise: int, plateau: int, steep := false, enemy_path := "", props := {}
 		var settings := props.duplicate()
 		if enemy_path in [WALKER, CHASER, SPIKE_PILL] and not settings.has("patrol_distance"):
 			settings.patrol_distance = 40.0  # stays by the slope it guards
-		node = enemy(enemy_path, Vector2(foot + 30, base + enemy_y), settings)
-		arc(foot + 30, base, 3, 64, 40)
+		node = enemy(enemy_path, Vector2(foot + enemy_gap, base + enemy_y), settings)
+		arc(foot + enemy_gap, base, 3, 64, 40)
+		if enemy_gap > 60:
+			row(foot + 8, base, maxi(1, (enemy_gap - 40) / 32), 32)  # a low trail: roll through
 	paint.flat(run_after)
 	if x0 >= 0 and enemy_path == "":
 		arc(x0 + (foot - x0) / 2, base - rise, 3, 64, 24)

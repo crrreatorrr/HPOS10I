@@ -42,6 +42,24 @@ const PALETTES := {
 		plank = Color(0.84, 0.58, 0.3),
 		plank_dark = Color(0.45, 0.25, 0.1),
 	},
+	# Wizard Academy: castle stone in a running bond under a purple carpet
+	# runner with a gold edge (no tufts); dark wooden planks.
+	"z2_wizard_academy": {
+		style = "bricks",
+		grass_light = Color(0.98, 0.82, 0.36),
+		grass = Color(0.66, 0.42, 0.9),
+		grass_mid = Color(0.5, 0.28, 0.74),
+		grass_dark = Color(0.34, 0.17, 0.52),
+		soil_light = Color(0.72, 0.7, 0.8),
+		soil_a = Color(0.56, 0.54, 0.66),
+		soil_b = Color(0.5, 0.48, 0.6),
+		soil_dark = Color(0.3, 0.27, 0.38),
+		soil_deep = Color(0.2, 0.17, 0.27),
+		rim = Color(0.16, 0.12, 0.22),
+		plank_light = Color(0.66, 0.46, 0.3),
+		plank = Color(0.5, 0.32, 0.2),
+		plank_dark = Color(0.26, 0.15, 0.1),
+	},
 }
 ## Hanging grass tuft length (px) by world x within a 32 px repeat.
 const TUFTS := [0, 0, 1, 2, 1, 0, 0, 0, 0, 1, 0, 0, 0, 2, 3, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0]
@@ -174,6 +192,8 @@ class TileArt:
 	func _fill(world: Vector2i, depth: float) -> Color:
 		if fill != null:
 			return fill.get_pixel(posmod(world.x, fill.get_width()), posmod(world.y, fill.get_height()))
+		if pal.get("style", "argyle") == "bricks":
+			return _bricks(world, depth)
 		return _argyle(world, depth)
 
 	## The lip colour `depth` px below the surface (transparent = none).
@@ -185,7 +205,7 @@ class TileArt:
 			if row >= top.get_height():
 				return Color(0, 0, 0, 0)
 			return top.get_pixel(posmod(x, top.get_width()), row)
-		var tuft: int = TUFTS[posmod(x, TUFTS.size())]
+		var tuft: int = TUFTS[posmod(x, TUFTS.size())] if pal.get("style", "argyle") == "argyle" else 0
 		var lip := LIP_DEPTH + tuft
 		if depth >= lip + 1.0:
 			return Color(0, 0, 0, 0)
@@ -216,6 +236,24 @@ class TileArt:
 			color = pal.soil_dark
 		elif (px + py) % 16 == 15 and px % 4 < 2:
 			color = pal.soil_light.lerp(color, 0.35)
+		var shade := clampf((depth - LIP_DEPTH) / SHADE_DEPTH, 0.0, 1.0) if depth != INF else 1.0
+		return color.lerp(pal.soil_deep, shade * 0.35)
+
+	## Placeholder castle stone: 16x8 blocks in a running bond with dark
+	## mortar, each block lit on its top-left edges, a few chipped speckles,
+	## darkening with depth below the surface.
+	func _bricks(world: Vector2i, depth: float) -> Color:
+		var row := floori(world.y / 8.0)
+		var px := posmod(world.x + (8 if row % 2 != 0 else 0), 16)
+		var py := posmod(world.y, 8)
+		var block := Vector2i(floori((world.x + (8 if row % 2 != 0 else 0)) / 16.0), row)
+		var color: Color = pal.soil_a if (block.x + block.y) % 3 != 0 else pal.soil_b
+		if px == 15 or py == 7:
+			color = pal.soil_dark
+		elif px == 0 or py == 0:
+			color = pal.soil_light
+		elif (px * 7 + py * 5 + block.x * 3) % 23 == 0:
+			color = pal.soil_dark.lerp(color, 0.5)
 		var shade := clampf((depth - LIP_DEPTH) / SHADE_DEPTH, 0.0, 1.0) if depth != INF else 1.0
 		return color.lerp(pal.soil_deep, shade * 0.35)
 

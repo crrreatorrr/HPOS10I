@@ -138,22 +138,47 @@ func _pilot(f: int, p) -> void:
 		if absf(d.y) < 40.0 and d.x > -8.0 and d.x < 24.0 + (absf(gs) + 2.0) * 10.0:
 			_jump(f, "jump the pellet")
 			return
-	# Enemies ahead: jump into them (or over spikes).
+	# Enemies ahead: roll through walkers and chasers on flat ground at
+	# speed, hop at the rest (a short hop at speed, so he doesn't sail onto
+	# the next slope), jump early over spikes and shields.
+	var flat := absf(wrapf(float(p.ground_angle), -180.0, 180.0)) < 5.0
 	for node in get_nodes_in_group(&"enemies"):
 		var enemy := node as Node2D
 		if not enemy.get(&"alive"):
 			continue
 		var d := enemy.global_position - pos
-		var floater := enemy.get(&"bob_height") != null
-		var reach := 20.0 + maxf(gs, 1.0) * (6.0 if floater else 4.0)
+		var kind := _kind(enemy)
+		var flying := kind in ["floater", "diver"]
+		var reach := 20.0 + maxf(gs, 1.0) * (6.0 if flying else 4.0)
 		if enemy.has_method(&"is_rushing") and enemy.call(&"is_rushing"):
 			reach += 30.0
-		if enemy.has_method(&"spikes_out"):
-			reach += 24.0  # jump early enough to clear the spikes
-		var level := (d.y > -120.0 and d.y < 0.0) if floater else absf(d.y - FEET) < 40.0
-		if d.x > 0.0 and d.x < reach and level:
-			_jump(f, "jump at %s" % enemy.name)
-			return
+		var shielded: bool = kind == "armored" and enemy.call(&"shield_faces", p) and gs < 4.5
+		if kind == "spike" or shielded:
+			reach += 24.0  # jump early enough to clear the spikes or the shield
+		var level := (d.y > -120.0 and d.y < 0.0) if flying else absf(d.y - FEET) < 40.0
+		if not (d.x > 0.0 and d.x < reach and level):
+			continue
+		if kind in ["walker", "chaser"] and gs >= 3.0 and flat or kind == "armored" and gs >= 5.0 and flat:
+			_roll_through(f, "roll through %s" % enemy.name)
+		elif kind == "spike" or shielded or flying:
+			_jump(f, "jump over %s" % enemy.name if not flying else "jump at %s" % enemy.name, JUMP_HOLD)
+		else:
+			_jump(f, "hop at %s" % enemy.name)
+		return
+
+
+## The enemy's behaviour, from its script's file name.
+func _kind(enemy: Node) -> String:
+	var path: String = enemy.get_script().resource_path if enemy.get_script() != null else ""
+	for kind in ["walker", "chaser", "hopper", "pellet", "spike", "floater", "diver", "armored", "knight", "spellbook_pill"]:
+		if path.get_file().contains(kind):
+			match kind:
+				"knight":
+					return "armored"
+				"spellbook_pill":
+					return "floater"
+			return kind
+	return "other"
 
 
 func _find_walls() -> void:
@@ -163,8 +188,9 @@ func _find_walls() -> void:
 			_walls.append(node)
 
 
-func _jump(f: int, why: String) -> void:
-	var hold := SHORT_HOP if absf(_player.ground_speed) > 7.0 else JUMP_HOLD
+func _jump(f: int, why: String, hold := -1) -> void:
+	if hold < 0:
+		hold = SHORT_HOP if absf(_player.ground_speed) > 4.0 else JUMP_HOLD
 	_later(f, 0, &"jump", true)
 	_later(f, hold, &"jump", false)
 	_busy_until = f + hold + 2
@@ -177,6 +203,16 @@ func _back_off(f: int, why: String) -> void:
 	_later(f, 50, &"move_left", false)
 	_later(f, 50, &"move_right", true)
 	_busy_until = f + 52
+	print("record: f%d x=%.0f %s" % [f, _player.global_position.x, why])
+
+
+## A roll into an enemy, then a hop out of the roll to run on.
+func _roll_through(f: int, why: String) -> void:
+	_later(f, 0, &"move_down", true)
+	_later(f, 4, &"move_down", false)
+	_later(f, 18, &"jump", true)
+	_later(f, 18 + SHORT_HOP, &"jump", false)
+	_busy_until = f + 20 + SHORT_HOP
 	print("record: f%d x=%.0f %s" % [f, _player.global_position.x, why])
 
 

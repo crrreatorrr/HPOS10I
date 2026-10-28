@@ -70,7 +70,7 @@ func _build() -> void:
 	b.switchback(640)                         # up 320 px
 	b.flat(832, 64, 80)
 	b.hill(32, 96, false, F, {}, 160, -44.0)
-	b.hill(48, 64, false, W)
+	b.hill(48, 64, false, W, {}, 160, 0.0, 130)
 	b.hill(32, 96, false, P, left, 224)
 	b.hill(48, 64, false, H)
 	b.hill(32, 64, false, C)
@@ -81,19 +81,22 @@ func _build() -> void:
 	b.hill(48, 96, false, W)
 	b.hill(32, 64, false, H)
 	b.descent(128)
+	b.flat(64, 0, 64)                         # a run-up: no V valley into the next hill
 	b.hill(32, 64, false, F, {}, 160, -44.0)
 	b.descent(96)
+	b.flat(64, 0, 64)                         # a run-up: no V valley into the next hill
 	b.hill(48, 64, false, W)
 	b.drop(96)
 	b.spring_gate()
 	b.flat(576, 160, 80)
 	b.hill(48, 96, false, P, left, 224)
 	b.hill(32, 64, false, H)
-	b.hill(48, 96, false, W)
+	b.hill(48, 96, false, W, {}, 160, 0.0, 130)
 	b.up_spring(96)
 	b.flat(832, 64, 80)
 	b.hill(32, 96, false, C)
 	b.descent(96)
+	b.flat(64, 0, 64)                         # a run-up: no V valley into the next hill
 	b.hill(32, 64, false, W)
 	b.flat(448, 32, 80)
 
@@ -101,7 +104,7 @@ func _build() -> void:
 	print("checkpoint 3 at ", b.x)
 	b.checkpoint()
 	b.loop(true, 448)
-	b.flat(832, 32, 80)
+	b.flat(640, 32, 80)
 	b.hill(48, 64, false, W)
 	b.hill(32, 64, false, S)
 	b.terrace_tunnel(448, false, [W, W])
