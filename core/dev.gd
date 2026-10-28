@@ -21,9 +21,12 @@ var args := {}
 
 var _timeline: Array = []
 var _frame := 0
-## Actions the timeline is holding down. Re-pressed every frame because the
-## OS releases all input when the window loses focus mid-recording.
+## Actions the timeline is holding down. Pressed again at once whenever
+## something else released them: a window losing focus releases all input.
 var _held := {}
+## action -> process frame its last event was sent on (events apply only
+## when the input queue flushes at the start of the next frame).
+var _sent_frame := {}
 var _boot_taken := false
 ## Scene the timeline clock waits for ("" = start at once).
 var _clock_scene := ""
@@ -60,23 +63,30 @@ func _physics_process(_delta: float) -> void:
 				push_warning("[Dev] input timeline still waiting for %s" % _clock_scene)
 			return
 		_clock_started = true
-	# Actions sent this frame aren't applied to Input until the event queue
-	# flushes, so they must not be re-pressed below (that doubled them).
-	var sent_now := {}
+	_restore_held()
 	while not _timeline.is_empty() and _timeline[0][0] <= _frame:
 		var event: Array = _timeline.pop_front()
 		send_action(event[1], event[2])
-		sent_now[event[1]] = true
+		_sent_frame[event[1]] = Engine.get_process_frames()
 		if event[2]:
 			_held[event[1]] = true
 		else:
 			_held.erase(event[1])
-	for action in _held:
-		if not sent_now.has(action) and not Input.is_action_pressed(action):
-			send_action(action, true)
 	_frame += 1
 	if _timeline.is_empty() and _held.is_empty():
 		set_physics_process(false)
+
+
+## Presses held actions that were released behind the timeline's back (a
+## focus-out releases every input) immediately, so the game, which reads
+## input after this autoload each tick, never sees a one-tick release.
+## Actions whose event hasn't flushed yet (sent this frame) are left alone:
+## pressing those again doubled them.
+func _restore_held() -> void:
+	var now := Engine.get_process_frames()
+	for action in _held:
+		if int(_sent_frame.get(action, now)) < now and not Input.is_action_pressed(action):
+			Input.action_press(action)
 
 
 ## The --scene / --zone boot target, returned only once so returning to the
