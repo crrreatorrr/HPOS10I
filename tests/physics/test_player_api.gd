@@ -22,7 +22,7 @@ func test_from_area() -> void:
 	world.add_child(other)
 	assert_eq(Player.from_area(other), null, "other areas map to null")
 	assert_eq(Player.from_area(null), null, "null is safe")
-	assert_eq(player.hitbox.collision_layer, 1 << 4, "hitbox on layer 5")
+	assert_eq(player.hitbox.collision_layer, Layers.PLAYER, "hitbox on the player layer")
 	assert_true(player.is_in_group(&"player"), "in group player")
 
 

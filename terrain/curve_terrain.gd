@@ -25,10 +25,6 @@ extends StaticBody2D
 enum Shape { LOOP, QUARTER_PIPE, RAMP, CURVE, BLOCK }
 enum PathLayer { BOTH, A, B }
 
-const LAYER_SOLID := 1
-const LAYER_PATH_A := 2
-const LAYER_PATH_B := 4
-const LAYER_TOP_ONLY := 8
 ## Pieces of a loop are at most this many degrees, keeping each polygon simple.
 const MAX_ARC_CHUNK := 90.0
 ## Visual edges are judged in parts this long (px), so partly covered sides work.
@@ -222,9 +218,9 @@ func _rebuild() -> void:
 			child.queue_free()
 	collision_mask = 0
 	if top_only:
-		collision_layer = LAYER_TOP_ONLY
+		collision_layer = Layers.TERRAIN_TOP_ONLY
 	else:
-		collision_layer = [LAYER_SOLID, LAYER_PATH_A, LAYER_PATH_B][path_layer]
+		collision_layer = [Layers.TERRAIN_SOLID, Layers.TERRAIN_PATH_A, Layers.TERRAIN_PATH_B][path_layer]
 
 	polygons.clear()
 	for polygon in build_polygons():

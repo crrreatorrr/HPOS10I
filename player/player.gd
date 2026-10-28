@@ -45,10 +45,6 @@ const VALLEY_REST_SPEED := 0.5
 const VALLEY_PROBE_REACH := 48.0
 ## Feet within this distance of a surface count as touching it.
 const CONTACT_EPSILON := 0.05
-## bounce_off() trims this from the rebound speed (px/frame).
-const BOUNCE_TRIM := 1.0  # LEAD-REQUEST: bounce_trim (feel)
-## `died` fires this many frames after kill() (the fall-off animation).
-const DIED_SIGNAL_FRAMES := 60  # LEAD-REQUEST: died_delay_frames (feel)
 ## Default control lock for push_ground() (contract default).
 const PUSH_LOCK_FRAMES := 16
 ## Landing speed conversion bands (Physics Guide): flat up to 23 deg from flat,
@@ -180,6 +176,7 @@ static func angle_from_flat(angle: float) -> float:
 
 func _ready() -> void:
 	add_to_group(&"player")
+	hitbox.collision_layer = Layers.PLAYER
 	_update_hitbox()
 
 
@@ -262,7 +259,7 @@ func bounce_off(target_y: float, reverse_x := false) -> void:
 			_gsp = -_gsp
 		return
 	if global_position.y > target_y or _vel.y < 0.0:
-		_vel.y -= signf(_vel.y) * PhysicsConstants.speed(BOUNCE_TRIM)
+		_vel.y -= signf(_vel.y) * PhysicsConstants.speed(Tuning.physics.bounce_trim)
 	else:
 		_vel.y = -_vel.y
 	if reverse_x:
@@ -901,7 +898,7 @@ func _dead_step(p: PhysicsConstants, dt: float) -> void:
 	global_position += _vel * dt + Vector2(0.0, 0.5 * g * dt * dt)
 	_vel.y = minf(_vel.y + g * dt, PhysicsConstants.speed(p.max_fall_speed))
 	_death_frames += 1
-	if _death_frames == DIED_SIGNAL_FRAMES:
+	if _death_frames == p.died_delay_frames:
 		died.emit()
 
 

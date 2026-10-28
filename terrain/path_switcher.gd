@@ -26,7 +26,7 @@ var _shape: CollisionShape2D
 
 func _ready() -> void:
 	collision_layer = 0
-	collision_mask = 1 << 4  # player hitbox
+	collision_mask = Layers.PLAYER
 	monitorable = false
 	_update_shape()
 	if Engine.is_editor_hint():

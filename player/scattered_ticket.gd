@@ -63,8 +63,8 @@ static func scatter(parent: Node, origin: Vector2, count: int) -> Array[Scattere
 
 func _ready() -> void:
 	add_to_group(&"scattered_ticket")
-	collision_layer = 1 << 6  # objects
-	collision_mask = 1 << 4  # player hitbox
+	collision_layer = Layers.OBJECTS
+	collision_mask = Layers.PLAYER
 	monitorable = false
 	_query.collide_with_areas = false
 
@@ -86,8 +86,8 @@ func _physics_process(delta: float) -> void:
 	if _vel.y > 0.0:
 		_query.from = from
 		_query.to = global_position + Vector2(0.0, RADIUS)
-		_query.collision_mask = PlayerSensors.BIT_SOLID | PlayerSensors.BIT_PATH_A \
-				| PlayerSensors.BIT_PATH_B | PlayerSensors.BIT_TOP_ONLY
+		_query.collision_mask = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A \
+				| Layers.TERRAIN_PATH_B | Layers.TERRAIN_TOP_ONLY
 		var hit := get_world_2d().direct_space_state.intersect_ray(_query)
 		if not hit.is_empty():
 			global_position.y = hit.position.y - RADIUS

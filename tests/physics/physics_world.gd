@@ -5,10 +5,10 @@ extends RefCounted
 const PLAYER_SCENE := preload("res://player/player.tscn")
 const LOOP_SCENE := preload("res://terrain/loop.tscn")
 
-const SOLID := 1
-const PATH_A := 2
-const PATH_B := 4
-const TOP_ONLY := 8
+const SOLID := Layers.TERRAIN_SOLID
+const PATH_A := Layers.TERRAIN_PATH_A
+const PATH_B := Layers.TERRAIN_PATH_B
+const TOP_ONLY := Layers.TERRAIN_TOP_ONLY
 
 
 static func new_world(test: TestCase) -> Node2D:

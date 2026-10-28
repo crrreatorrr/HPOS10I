@@ -11,8 +11,8 @@ var _age := 0
 
 
 func _ready() -> void:
-	collision_layer = 1 << 6  # objects
-	collision_mask = 1 << 4  # player hitbox
+	collision_layer = Layers.OBJECTS
+	collision_mask = Layers.PLAYER
 	monitorable = false
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()

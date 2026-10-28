@@ -8,9 +8,6 @@ extends Node2D
 ## to turn on physics interpolation (smoother motion on 120 Hz+ displays), and
 ## `--terrain-root=res://some/dir` to try terrain materials from another folder.
 
-# LEAD-REQUEST: build this from InputLabels.for_action() (core/input_labels.gd,
-# FQ-07) once it lands, so the jump key reads right on AZERTY/QWERTZ layouts.
-const HINT := "Move: arrows  Jump: Z/X/C  Roll: Down  Spin: Down+Jump  Look: Up/Down  F1: debug"
 ## After `died` (about 1 s after kill), wait about 1 s more: about 2 s in all.
 const RESPAWN_FRAMES := 60
 ## Terrain materials: assets/terrain/<ART_ZONE>/ (flat colours until they exist).
@@ -22,6 +19,7 @@ const LEVEL_BOUNDS := Rect2(-64, -800, 4756, 864)
 @onready var start: Marker2D = $PlayerStart
 
 var _tickets: Label
+var _hint: Label
 var _respawn_in := -1
 var _frame := 0
 
@@ -44,16 +42,39 @@ func _ready() -> void:
 	player.died.connect(func() -> void: _respawn_in = RESPAWN_FRAMES)
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var hint := _hud_label()
-	hint.text = HINT
-	hint.position = Vector2(4, 226)
-	layer.add_child(hint)
+	_hint = _hud_label()
+	_hint.text = _hint_text()
+	_hint.position = Vector2(4, 226)
+	layer.add_child(_hint)
 	# Top-right: the F1 debug panel uses the top-left corner.
 	_tickets = _hud_label()
 	_tickets.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_tickets.position = Vector2(get_viewport_rect().size.x - 84.0, 2)
 	_tickets.size = Vector2(80, 12)
 	layer.add_child(_tickets)
+
+
+## Control hints with the keys printed on the player's own keyboard (keys are
+## bound by physical position, so WASD shows as ZQSD on AZERTY).
+func _hint_text() -> String:
+	var move := "".join([InputLabels.for_physical(KEY_W), InputLabels.for_physical(KEY_A),
+			InputLabels.for_physical(KEY_S), InputLabels.for_physical(KEY_D)])
+	var jump := InputLabels.for_action(&"jump", 1)
+	return "Move: arrows/%s  Jump: %s  Roll: Down  Spin: Down+%s  Look: Up/Down  %s: debug" % [
+			move, jump, jump, InputLabels.for_action(&"debug_overlay", 1)]
+
+
+## On the web, labels are learned from key presses (Display calls
+## InputLabels.learn), so refresh the hint after each key.
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and _hint != null:
+		_refresh_hint.call_deferred()
+
+
+func _refresh_hint() -> void:
+	var text := _hint_text()
+	if text != _hint.text:
+		_hint.text = text
 
 
 func _hud_label() -> Label:
