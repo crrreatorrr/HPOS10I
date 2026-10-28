@@ -70,7 +70,7 @@ Objects, enemies, hazards and bosses **detect the player** with their own
 | Name | What other code may use |
 |---|---|
 | `GameState` | **Signals:** `tickets_changed(value)`, `score_changed(value)`, `lives_changed(value)`, `checkpoint_reached(position)`, `level_completed`. **Properties:** `tickets`, `score`, `lives`, `level_time` (seconds, physics-ticked), `timer_running`, `checkpoint_position` (Vector2 or null), `zone_id`, `act`. **Methods:** `add_tickets(n)`, `lose_tickets() -> int`, `add_score(n)`, `add_life()`, `set_checkpoint(pos)`, `complete_level()`. `start_level`, `restart_from_checkpoint`, `reset_game` and `lose_life` belong to SceneRouter. |
-| `SceneRouter` | **Methods:** `go_title()`, `go_zone_select()`, `start_zone(id, stage := 1)`, `next_stage()`, `respawn()` (takes a life, except in free scenes), `open_scene(path)` (playgrounds; errors if missing), `in_gameplay() -> bool`, `current_zone() -> Dictionary`. **Properties:** `zone_id`, `stage` (1-based; the boss is acts + 1). **Signal:** `stage_started(zone_id, stage)`. **Constant:** `MENU_SCENES`. Only the first scene change per frame takes effect. |
+| `SceneRouter` | **Methods:** `go_title()`, `go_zone_select()`, `start_zone(id, stage := 1)`, `next_stage()`, `respawn()` (takes a life, except in free scenes), `restart()` (the pause menu's Restart: from the checkpoint, no life lost), `open_scene(path)` (playgrounds; errors if missing), `in_gameplay() -> bool`, `current_zone() -> Dictionary`. **Properties:** `zone_id`, `stage` (1-based; the boss is acts + 1). **Signal:** `stage_started(zone_id, stage)`. **Constant:** `MENU_SCENES`. Only the first scene change per frame takes effect. |
 | `ZoneRegistry` | **Static:** `all_zones(include_test := false)`, `get_zone(id)`, `stage_path(id, stage)`, `next_zone_id(id)`. **Zone dict keys:** `id`, `name`, `acts` (scene paths), `boss`, `accessory`, `music`. |
 | `Tuning` | `physics: PhysicsConstants`; read it every frame. |
 | `Audio` | `play_sfx(name)`, `play_music(name)`, `stop_music()` (see Audio). |
@@ -233,6 +233,13 @@ direction difficulty (R1–R5), checkpoints and tickets.
 - Enemy behaviours come from the T1–T4 roster in docs/LEVELS.md, dressed per
   zone (docs/DESIGN.md).
 - `Enemy` exports `tier: int`, so QA's lint can check each act's tier mix.
+- **Difficulty rises inside every act.** `LevelRoot.progress_at(x) -> float`
+  (0 at PlayerStart, 1 at the goal sign) gives an enemy its progress, and
+  `Difficulty.local(progress)` gives the local difficulty to pass to the
+  multipliers.
+- **Bosses** read `Difficulty.boss(zone_id)`: d, weak_window,
+  attacks_per_cycle, telegraph, escalation, desperation, ticket_refills.
+  The last two bosses are very difficult by design (docs/LEVELS.md).
 
 ## Bosses (boss agent: `bosses/`)
 
