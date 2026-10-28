@@ -55,7 +55,23 @@ basic enemies.
     robot legs. It patrols.
   - **Hopper:** a capsule standing upright on a coiled spring foot. It
     bounces.
-  - Later zones can recolour them and add zone props.
+  - Every zone uses this one family, dressed for the zone:
+    - **Retro Rush Hills and the test zone:** the basic mint/white walker
+      and hopper.
+    - **Wizard Academy:**
+      - a **spellbook pill** riding a flapping enchanted book (replaces the
+        enchanted books)
+      - an **armored pill** in a little knight helmet and breastplate,
+        which takes a spin or roll to crack (replaces the living armor)
+      - colours: purple and cream
+    - **Capital Mansion:**
+      - a **drone pill** with a rotor on top and a searchlight eye
+        (replaces the security drones)
+      - a **clerk pill** juggling paper stacks and tossing sheets (replaces
+        the paperwork robots)
+      - colours: navy and white
+    - **Neon Rush Remix:** the Zone 1 pills redone in neon, with dark bodies
+      and glowing magenta and cyan outlines.
 - **Defeat:** the capsule pops open into two halves and a puff.
 - **Off-limits:** printed text, logos or imprint codes on the pills, and
   any real medicine brand's colours or shape. Keep them cartoonish and
