@@ -45,8 +45,6 @@ const MAX_FALL := 16.0
 ## the player, not in a static var: static vars in scripts that reference
 ## Player keep scripts alive at exit and fail the smoke test's leak check.)
 const BOUNCE_META := &"enemy_bounce_frame"
-const TELEGRAPH_SFX := &"enemy_telegraph"
-const TELEGRAPH_SFX_PATH := "res://audio/sfx/enemy_telegraph.ogg"
 
 ## Roster tier, 1-4 (docs/LEVELS.md). QA's lint reads it for each act's tier mix.
 @export_range(1, 4) var tier := 1
@@ -145,9 +143,7 @@ func _bounce(player: Player) -> void:
 ## This enemy's difficulty, worked out once from where it starts.
 func local_difficulty() -> float:
 	if is_nan(_local_d):
-		var root := _level_root()
-		_local_d = Difficulty.local(root.call(&"progress_at", global_position.x)) \
-				if root != null else Difficulty.current()
+		_local_d = LevelDifficulty.at(self)
 	return _local_d
 
 
@@ -158,21 +154,18 @@ func move_speed(base_px_per_frame: float) -> float:
 
 ## Frames between attacks, hops or shots, scaled for the local difficulty.
 func interval_frames(base_frames: float) -> int:
-	return maxi(1, roundi(base_frames * Difficulty.interval_mult(local_difficulty())))
+	return LevelDifficulty.interval_frames(base_frames, local_difficulty())
 
 
 ## A telegraph (warning) in frames, scaled for the local difficulty (never under 0.35 s).
 func telegraph_frames(base_seconds: float) -> int:
-	return maxi(1, roundi(Difficulty.telegraph(base_seconds, local_difficulty()) * PhysicsConstants.FPS))
+	return LevelDifficulty.telegraph_frames(base_seconds, local_difficulty())
 
 
-## The telegraph sound: `enemy_telegraph` once that file exists, else the
-## contract's `boss_telegraph`.
-# LEAD-REQUEST: add `enemy_telegraph` to the CONTRACTS.md SFX list (and an
-# audio/sfx/enemy_telegraph.ogg); until then T2+ enemies borrow boss_telegraph.
+## Emits `telegraphed` and plays the telegraph sound (LevelFx.play_telegraph).
 func play_telegraph() -> void:
 	telegraphed.emit()
-	Audio.play_sfx(TELEGRAPH_SFX if ResourceLoader.exists(TELEGRAPH_SFX_PATH) else &"boss_telegraph")
+	LevelFx.play_telegraph()
 
 
 ## True when `at` (default: this enemy) is inside the camera's view, grown by
@@ -185,15 +178,9 @@ func on_screen(margin := 0.0, at := Vector2.INF) -> bool:
 	return view.grow(margin).has_point(global_position if at == Vector2.INF else at)
 
 
-## The level root above this enemy (found by group and method, not by class,
-## so this script doesn't depend on level_root.gd).
+## The level root above this enemy.
 func _level_root() -> Node:
-	var node := get_parent()
-	while node != null:
-		if node.is_in_group(&"level_root") and node.has_method(&"progress_at"):
-			return node
-		node = node.get_parent()
-	return null
+	return LevelDifficulty.level_root(self)
 
 
 # --- Movement and terrain ---------------------------------------------------------
