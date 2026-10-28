@@ -30,6 +30,14 @@ from the cat. `Ctrl` works for slide, but `Ctrl` + `W` is a browser shortcut, so
   - Bark Jungle, then the Mecha Bird.
   - Scratchpost Canyon, the Big Cat chase, then the Big Cat.
   - The Cone Factory, then the Evil Cone.
+- **Bosses:** each boss model is rigged in code (`src/bosses/autorig.js`): the bird's wings flap and its cage swings,
+  the cat's paws, spine, head and tail move, and the cone's claws and cape move. Each has a **SPECIAL** gauge that
+  recharges during the fight and unleashes an ultimate when full.
+  - Mecha Bird: dives, wing gust, visor laser, homing rockets, egg bombs, cone drops. Ultimate: **Sky Fall**.
+  - Big Cat: 3-2-1 pounce, swipes, hairballs, yarn ball, claw slashes, tail-whip spin, zoomies.
+    Ultimate: **Nine Lives Frenzy**.
+  - Evil Cone: cone spirals, eye lasers, shame vortex, cup grab, ghost clones, sweeps, shockwaves, and
+    **pump.fun minions** every phase (they pump with each hop, then dump). Ultimate: **Shame Supernova**.
 - **Interactions:**
   - Bone Switches that build bridges, a rope drawbridge you bite to lower, bounce mushrooms.
   - Sinking lily pads, flipping planks, crumbling platforms.
@@ -54,11 +62,13 @@ src/
   game/session.js      one level + its boss: checkpoints (Crash-style rollback), lives, masks, stats
   world/track.js       spline track: (d, lateral) coordinates, ground spans, ramps, walls, water, meshes
   world/physics.js     AABB solids + track collision for bodies
-  world/stage.js       scene, lights + shadows, sky, merged decor, entity updates
+  world/stage.js       scene, lights + shadows, sky, merged decor (with wind sway), steam/bubble emitters
+  world/decor.js       procedural scenery: palms, bushes, ferns, grass, flowers, rocks, yarn, pipes, vats, vents
   levels/              kit.js (authoring helpers) + level1-3 and boss arenas
   player/              player controller, procedural animator, GLB rig + primitive "classic" Nobu
   camera/camera.js     rail cameras (behind / facing for the chase), arena framing, cinematics, shake
-  entities/            breakables, tickets, enemies, dogs, mask, props/interactions, particles
+  entities/            breakables, tickets, enemies, dogs, mask, props/interactions,
+                       particles (fx.js: cartoon smoke, explosions, dust, splashes, shockwaves)
   bosses/              Mecha Bird, Big Cat (+ chase), Evil Cone, shared projectiles
   ui/                  HUD, text boxes, pop-ups, menus (DOM)
   audio/               Web Audio synth: every sound effect and all music

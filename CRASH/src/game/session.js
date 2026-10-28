@@ -160,6 +160,7 @@ export class Session {
     g.camera.endCinematic();
     g.player.frozen = false;
     g.ui.bossShow(boss.name, boss.portrait);
+    g.ui.bossCharge(0, false);
     audio.playMusic(stage.theme.music);
     g.ui.banner('FIGHT!', boss.name, 1.4);
     boss.start();
@@ -184,6 +185,7 @@ export class Session {
     // a little help: a fresh Blue Sphere each phase
     const sp = this.info.spheres?.[phase - 1];
     if (sp) { const s = new BlueSphere(this.stage, sp.x, sp.y, sp.z); s.countable = false; this.stage.add(s); }
+    boss.stateT = 0; // the phase-change reaction (rage/roar) starts now, after the dialogue
     boss.active = true;
     boss.beginPhase?.();
     this.busy = false;

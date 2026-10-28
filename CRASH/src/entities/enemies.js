@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { Entity } from './entity.js';
 import { toon } from '../player/nobuPrims.js';
-import { makeShadow } from './fx.js';
+import { makeShadow, textTexture } from './fx.js';
 import { audio } from '../audio/audio.js';
 import { rand, canvasTex } from '../core/util.js';
 import { TUNING } from '../player/player.js';
@@ -695,3 +695,124 @@ export class PillBot extends Enemy {
 
   onReset() { this.mode = 'walk'; this.cool = 1; this.pill.rotation.set(0, 0, 0); }
 }
+
+// ---------------- Pump.fun minion (the Evil Cone's summons) ----------------
+// Beams in on a green launch light, then hops at Nobu PUMPING bigger and greener with every hop.
+// Once it "graduates" it blinks... and DUMPS (explodes like a rug pull). Bite it, stomp it, or get clear.
+const PUMP_TEXT = ['+20%', '+69%', '+420%', 'MOON'];
+export class PumpPill extends PillBot {
+  constructor(stage, x, y, z, opts = {}) {
+    super(stage, x, y, z, { ...opts, range: 0 });
+    this.ground = y;
+    this.pump = 0;
+    this.maxPump = opts.maxPump ?? 4;
+    this.vx = 0; this.vz = 0;
+    this.mode = 'launch'; this.modeT = 0;
+    this.pos.y = y - 1.2; // rises out of the floor on its launch beam
+    this.vy = 11;
+    this.mats = [];
+    if (this.glb) this.glb.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); if (o.material.emissive) this.mats.push(o.material); } });
+    this.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture('LAUNCH', { color: '#7dff8a', w: 256, size: 90 }), transparent: true, depthTest: false }));
+    this.tag.scale.set(1.8, 0.9, 1); this.tag.position.y = 2.3; this.tag.renderOrder = 20;
+    this.obj.add(this.tag);
+    this.squashT = 0;
+    const fx = stage.game.fx;
+    if (fx) {
+      fx.flash(x, y + 1, z, { size: 2.2, color: 0x7dff8a, life: 0.35 });
+      fx.shock(x, y, z, { radius: 2, color: 0x4ade80, life: 0.5 });
+      fx.sparkle(x, y + 0.5, z, { count: 14, color: 0x7dff8a, size: 0.6, speed: 2, up: 9, life: 0.9 });
+    }
+  }
+
+  setTag(text, color = '#7dff8a') {
+    this.tag.material.map = textTexture(text, { color, w: 256, size: 90 });
+    this.tag.material.needsUpdate = true;
+    this.tag.visible = true;
+  }
+
+  behave(dt) {
+    const p = this.player;
+    this.modeT += dt;
+    const g = this.ground;
+    const target = 1 + this.pump * 0.17;
+    const s = this.size0 = (this.size0 ?? 1) + (target - (this.size0 ?? 1)) * Math.min(1, dt * 10);
+    this.squashT = Math.max(0, this.squashT - dt);
+    const sq = Math.sin((this.squashT / 0.2) * Math.PI) * 0.25;
+    this.model.scale.set(s * (1 + sq), s * (1 - sq), s * (1 + sq));
+    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z;
+    const d = Math.hypot(dx, dz) || 1;
+    if (this.mode === 'launch' || this.mode === 'air') {
+      this.vy -= 22 * dt;
+      this.pos.x += this.vx * dt; this.pos.z += this.vz * dt; this.pos.y += this.vy * dt;
+      this.pill.rotation.x = this.mode === 'launch' ? this.pill.rotation.x + dt * 14 : -0.25;
+      if (this.mode === 'launch' && Math.random() < dt * 30) this.fx.sparkle(this.pos.x, this.pos.y + 0.3, this.pos.z, { count: 1, color: 0x7dff8a, size: 0.4, speed: 0.5, up: -2 });
+      if (this.pos.y <= g && this.vy < 0) {
+        this.pos.y = g; this.vy = 0; this.vx = 0; this.vz = 0;
+        this.pill.rotation.set(0, 0, 0);
+        this.squashT = 0.2;
+        audio.play('boing');
+        this.fx.dust(this.pos.x, g, this.pos.z, { count: 3, size: 0.3, color: 0xd8f0d8 });
+        if (this.mode === 'air') {
+          this.pump++;
+          this.setTag(PUMP_TEXT[Math.min(PUMP_TEXT.length - 1, this.pump - 1)]);
+          this.fx.sparkle(this.pos.x, this.pos.y + 1.6, this.pos.z, { count: 5, color: 0x7dff8a, size: 0.5, speed: 2, up: 3 });
+        } else this.setTag('+0%');
+        this.mode = this.pump >= this.maxPump ? 'graduate' : 'wait';
+        this.modeT = 0;
+        this.hopWait = rand(0.35, 0.6);
+        if (this.mode === 'graduate') { audio.play('charge'); this.setTag('DUMP!', '#ff5050'); }
+      }
+    } else if (this.mode === 'wait') {
+      this.facing = Math.atan2(dx, dz);
+      this.pill.rotation.set(-0.15 * Math.min(1, this.modeT / this.hopWait), 0, 0);
+      if (this.modeT > this.hopWait && !p.dead) {
+        // pump hop toward Nobu: faster and further as it gets bigger
+        const sp = Math.min(d / 0.75, 3.6 + this.pump * 0.7);
+        this.vx = (dx / d) * sp; this.vz = (dz / d) * sp;
+        this.vy = 7.5;
+        this.mode = 'air'; this.modeT = 0;
+        audio.play('jump');
+      }
+    } else if (this.mode === 'graduate') {
+      // the chart goes vertical... then the rug: blink, shake, boom
+      const blink = Math.sin(this.modeT * (12 + this.modeT * 30)) > 0;
+      for (const m of this.mats) m.emissive.setHex(blink ? 0xff2020 : 0x30ff60);
+      this.pill.rotation.set(0, 0, Math.sin(this.modeT * 50) * 0.12);
+      if (this.modeT > 1.3) this.dump();
+    }
+    if (this.mode !== 'graduate') for (const m of this.mats) m.emissive.setRGB(0, this.pump * 0.08, this.pump * 0.03);
+    this.pos.x = Math.max(-12, Math.min(12, this.pos.x));
+    this.pos.z = Math.max(-12, Math.min(12, this.pos.z));
+    const w = Math.sin(this.t * 10);
+    this.legs[0].rotation.x = w * 0.4; this.legs[1].rotation.x = -w * 0.4;
+    if (this.glbWrap) { this.glbWrap.rotation.copy(this.pill.rotation); this.glbWrap.position.y = 0; this.glbWrap.children[0].position.y = 0; }
+    this.tag.position.y = 2.1 * s + Math.sin(this.t * 4) * 0.08;
+  }
+
+  dump() {
+    if (!this.alive) return;
+    const p = this.player;
+    this.fx.explosion(this.pos.x, this.pos.y, this.pos.z, { radius: 2.4, color: 0x7dff8a });
+    this.fx.shock(this.pos.x, this.pos.y, this.pos.z, { radius: 3, color: 0xff4040, life: 0.5 });
+    audio.play('explosion');
+    audio.play('rugDeath');
+    this.game.camera.shake(0.35, 0.3);
+    if (!p.dead && Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) < 2.4 && Math.abs(p.pos.y - this.pos.y) < 2) p.hurt('rug', this.pos.x, this.pos.z);
+    this.state = 'gone';
+    this.interactive = false;
+    this.dead = true;
+    this.obj.visible = false;
+  }
+
+  onBite(p) {
+    if (!this.alive || this.mode === 'launch') return;
+    this.tag.visible = false;
+    super.onBite(p);
+  }
+  onStomp(p) {
+    if (!this.alive) return;
+    this.tag.visible = false;
+    super.onStomp(p);
+  }
+}
+

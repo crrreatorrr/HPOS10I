@@ -37,7 +37,7 @@ export class UI {
     root.appendChild(this.hud);
 
     // boss bar
-    this.boss = h('div', '', '<img><div class="bb-body"><div class="bb-name"></div><div class="bb-track"><div class="bb-fill"></div></div><div class="bb-phase"></div></div>');
+    this.boss = h('div', '', '<img><div class="bb-body"><div class="bb-name"></div><div class="bb-track"><div class="bb-fill"></div></div><div class="bb-row"><div class="bb-phase"></div><div class="bb-sp"><span>SPECIAL</span><div class="bb-sptrack"><div class="bb-spfill"></div></div></div></div></div>');
     this.boss.id = 'bossbar';
     root.appendChild(this.boss);
 
@@ -91,6 +91,12 @@ export class UI {
   bossHp(frac, phase) {
     this.boss.querySelector('.bb-fill').style.width = `${Math.max(0, frac) * 100}%`;
     this.boss.querySelector('.bb-phase').textContent = phase ? `PHASE ${phase}` : '';
+  }
+  // special-attack gauge: fills up, flashes when the ultimate is ready
+  bossCharge(frac, ready = false) {
+    const f = this.boss.querySelector('.bb-spfill');
+    f.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+    this.boss.classList.toggle('sp-ready', ready);
   }
   bossHide() { this.boss.classList.remove('show'); }
 

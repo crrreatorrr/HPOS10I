@@ -64,9 +64,10 @@ export const BOSS_TALK = {
       ['cone', 'I am the Cone of Shame! I am inevitable! Every dog wears me eventually.'],
       ['cone', 'Now hold still while I put you in a cone. Forever.'],
       ['mask', 'He only opens up for a second after his combos. Be ready, Nobu!'],
+      ['mask', 'And watch those pump.fun pills. They pump with every hop, then they DUMP. Pop them early!'],
     ],
-    phase2: [['cone', 'Impossible! Fine. FASTER, then. My minions! Seize the Akita!']],
-    phase3: [['cone', 'ENOUGH!!! I will cone you, then the mask, then the MOON!']],
+    phase2: [['cone', 'Impossible! Fine. FASTER, then. Fresh launches! Pump it, my pills! Seize the Akita!']],
+    phase3: [['cone', 'ENOUGH!!! Every pill to the moon! I will cone you, then the mask, then the MOON!']],
     death: [['cone', 'Wait wait wait... maybe we can just... share the cone?']],
   },
 };

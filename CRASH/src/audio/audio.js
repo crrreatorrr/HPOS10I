@@ -214,6 +214,18 @@ class AudioEngine {
       case 'dizzy': this._osc('sine', 900, 500, 0.6, 0.12, 0, this.sfxGain, { vibrato: 10, vibDepth: 120 }); break;
       case 'shoot': this._osc('square', 300, 900, 0.1, 0.1); this._noise(0.08, 0.15, 0, 'highpass', 2000); break;
       case 'whoosh': this._noise(0.35, 0.3, 0, 'bandpass', 400, 2400, 1.5); break;
+      // boss specials
+      case 'charge': this._osc('sawtooth', 120, 900, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240, 1800, 0.7, 0.08); break;
+      case 'laser':
+        this._osc('sawtooth', 1400, 700, 0.5, 0.12, 0, this.sfxGain, { filter: 'bandpass', freq: 1600, q: 3, vibrato: 30, vibDepth: 120 });
+        this._noise(0.5, 0.15, 0, 'highpass', 3000);
+        break;
+      case 'gust': this._noise(1.1, 0.45, 0, 'bandpass', 300, 900, 0.7); this._noise(0.9, 0.25, 0.2, 'bandpass', 900, 400, 1.2); break;
+      case 'missile': this._noise(0.5, 0.35, 0, 'bandpass', 1200, 300, 1); this._osc('square', 200, 520, 0.25, 0.08); break;
+      case 'tick': this._osc('square', 1300, 1300, 0.04, 0.12); break;
+      case 'yowl': this._osc('sawtooth', 520, 260, 0.6, 0.18, 0, this.sfxGain, { vibrato: 9, vibDepth: 60, filter: 'lowpass', freq: 2200 }); this._osc('sawtooth', 780, 330, 0.5, 0.1, 0.05); break;
+      case 'slash': this._noise(0.18, 0.4, 0, 'highpass', 2500, 6000, 1); this._osc('sawtooth', 900, 300, 0.15, 0.08); break;
+      case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800, 250, 2); this._osc('sine', 300, 90, 1.4, 0.1); break;
       case 'stomp': this._osc('sine', 80, 30, 0.5, 0.8); this._noise(0.4, 0.5, 0, 'lowpass', 900, 60); break;
       case 'menu': this._osc('square', 660, 660, 0.05, 0.08); break;
       case 'select': this._osc('square', 880, 1320, 0.12, 0.12); this._osc('triangle', 1320, 1760, 0.1, 0.1, 0.06); break;
