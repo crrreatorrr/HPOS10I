@@ -29,8 +29,10 @@ func _ready() -> void:
 			continue
 		var kv := arg.substr(2).split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else true
-	if args.has("inputs"):
+	if args.get("inputs") is String:
 		_timeline = load_timeline(args.inputs)
+	elif args.has("inputs"):
+		push_error("[Dev] --inputs needs a path, e.g. --inputs=res://tests/inputs/run_right.json")
 	set_physics_process(not _timeline.is_empty())
 
 
@@ -78,9 +80,13 @@ static func load_timeline(path: String) -> Array:
 	if typeof(data) != TYPE_DICTIONARY or not data.has("events"):
 		push_error("[Dev] bad input timeline: %s" % path)
 		return []
-	var events: Array = data.events
-	# Stable sort: events on the same frame keep their file order.
-	for i in events.size():
-		events[i] = [events[i][0], events[i][1], events[i][2], i]
+	var events: Array = []
+	for raw in data.events:
+		if raw is Array and raw.size() == 3 and (raw[0] is float or raw[0] is int) \
+				and raw[1] is String and raw[2] is bool:
+			# Stable sort key: events on the same frame keep their file order.
+			events.append([int(raw[0]), raw[1], raw[2], events.size()])
+		else:
+			push_error("[Dev] skipping bad timeline event %s in %s" % [raw, path])
 	events.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[3] < b[3]))
 	return events

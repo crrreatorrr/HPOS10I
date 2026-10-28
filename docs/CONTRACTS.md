@@ -40,8 +40,9 @@ and list the request in your final report.
   web build and show up in the boot menu. `tests/`, `tools/`, `qa/` and
   `docs/` never ship (CI's web check fails the build if they do).
 - **Placeholders:** until art is approved, draw simple shapes (`Polygon2D`,
-  `_draw()`, `ColorRect`). Keep them readable: player white, enemies red,
-  hazards orange, springs yellow, tickets gold.
+  `_draw()`, `ColorRect`). Keep them readable and on-model (docs/DESIGN.md):
+  Sproto blue and yellow, enemies as pill robots, hazards orange, springs
+  yellow and red, tickets gold.
 
 ## Collision layers
 
@@ -63,6 +64,43 @@ Terrain is static geometry (TileMapLayer collision polygons or
 
 Objects, enemies, hazards and bosses **detect the player** with their own
 `Area2D` (mask bit 5) and call the player API below.
+
+## Core autoloads and helpers (lead: `core/`)
+
+| Name | What other code may use |
+|---|---|
+| `GameState` | **Signals:** `tickets_changed(value)`, `score_changed(value)`, `lives_changed(value)`, `checkpoint_reached(position)`, `level_completed`. **Properties:** `tickets`, `score`, `lives`, `level_time` (seconds, physics-ticked), `timer_running`, `checkpoint_position` (Vector2 or null), `zone_id`, `act`. **Methods:** `add_tickets(n)`, `lose_tickets() -> int`, `add_score(n)`, `add_life()`, `set_checkpoint(pos)`, `complete_level()`. `start_level`, `restart_from_checkpoint`, `reset_game` and `lose_life` belong to SceneRouter. |
+| `SceneRouter` | **Methods:** `go_title()`, `go_zone_select()`, `start_zone(id, stage := 1)`, `next_stage()`, `respawn()` (takes a life, except in free scenes), `open_scene(path)` (playgrounds; errors if missing), `in_gameplay() -> bool`, `current_zone() -> Dictionary`. **Properties:** `zone_id`, `stage` (1-based; the boss is acts + 1). **Signal:** `stage_started(zone_id, stage)`. **Constant:** `MENU_SCENES`. Only the first scene change per frame takes effect. |
+| `ZoneRegistry` | **Static:** `all_zones(include_test := false)`, `get_zone(id)`, `stage_path(id, stage)`, `next_zone_id(id)`. **Zone dict keys:** `id`, `name`, `acts` (scene paths), `boss`, `accessory`, `music`. |
+| `Tuning` | `physics: PhysicsConstants`; read it every frame. |
+| `Audio` | `play_sfx(name)`, `play_music(name)`, `stop_music()` (see Audio). |
+| `Dev` | `args` (command-line flags below), `send_action(action, pressed)`, `load_timeline(path)`. |
+| `Display` | `is_touch`, signal `touch_mode_changed(is_touch)`, `choose_stretch()`. It adds the global touch and pause overlays. |
+| `Difficulty` | See "Difficulty". |
+| `InputLabels` | `for_action(action, max_keys := 3)` and `for_physical(key)` give key names as printed on the player's keyboard. Never hard-code key names in UI text. |
+| `Layers` | Collision layer bits (`Layers.TERRAIN_SOLID` …). Use them instead of literal numbers. |
+
+**Input actions** (bound by physical key position; see `tools/lead/setup_input_map.gd`):
+
+| Action | Keyboard | Gamepad | Notes |
+|---|---|---|---|
+| `move_left` / `move_right` | Left/Right, A/D | D-pad, left stick | stick deadzone 0.45 |
+| `move_up` / `move_down` | Up/Down, W/S | D-pad, left stick | stick deadzone 0.75, so 45° diagonals read as horizontal |
+| `jump` | Z, X, C, Space, K | A, B, X, Y | |
+| `pause` | P, Enter, Esc | Start | browsers may keep Esc for leaving fullscreen |
+| `debug_overlay` | F1 | | |
+
+**Dev command-line flags** (after `--`):
+
+| Flag | Where | Effect |
+|---|---|---|
+| `--scene=res://…` | everywhere | open a scene directly |
+| `--zone=<id>`, `--stage=<n>` | everywhere | start a zone or stage |
+| `--inputs=res://….json` | everywhere | replay an input timeline |
+| `--dev` | everywhere | show the boot menu even when a title screen exists |
+| `--touch` | everywhere | force touch mode (touch controls, fractional scaling) |
+| `--overlay` | everywhere | start with the F1 debug overlay open |
+| `--trace[=N]`, `--start=X`, `--accessory=<id>`, `--interp`, `--terrain-root=<dir>` | physics playground only | |
 
 ## Player (physics agent: `player/`)
 
@@ -169,6 +207,16 @@ Parallax: `Parallax2D` layers, files loaded in order, scroll scales
 0.1 / 0.3 / 0.6 / 0.9:
 `1_far.png`, `2_distant.png`, `3_mid.png`, `4_near.png`.
 
+| Layer | Height | Anchoring |
+|---|---|---|
+| far | 240 px | top of the screen |
+| distant | about 180 px | bottom-aligned to the horizon line, with a per-layer y offset in LevelRoot |
+| mid | about 160 px | bottom-aligned to the horizon line, with a per-layer y offset in LevelRoot |
+| near | about 96–120 px, with transparency | bottom-aligned to the horizon line, with a per-layer y offset in LevelRoot |
+
+`repeat_size.x` = texture width. Background folders hold only these four
+files; zone palettes live in `tools/art/palettes/<zone_id>.png`.
+
 Enemy base: `levels/enemies/enemy_base.gd` (`class_name Enemy`). On contact,
 if `player.is_attacking()`, the enemy dies (+100 score, `enemy_pop`) and calls
 `player.bounce_off(global_position.y)`. Otherwise it calls `player.hurt(global_position)`.
@@ -258,7 +306,7 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 
 | Scene | Purpose |
 |---|---|
-| `ui/title/title_screen.tscn` | Boot goes here once it exists |
+| `ui/title/title_screen.tscn` | Boot goes here once it exists. Must show the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
 | `ui/zone_select/zone_select.tscn` | Uses `ZoneRegistry` + `SceneRouter.start_zone()` |
 | `ui/hud/hud.tscn` | `CanvasLayer`; listens to `GameState` signals |
 | `ui/pause/pause_menu.tscn` | Added globally by `Display`. `process_mode = ALWAYS`; toggles `get_tree().paused` on `pause`, only while `SceneRouter.in_gameplay()` |
@@ -275,7 +323,10 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
    - **major:** fix this step
    - **minor:** backlog
 3. The owner fixes blockers. QA re-checks them.
-4. The lead runs the game, records a clip, merges with `--no-ff` and pushes. CI deploys.
+4. The lead runs the game and records a clip, then merges with `--no-ff`.
+   It pushes only after `tools/lead/gate.sh` passes on a clean checkout
+   (import, originality, tests, smoke). CI repeats every check, plus
+   `web_check`, before deploying.
 
 ## Before you report back
 

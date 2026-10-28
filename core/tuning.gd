@@ -14,7 +14,10 @@ var _poll := 0.0
 
 
 func _ready() -> void:
-	physics = load(PATH)
+	physics = load(PATH) as PhysicsConstants
+	if physics == null:
+		push_error("[Tuning] could not load %s; using built-in defaults" % PATH)
+		physics = PhysicsConstants.new()
 	_mtime = FileAccess.get_modified_time(PATH)
 	# Exported builds read from the .pck, so there is nothing to watch.
 	set_process(OS.is_debug_build() and OS.has_feature("editor"))

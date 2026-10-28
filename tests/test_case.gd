@@ -4,6 +4,8 @@ extends RefCounted
 ## fresh instance. Tests may be coroutines (use await). Owned by the lead.
 
 var tree: SceneTree
+## Engine/script errors this test is allowed to raise (see expect_errors()).
+var expected_errors := 0
 
 var _failures := PackedStringArray()
 var _nodes: Array[Node] = []
@@ -15,6 +17,12 @@ func before_each() -> void:
 
 func after_each() -> void:
 	pass
+
+
+## Declare that this test deliberately triggers `count` engine errors
+## (e.g. loading a missing file). Any other error fails the test.
+func expect_errors(count: int) -> void:
+	expected_errors = count
 
 
 func fail(message: String) -> void:
