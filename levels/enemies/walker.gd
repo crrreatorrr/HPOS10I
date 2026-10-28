@@ -71,9 +71,10 @@ func _blocked(step: float, use_range := true) -> bool:
 
 
 func _pop() -> void:
+	var colors := _palette()
 	LevelFx.pill_pop(get_parent(), global_position + Vector2(0.0, BODY_Y), Vector2.RIGHT,
-			HALF_LENGTH, RADIUS, PillArt.WHITE if direction > 0 else PillArt.MINT,
-			PillArt.MINT if direction > 0 else PillArt.WHITE, PillArt.OUTLINE)
+			HALF_LENGTH, RADIUS, colors[2] if direction > 0 else colors[0],
+			colors[0] if direction > 0 else colors[2], PillArt.OUTLINE)
 
 
 func _draw() -> void:
@@ -88,7 +89,7 @@ func _draw() -> void:
 	# Body, facing its direction of travel (mint half in front).
 	draw_set_transform(Vector2(0.0, BODY_Y), 0.0, Vector2(direction, 1.0))
 	_draw_behind_body()
-	PillArt.draw_capsule(self, HALF_LENGTH, RADIUS, 1)
+	PillArt.draw_capsule(self, HALF_LENGTH, RADIUS, 1, _palette())
 	PillArt.draw_visor(self, Vector2(HALF_LENGTH + 2.0, -1.5), 6.0, 2, false, _visor_flash())
 	PillArt.draw_antenna(self, Vector2(-HALF_LENGTH + 1.0, -RADIUS - 1.0), 5.0, sin(_roll * 0.3) * 1.5)
 	_draw_over_body()
@@ -107,3 +108,8 @@ func _draw_over_body() -> void:
 
 func _visor_flash() -> bool:
 	return false
+
+
+## Body colours (PillArt palette); zone costumes override it.
+func _palette() -> Array:
+	return PillArt.BASIC

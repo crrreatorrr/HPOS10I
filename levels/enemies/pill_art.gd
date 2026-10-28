@@ -4,8 +4,8 @@ extends RefCounted
 ## split across the middle into two colours, a thick dark outline, a soft
 ## shadow along the lower side, a white dashed shine on the coloured half, a
 ## seam band with bolts, a dark visor slit with glowing eye dots and a small
-## antenna. No text or markings. Colours are the basic mint/white set used in
-## Zone 1 and the test zone.
+## antenna. No text or markings. Palettes: the basic mint/white set (Zone 1
+## and the test zone) and Wizard Academy's purple/cream.
 
 const OUTLINE := Color(0.12, 0.12, 0.2)
 const MINT := Color(0.47, 0.9, 0.68)
@@ -24,6 +24,17 @@ const METAL_DARK := Color(0.32, 0.33, 0.42)
 const FLASH := Color(1.0, 0.95, 0.55)
 const SPIKE := Color(1.0, 0.56, 0.12)
 const SPIKE_DARK := Color(0.72, 0.3, 0.06)
+## Wizard Academy (docs/DESIGN.md): purple and cream.
+const PURPLE := Color(0.6, 0.38, 0.86)
+const PURPLE_SHADE := Color(0.42, 0.24, 0.66)
+const PURPLE_DARK := Color(0.28, 0.14, 0.44)
+const CREAM := Color(0.98, 0.93, 0.8)
+const CREAM_SHADE := Color(0.84, 0.76, 0.6)
+const GOLD := Color(0.98, 0.8, 0.3)
+
+## [coloured half, its shade, white half, its shade].
+const BASIC := [MINT, MINT_SHADE, WHITE, WHITE_SHADE]
+const WIZARD := [PURPLE, PURPLE_SHADE, CREAM, CREAM_SHADE]
 
 
 ## Points of a horizontal capsule (straight part ±half_length, end radius r).
@@ -40,8 +51,9 @@ static func capsule_points(half_length: float, r: float, steps := 8) -> PackedVe
 
 ## Draws a capsule body lying along local x, centred at the canvas origin
 ## (use draw_set_transform to place and turn it). `front` is the coloured
-## (mint) half: +1 the right half, -1 the left half.
-static func draw_capsule(canvas: CanvasItem, half_length: float, r: float, front: int) -> void:
+## (mint) half: +1 the right half, -1 the left half. `palette` is BASIC,
+## WIZARD or another [coloured, coloured shade, white, white shade].
+static func draw_capsule(canvas: CanvasItem, half_length: float, r: float, front: int, palette: Array = BASIC) -> void:
 	var outline := capsule_points(half_length, r + 1.5)
 	canvas.draw_colored_polygon(outline, OUTLINE)
 	var body := capsule_points(half_length, r)
@@ -49,14 +61,14 @@ static func draw_capsule(canvas: CanvasItem, half_length: float, r: float, front
 	var left_half := Geometry2D.intersect_polygons(body, _rect(-half_length - r - 2.0, -r - 2.0, 0.0, r + 2.0))
 	var mint_half := right_half if front > 0 else left_half
 	var white_half := left_half if front > 0 else right_half
-	_fill(canvas, white_half, WHITE)
-	_fill(canvas, mint_half, MINT)
+	_fill(canvas, white_half, palette[2])
+	_fill(canvas, mint_half, palette[0])
 	# Soft shadow along the lower side.
 	var lower := _rect(-half_length - r - 2.0, r * 0.35, half_length + r + 2.0, r + 2.0)
 	for part in white_half:
-		_fill(canvas, Geometry2D.intersect_polygons(part, lower), WHITE_SHADE)
+		_fill(canvas, Geometry2D.intersect_polygons(part, lower), palette[3])
 	for part in mint_half:
-		_fill(canvas, Geometry2D.intersect_polygons(part, lower), MINT_SHADE)
+		_fill(canvas, Geometry2D.intersect_polygons(part, lower), palette[1])
 	# White dashed shine on the coloured half.
 	var y := -r * 0.55
 	for i in 3:
