@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://cf4qnt360l8q5"
+path="res://.godot/imported/sproto_small.fnt-d6d50f217c9716cf6c633b67ac0c9103.fontdata"
+
+[deps]
+
+source_file="res://ui/font/sproto_small.fnt"
+dest_files=["res://.godot/imported/sproto_small.fnt-d6d50f217c9716cf6c633b67ac0c9103.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2
