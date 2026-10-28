@@ -74,6 +74,22 @@ jobs:
           ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
           touch build/web/.nojekyll
 
+      # Pages caches files for 10 minutes and the page always asks for
+      # "index.pck", so returning players kept getting an old build. Point the
+      # engine at a per-commit URL for the game data instead.
+      - name: Version the game data URL
+        run: |
+          python3 - "build/web/index.html" "${GITHUB_SHA::12}" <<'EOF'
+          import sys
+          path, version = sys.argv[1], sys.argv[2]
+          html = open(path).read()
+          marker = '"executable":"index",'
+          assert marker in html, "GODOT_CONFIG format changed"
+          html = html.replace(marker, marker + '"mainPack":"index.pck?v=%s",' % version, 1)
+          open(path, "w").write(html)
+          print("mainPack -> index.pck?v=" + version)
+          EOF
+
       - name: Check web build (single-threaded, sizes, audio formats)
         run: tools/qa/web_check.sh build/web
 
