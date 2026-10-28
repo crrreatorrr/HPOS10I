@@ -118,6 +118,7 @@ export class Player {
     this.reset();
     this.pos.copy(p);
     this.prevY = p.y;
+    this.lastSafe = p.clone();
     this.facing = this.targetFacing = facing;
     this.root.position.copy(p);
     this.root.rotation.y = facing;
@@ -125,6 +126,10 @@ export class Player {
 
   get dead() { return this.mode === 'dead'; }
   get invincible() { return this.game.session?.invincibleT > 0; }
+  // God mode (title-screen toggle): no damage, pits bounce you back, and 4 jumps in a row (ground + 3 in the air)
+  get god() { return !!save.data.godMode; }
+  get canDouble() { return this.airJumps > 0; }
+  set canDouble(v) { this.airJumps = v ? (this.god ? 3 : 1) : 0; }
   get forward() { return _fwd.set(Math.sin(this.facing), 0, Math.cos(this.facing)); }
   get grounded() { return this.body.grounded; }
 
@@ -221,7 +226,7 @@ export class Player {
           this.vel.x = f.x * T.SLIDE_JUMP_SPEED; this.vel.z = f.z * T.SLIDE_JUMP_SPEED;
         }
       } else if (this.canDouble && this.mode === 'normal') {
-        this.canDouble = false;
+        this.airJumps--;
         this.jumpBuffer = 0;
         this.vel.y = T.DOUBLE_JUMP;
         this.jumpCut = false;
@@ -265,6 +270,9 @@ export class Player {
     this.pushX = 0; this.pushZ = 0;
     if (wasGrounded && !this.body.grounded && this.vel.y <= 0) this.canDouble = true; // walked off a ledge
     if (this.body.grounded) { this.airBiteUsed = false; this.canDouble = false; }
+    // remember solid footing (track floor or level blocks, not crumbling/moving platforms) for god-mode pit rescues
+    const gr = this.body.ground;
+    if (this.body.grounded && gr && (gr.kind === 'track' || (gr.kind === 'static' && !gr.ref))) (this.lastSafe ||= new THREE.Vector3()).copy(this.pos);
 
     // ---- idle timer ----
     const hs = Math.hypot(this.vel.x, this.vel.z);
@@ -425,7 +433,7 @@ export class Player {
   // ---------- damage ----------
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
-    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible) return false;
+    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god) return false;
     const s = this.game.session;
     if (s && s.mask > 0) {
       s.setMask(s.mask - 1);
@@ -444,8 +452,26 @@ export class Player {
     return true;
   }
 
+  // God mode: fell in a pit -> pop back up onto the last solid footing
+  _rescue() {
+    const to = this.lastSafe || this.pos;
+    this.game.fx?.puff(this.pos.x, this.pos.y, this.pos.z, { count: 8, size: 0.4, color: 0xffe68a, up: 2, speed: 2, life: 0.6 });
+    this.pos.set(to.x, to.y + 0.6, to.z);
+    this.vel.set(0, 6, 0);
+    this.body.grounded = false;
+    this.body.ground = null;
+    if (this.mode === 'slide') this.body.h = 1.3;
+    this.mode = 'normal';
+    this.flopPhase = null;
+    this.canDouble = true;
+    this.invulnT = 1;
+    this.game.fx?.sparkle(this.pos.x, this.pos.y + 0.5, this.pos.z);
+    audio.play('doubleJump');
+  }
+
   die(type = 'angel') {
     if (this.mode === 'dead') return;
+    if (this.god) { if (type === 'fall') this._rescue(); return; }
     if (this.mode === 'slide') this.body.h = 1.3;
     this.mode = 'dead';
     this.deathType = type;

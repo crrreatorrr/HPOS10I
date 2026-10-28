@@ -164,6 +164,16 @@
     "prompt": "(user-supplied photo of the Harry Potter / OBAMA backpack)"
   },
   {
+    "id": "backpack_icon",
+    "jobId": "",
+    "url": "",
+    "dest": "items/backpack_icon.webp",
+    "ops": [],
+    "model": "user photo (backpack_front.jpg) on a drawn backpack silhouette: tools/make_backpack_icon.py",
+    "usedFor": "Level complete BREAKABLES icon (the Sonic-with-tulips meme backpack)",
+    "prompt": "(no generation; built locally from the user-supplied photo)"
+  },
+  {
     "id": "sproto_mask",
     "jobId": "",
     "url": "",

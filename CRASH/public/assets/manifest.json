@@ -284,7 +284,7 @@
     },
     "backpack": {
       "file": "items/backpack.webp",
-      "usedFor": "Black Backpack front decal (in-game) + level complete icon",
+      "usedFor": "Black Backpack front decal fallback (in-game, if backpack_front is missing)",
       "model": "gpt_image_2_5 (medium)",
       "jobId": "cf4b0277-b12e-4068-920e-eac32922807a",
       "prompt": "Video game breakable item sprite: a chunky cartoon black backpack, zipped and stuffed full, with a front pocket, two padded shoulder straps, a top grab handle and a small round orange coin patch, front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
@@ -582,6 +582,13 @@
       "model": "user photo (backpack.webp), cropped",
       "jobId": "",
       "prompt": "(user-supplied photo of the Harry Potter / OBAMA backpack)"
+    },
+    "backpack_icon": {
+      "file": "items/backpack_icon.webp",
+      "usedFor": "Level complete BREAKABLES icon (the Sonic-with-tulips meme backpack)",
+      "model": "user photo (backpack_front.jpg) on a drawn backpack silhouette: tools/make_backpack_icon.py",
+      "jobId": "",
+      "prompt": "(no generation; built locally from the user-supplied photo)"
     },
     "sproto_mask": {
       "file": "ui/sproto_mask.webp",

@@ -53,7 +53,7 @@ export const BOSS_TALK = {
     intro: [
       ['cat', 'Ohhh, look who ran all this way. You\'re cornered, little puppy.'],
       ['cat', 'The Evil Cone pays me in tuna to put that Akita in a cone. Easiest job ever.'],
-      ['mask', 'When it counts 3-2-1, MOVE! If it misses the pounce, jump on its HEAD!'],
+      ['mask', 'When it counts 3-2-1, MOVE! If it misses the pounce, jump on its HEAD or bite it!'],
     ],
     phase2: [['cat', 'Hsssss! Lucky. Now I pounce TWICE. Cats always land on their feet.']],
     phase3: [['cat', 'MROWR! No more playing. Nine lives, puppy. How many do YOU have?']],

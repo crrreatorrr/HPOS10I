@@ -56,6 +56,7 @@ export class Game {
     await Assets.init((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
     this.uiRoot.innerHTML = '';
     this.ui = new UI(this.uiRoot);
+    this.ui.godBadge(save.data.godMode);
     this.player = new Player(this);
     this.mask = new SprotoMask(this);
     this.resize();
@@ -164,6 +165,7 @@ export class Game {
     items.push({ id: 'new', label: 'NEW GAME' });
     items.push({ id: 'model', label: `NOBU: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` });
     items.push({ id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` });
+    items.push({ id: 'god', label: `GOD MODE: ${save.data.godMode ? 'ON' : 'OFF'}` });
     return items;
   }
 
@@ -208,6 +210,11 @@ export class Game {
         save.write();
         this._refreshTitleNobu();
         this.player.rebuildModel(save.data.nobuModel);
+        this._drawTitleMenu();
+      } else if (it.id === 'god') {
+        save.data.godMode = !save.data.godMode;
+        save.write();
+        this.ui.godBadge(save.data.godMode);
         this._drawTitleMenu();
       } else if (it.id === 'pixel') {
         save.data.pixelated = !save.data.pixelated;
@@ -443,7 +450,7 @@ export class Game {
         <img class="complete-nobu" src="${Assets.url('nobu_complete')}">
         <div class="stats">
           ${row('ticket', 'TICKETS', st.tickets)}
-          ${row('backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
+          ${row(Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
           ${row('dog_corgi_free', 'DOGS FREED', `${st.dogs}/${st.dogsTotal}`, st.dogs >= st.dogsTotal ? '' : 'miss')}
           ${row('golden_bone', 'GOLDEN BONE', bone ? 'EARNED!' : 'not yet', bone ? 'reward' : 'miss')}
         </div>

@@ -18,6 +18,7 @@ function fresh() {
     tutorials: {},
     nobuModel: 'glb',        // 'glb' (Higgsfield 3D) or 'classic' (primitives)
     pixelated: false,
+    godMode: false,          // title-screen cheat: no damage + 4 jumps in a row
     v: 2,
     musicVol: 0.6,
     sfxVol: 0.8,
@@ -45,7 +46,7 @@ export const save = {
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* storage unavailable */ }
   },
   reset() {
-    const keep = { nobuModel: data.nobuModel, pixelated: data.pixelated, musicVol: data.musicVol, sfxVol: data.sfxVol };
+    const keep = { nobuModel: data.nobuModel, pixelated: data.pixelated, godMode: data.godMode, musicVol: data.musicVol, sfxVol: data.sfxVol };
     data = { ...fresh(), ...keep };
     this.write();
   },

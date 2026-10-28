@@ -227,6 +227,7 @@ class AudioEngine {
       case 'slash': this._noise(0.18, 0.4, 0, 'highpass', 2500, 6000, 1); this._osc('sawtooth', 900, 300, 0.15, 0.08); break;
       case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800, 250, 2); this._osc('sine', 300, 90, 1.4, 0.1); break;
       case 'stomp': this._osc('sine', 80, 30, 0.5, 0.8); this._noise(0.4, 0.5, 0, 'lowpass', 900, 60); break;
+      case 'paw': this._osc('sine', 72, 36, 0.14, 0.3 * p); this._noise(0.1, 0.16 * p, 0, 'lowpass', 520, 110); break;
       case 'menu': this._osc('square', 660, 660, 0.05, 0.08); break;
       case 'select': this._osc('square', 880, 1320, 0.12, 0.12); this._osc('triangle', 1320, 1760, 0.1, 0.1, 0.06); break;
       case 'blip': this._osc('square', 520 + Math.random() * 120, 520, 0.03, 0.04); break;

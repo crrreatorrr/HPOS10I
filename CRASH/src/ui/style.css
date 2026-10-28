@@ -271,3 +271,13 @@ html, body {
   #textbox .tb-text { font-size: 21px; }
   #textbox .tb-portrait { width: 96px; height: 96px; }
 }
+
+/* ---------- God mode badge ---------- */
+.god-badge {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-display); font-size: 22px; letter-spacing: 2px; color: #ffe14a;
+  -webkit-text-stroke: 1.5px var(--ink); text-shadow: 0 0 10px rgba(255, 214, 90, 0.85);
+  pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 5;
+}
+.god-badge.on { opacity: 1; animation: god-pulse 1.6s ease-in-out infinite; }
+@keyframes god-pulse { 50% { text-shadow: 0 0 18px rgba(255, 214, 90, 1); } }

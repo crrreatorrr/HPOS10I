@@ -23,6 +23,9 @@ Open the printed URL (default http://localhost:5173). `npm run build` makes a st
 Movement is camera-relative. In the level 2 chase, the camera faces Nobu, so hold **Down / S** to run away
 from the cat. `Ctrl` works for slide, but `Ctrl` + `W` is a browser shortcut, so `K` is safer.
 
+**God mode** (title menu → `GOD MODE: ON`): no damage, pits bounce Nobu back onto the last solid ground,
+and four jumps in a row (ground jump + three in the air). The setting is saved; a badge shows while it's on.
+
 ## What's in it
 
 - **Three levels + three bosses.** Each level runs along a winding, rolling spline track with forks, side
@@ -34,7 +37,8 @@ from the cat. `Ctrl` works for slide, but `Ctrl` + `W` is a browser shortcut, so
   the cat's paws, spine, head and tail move, and the cone's claws and cape move. Each has a **SPECIAL** gauge that
   recharges during the fight and unleashes an ultimate when full.
   - Mecha Bird: dives, wing gust, visor laser, homing rockets, egg bombs, cone drops. Ultimate: **Sky Fall**.
-  - Big Cat: 3-2-1 pounce, swipes, hairballs, yarn ball, claw slashes, tail-whip spin, zoomies.
+  - Big Cat: 3-2-1 pounce, swipes, hairballs, yarn ball, claw slashes, tail-whip spin, zoomies. A missed pounce
+    leaves it dizzy: stomp its head or bite it.
     Ultimate: **Nine Lives Frenzy**.
   - Evil Cone: cone spirals, eye lasers, shame vortex, cup grab, ghost clones, sweeps, shockwaves, and
     **pump.fun minions** every phase (they pump with each hop, then dump). Ultimate: **Shame Supernova**.
