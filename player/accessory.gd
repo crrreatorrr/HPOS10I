@@ -40,7 +40,12 @@ func _ready() -> void:
 
 ## Re-reads the zone's accessory (called on ready; call again after a zone change).
 func refresh() -> void:
-	accessory = str(SceneRouter.current_zone().get("accessory", ""))
+	set_accessory(str(SceneRouter.current_zone().get("accessory", "")))
+
+
+## Shows `id` ("", "wizard_hat" or "sunglasses") regardless of the zone.
+func set_accessory(id: String) -> void:
+	accessory = id
 	if _sprite != null:
 		_sprite.queue_free()
 		_sprite = null

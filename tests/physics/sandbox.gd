@@ -2,7 +2,8 @@ extends Node2D
 ## Physics playground. Flat ground with a tunnel and a top-only platform,
 ## gentle and steep slopes, two loops, a curve run and a quarter pipe, plus a
 ## test dummy and coins for hurt / coin scatter. Respawns Sproto after death.
-## Run with `-- --trace` (or `--trace=N`) to print the player's state every 15 (N) frames.
+## Run with `-- --trace` (or `--trace=N`) to print the player's state every 15 (N) frames,
+## and `--accessory=wizard_hat` (or sunglasses) to preview a zone accessory.
 
 const HINT := "Arrows/WASD run   Z/X/C/Space jump   Down: roll   Down+Jump: spin dash   F1: overlay"
 const RESPAWN_FRAMES := 120
@@ -17,6 +18,8 @@ var _frame := 0
 
 func _ready() -> void:
 	player.respawn_at(start.global_position)
+	if Dev.args.has("accessory"):
+		player.get_node("Visual/Accessory").set_accessory(str(Dev.args.accessory))
 	player.died.connect(func() -> void: _respawn_in = RESPAWN_FRAMES)
 	var layer := CanvasLayer.new()
 	add_child(layer)

@@ -11,6 +11,8 @@ const CELL_FEET_OFFSET := 28.0
 const BLINK_PERIOD_FRAMES := 4
 ## Below this ground speed the run cycle shows as a walk.
 const WALK_RUN_THRESHOLD := 6.0
+## Rotation easing rate (1/s).
+const ROTATION_SMOOTHING := 30.0
 
 const WHITE := Color(1, 1, 1)
 const OUTLINE := Color(0.16, 0.17, 0.24)
@@ -48,9 +50,13 @@ func _process(delta: float) -> void:
 	_cycle += (0.5 + absf(_player.ground_speed)) * delta * 2.2
 
 	scale.x = float(_player.facing)
-	rotation = 0.0 if is_ball() else -deg_to_rad(_player.ground_angle)
-	if _player.state == &"dead":
+	# The sensor angle can step a few degrees when A/B swap on curves; ease the
+	# drawn rotation so the body turns smoothly (physics keeps the raw angle).
+	var target := -deg_to_rad(_player.ground_angle)
+	if is_ball() or _player.state == &"dead":
 		rotation = 0.0
+	else:
+		rotation = lerp_angle(rotation, target, 1.0 - exp(-ROTATION_SMOOTHING * delta))
 	visible = not _player.is_invincible() or (_frame / BLINK_PERIOD_FRAMES) % 2 == 0
 
 	if _sprite != null:

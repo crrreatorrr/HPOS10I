@@ -73,18 +73,18 @@ position = Vector2(1604, 0)
 script = ExtResource("2_curve")
 slope_angle = 55.0
 run_length = 56.0
-lead_in = 32.0
-lead_out = 120.0
-fillet_radius = 24.0
+lead_in = 48.0
+lead_out = 80.0
+fillet_radius = 64.0
 
 [node name="SteepDown" type="StaticBody2D" parent="Terrain"]
-position = Vector2(1812, -79.9767)
+position = Vector2(1788, -79.9767)
 script = ExtResource("2_curve")
 slope_angle = -55.0
 run_length = 56.0
-lead_in = 24.0
-lead_out = 32.0
-fillet_radius = 24.0
+lead_in = 64.0
+lead_out = 64.0
+fillet_radius = 64.0
 
 [node name="LoopApproach" type="StaticBody2D" parent="Terrain"]
 position = Vector2(1924, 0)

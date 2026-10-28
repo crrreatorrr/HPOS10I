@@ -133,3 +133,18 @@ func test_kill_and_died_signal() -> void:
 	assert_eq(died[0], 1, "died once")
 	player.kill()
 	assert_eq(died[0], 1, "kill while dead does nothing")
+
+
+func test_accessory_follows_zone() -> void:
+	var old_zone := SceneRouter.zone_id
+	SceneRouter.zone_id = "z2_wizard_academy"
+	await _flat()
+	var accessory := player.get_node("Visual/Accessory")
+	assert_eq(accessory.accessory, "wizard_hat", "wizard hat in the wizard zone")
+	SceneRouter.zone_id = "z3_capital_mansion"
+	accessory.refresh()
+	assert_eq(accessory.accessory, "sunglasses", "sunglasses in the mansion zone")
+	SceneRouter.zone_id = old_zone
+	accessory.refresh()
+	assert_eq(accessory.accessory, "", "none elsewhere")
+	assert_true(not accessory.visible, "hidden when there is no accessory")

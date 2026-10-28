@@ -97,3 +97,40 @@ func test_too_slow_falls_off_the_loop() -> void:
 	assert_true(fell, "detached and fell")
 	assert_true(player.global_position.x < loop.radius, "did not get round")
 	assert_true(player.grounded, "back on the floor")
+
+
+func test_ground_angle_is_smooth_around_the_loop() -> void:
+	await _setup(-500.0)
+	player.ground_speed = 6.0
+	press(&"move_right")
+	var last := player.ground_angle
+	var largest_step := 0.0
+	var unwrapped := 0.0
+	for i in 400:
+		await physics_frames(1)
+		var step := wrapf(player.ground_angle - last, -180.0, 180.0)
+		last = player.ground_angle
+		unwrapped += step
+		largest_step = maxf(largest_step, absf(step))
+		assert_true(step >= -0.5, "angle never steps backwards (%.2f at frame %d)" % [step, i])
+		if player.global_position.x > _exit_x():
+			break
+	assert_near(unwrapped, 360.0, 1.0, "turned a full circle")
+	# Where the nearer of A/B swaps (at 90, 180 and 270 degrees) the reading
+	# jumps by about 2 * asin(width / radius), as in the classic games.
+	var swap := rad_to_deg(2.0 * asin(Tuning.physics.width_radius / (loop.radius - 19.0))) + 2.5
+	assert_true(largest_step < swap, "no angle jumps beyond the A/B swap (largest %.2f)" % largest_step)
+
+
+func test_jump_into_steep_ceiling_attaches() -> void:
+	await _setup(-500.0)
+	# Inside the loop under its upper-right part (surface angle about 127 degrees).
+	player.respawn_at(Vector2(loop.radius * 0.8, -loop.radius))
+	player.velocity = Vector2(0.0, -8.0)
+	for i in 30:
+		await physics_frames(1)
+		if player.grounded:
+			break
+	assert_true(player.grounded, "landed on the ceiling")
+	assert_true(player.ground_angle > 90.0 and player.ground_angle < 135.0, "steep ceiling angle (%s)" % player.ground_angle)
+	assert_true(player.ground_speed > 0.0, "upward speed carried along the ceiling")

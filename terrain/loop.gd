@@ -32,7 +32,7 @@ extends Node2D
 	set(value):
 		floor_margin = maxf(value, 24.0)
 		_layout()
-@export var floor_depth := 32.0:
+@export var floor_depth := 64.0:
 	set(value):
 		floor_depth = maxf(value, 8.0)
 		_layout()
