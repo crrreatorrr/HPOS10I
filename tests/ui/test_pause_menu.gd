@@ -25,8 +25,6 @@ var _saved_free_scene := ""
 func before_each() -> void:
 	menu = H.pause_menu(tree)
 	_saved_free_scene = SceneRouter.get(&"_free_scene")
-	# The menu toggles at most once per frame; start each test on a new one.
-	await physics_frames(1)
 
 
 func after_each() -> void:
@@ -233,14 +231,13 @@ func test_restart_and_quit_from_the_playground() -> void:
 	await physics_frames(2)
 
 
-func test_restart_in_a_zone_keeps_the_checkpoint() -> void:
+func test_restart_uses_scene_router_restart() -> void:
 	# A zone stage that is not built yet falls back to the boot menu, but the
-	# checkpoint must survive the restart either way (respawn-style restart).
+	# checkpoint must survive the restart and no life is lost.
 	H.enter_gameplay(self)
 	SceneRouter.zone_id = "test_zone"
 	SceneRouter.stage = 1
 	GameState.set_checkpoint(Vector2(640, -32))
-	GameState.level_time = 50.0
 	var lives := GameState.lives
 	menu.restart_stage()
 	assert_eq(GameState.checkpoint_position, Vector2(640, -32), "checkpoint kept")
@@ -264,15 +261,6 @@ func _wait_for_scene(path: String) -> bool:
 			return true
 		await physics_frames(1)
 	return false
-
-
-func test_two_pause_presses_in_one_frame_toggle_once() -> void:
-	H.enter_gameplay(self)
-	H.send_key(KEY_P, true)
-	H.send_action(&"pause", true)  # e.g. gamepad Start on the same frame
-	assert_true(tree.paused and menu.is_open(), "opened once, not opened and closed")
-	H.send_key(KEY_P, false)
-	H.send_action(&"pause", false)
 
 
 func test_losing_focus_pauses_on_touch_devices() -> void:

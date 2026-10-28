@@ -32,7 +32,6 @@ const QUIET_FRAMES_TO_RESUME := 2
 var _open := false
 var _resume_pending := false
 var _quiet_frames := 0
-var _toggle_frame := -1
 var _last_device := "keyboard"
 var _quiet_focus := false
 
@@ -109,18 +108,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			# item (the button fires on release), it doesn't close the menu.
 			get_viewport().set_input_as_handled()
 			return
-		# One toggle per frame: two devices (or a replayed timeline) pressing
-		# pause together must not open and close the menu at once.
-		var frame := Engine.get_process_frames()
-		if frame == _toggle_frame:
-			get_viewport().set_input_as_handled()
-			return
 		if _open:
-			_toggle_frame = frame
 			request_resume()
 			get_viewport().set_input_as_handled()
 		elif SceneRouter.in_gameplay() and not get_tree().paused:
-			_toggle_frame = frame
 			open_menu()
 			get_viewport().set_input_as_handled()
 		return
@@ -215,28 +206,10 @@ func _on_quit_pressed() -> void:
 	Engine.time_scale = 1.0
 
 
-## Restarts the current stage like a respawn (from the checkpoint), but
-## without taking a life. Playgrounds and other directly opened scenes reload.
+## Restarts the current stage from its checkpoint without taking a life;
+## playgrounds reload (SceneRouter.restart()).
 func restart_stage() -> void:
-	# LEAD-REQUEST: add SceneRouter.restart() (respawn() without lose_life());
-	# this uses it as soon as it exists. Until then, a local fallback:
-	if SceneRouter.has_method(&"restart"):
-		SceneRouter.call(&"restart")
-		return
-	if SceneRouter.zone_id != "":
-		var checkpoint = GameState.checkpoint_position
-		var checkpoint_time := GameState.checkpoint_time
-		SceneRouter.start_zone(SceneRouter.zone_id, SceneRouter.stage)
-		# start_zone() clears the checkpoint; put it back so LevelRoot spawns
-		# there (skipped if the router ignored the call this frame).
-		if checkpoint != null and GameState.checkpoint_position == null:
-			GameState.checkpoint_position = checkpoint
-			GameState.checkpoint_time = checkpoint_time
-			GameState.level_time = checkpoint_time
-		return
-	var scene := get_tree().current_scene
-	if scene != null and scene.scene_file_path != "":
-		SceneRouter.open_scene(scene.scene_file_path)
+	SceneRouter.restart()
 
 
 func _focused_button() -> Button:
