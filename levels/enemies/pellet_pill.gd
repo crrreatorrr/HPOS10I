@@ -2,8 +2,8 @@ extends Enemy
 ## Pellet pill robot (tier 2, docs/LEVELS.md): stands still, turns towards
 ## Sproto when he is in range, and fires a slow pellet along the ground after
 ## a telegraph (its cannon glows). Jump the pellet, or hit the pill between
-## shots. Shot interval, pellet speed and telegraph scale with the local
-## difficulty. The node origin is its feet, on the floor.
+## shots. It only shoots while on screen. Shot interval, pellet speed and
+## telegraph scale with the local difficulty. The node origin is its feet.
 
 const PELLET := "res://levels/enemies/pellet.tscn"
 const HALF_LENGTH := 5.0
@@ -42,12 +42,17 @@ func _enemy_physics(_delta: float) -> void:
 		return
 	facing = 1 if target.global_position.x > global_position.x else -1
 	_timer += 1
+	if _timer == interval_frames(fire_interval) - telegraph_frames(TELEGRAPH):
+		play_telegraph()
 	if _timer >= interval_frames(fire_interval):
 		_timer = 0
 		fire()
 
 
+## Sproto when he is in range and the pill is on screen (no shots from off-screen).
 func _target() -> Player:
+	if not on_screen():
+		return null
 	var player := nearest_player(shot_range + RANGE_Y)
 	if player == null:
 		return null

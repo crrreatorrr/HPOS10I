@@ -1,7 +1,7 @@
 extends PlayerArea
 ## A pellet fired by a pellet pill: rolls slowly along the ground in a
-## straight line, following the floor, and pops at walls, ledges or after
-## LIFETIME frames. Touching it hurts Sproto, unless he is attacking (jumping
+## straight line, following the floor, and pops at walls, ledges, off
+## screen or after LIFETIME frames. Touching it hurts Sproto, unless he is attacking (jumping
 ## or rolling), which pops it harmlessly. Not an enemy: no score.
 ## Layer 8 (hazards), mask 5 (player).
 
@@ -44,7 +44,7 @@ func _physics_process(_delta: float) -> void:
 	var step := direction * speed
 	var wall := _ray(global_position, global_position + Vector2(signf(step) * (RADIUS + absf(step)), 0.0))
 	var floor_hit := _ray(global_position + Vector2(step, -8.0), global_position + Vector2(step, HEIGHT + 12.0))
-	if _age >= LIFETIME or not wall.is_empty() or floor_hit.is_empty():
+	if _age >= LIFETIME or not wall.is_empty() or floor_hit.is_empty() or not _on_screen():
 		pop()
 		return
 	global_position = Vector2(global_position.x + step, floor_hit.position.y - HEIGHT)
@@ -58,6 +58,15 @@ func pop() -> void:
 	set_deferred(&"monitoring", false)
 	set_deferred(&"monitorable", false)
 	queue_free()
+
+
+## Inside the camera view (with a margin); true without a camera.
+func _on_screen() -> bool:
+	var viewport := get_viewport()
+	if viewport.get_camera_2d() == null:
+		return true
+	var view := viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
+	return view.grow(32.0).has_point(global_position)
 
 
 func _ray(from: Vector2, to: Vector2) -> Dictionary:

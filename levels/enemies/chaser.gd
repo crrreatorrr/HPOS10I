@@ -33,6 +33,7 @@ func _enemy_physics(_delta: float) -> void:
 			patrol_step(move_speed(speed))
 			if _sees_player():
 				_set_mode(Mode.TELEGRAPH, telegraph_frames(TELEGRAPH))
+				play_telegraph()
 		Mode.TELEGRAPH:
 			_timer -= 1
 			if _timer <= 0:

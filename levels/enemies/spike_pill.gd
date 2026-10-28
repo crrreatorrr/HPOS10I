@@ -33,6 +33,8 @@ func _enemy_physics(delta: float) -> void:
 		Phase.SAFE:
 			if _timer >= interval_frames(safe_frames) - telegraph_frames(TELEGRAPH):
 				phase = Phase.WARNING
+				if on_screen(32.0):
+					play_telegraph()
 		Phase.WARNING:
 			if _timer >= interval_frames(safe_frames):
 				phase = Phase.SPIKED

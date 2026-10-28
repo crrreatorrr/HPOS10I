@@ -122,7 +122,8 @@ func flat(width: int, ticket_from := -1, ticket_step := 40) -> void:
 
 ## A hill: gentle (1:2) or steep (1:1) up `rise`, a plateau, and down again,
 ## with tickets over it and an optional enemy at its foot (returned).
-func hill(rise: int, plateau: int, steep := false, enemy_path := "", props := {}, run_after := 160) -> Node2D:
+func hill(rise: int, plateau: int, steep := false, enemy_path := "", props := {}, run_after := 160,
+		enemy_y := 0.0) -> Node2D:
 	var base := ground
 	var x0 := x
 	if steep:
@@ -139,7 +140,10 @@ func hill(rise: int, plateau: int, steep := false, enemy_path := "", props := {}
 	var foot := x
 	var node: Node2D = null
 	if enemy_path != "":
-		node = enemy(enemy_path, Vector2(foot + 30, base), props)
+		var settings := props.duplicate()
+		if enemy_path in [WALKER, CHASER, SPIKE_PILL] and not settings.has("patrol_distance"):
+			settings.patrol_distance = 40.0  # stays by the slope it guards
+		node = enemy(enemy_path, Vector2(foot + 30, base + enemy_y), settings)
 		arc(foot + 30, base, 3, 64, 40)
 	paint.flat(run_after)
 	if x0 >= 0 and enemy_path == "":
@@ -272,9 +276,11 @@ func spring_gate(bridge_len := 576) -> void:
 	mark(b0 + bridge_len, "bridge drop")
 
 
-## A terrace: walkers jump its 64 px face; rollers break the cracked wall at
-## its foot and roll through the ticket tunnel under it.
-func terrace_tunnel(length := 448) -> void:
+## A terrace: walkers jump its 64 px face; rollers race through the 48 px
+## ticket tunnel under it. With `breakable`, a cracked wall closes the
+## tunnel (the secret: roll or spin dash into it). `inside` enemies patrol
+## the tunnel (rolling through destroys them).
+func terrace_tunnel(length := 448, breakable := true, inside: Array = []) -> void:
 	paint.flat(192)
 	var t0 := x
 	var base := ground
@@ -283,9 +289,41 @@ func terrace_tunnel(length := 448) -> void:
 	paint.carve(Rect2i(t0, base - 48, length, 48))
 	paint.floor_at(t0, t0 + length, base)
 	backwall(Rect2(t0, base - 48, length, 48))
-	place(BREAKABLE_WALL, "BreakableWall", Vector2(t0 + 12, base), {size = Vector2(24, 48)})
+	if breakable:
+		place(BREAKABLE_WALL, "BreakableWall%d" % _next("wall"), Vector2(t0 + 12, base), {size = Vector2(24, 48)})
 	row(t0 + 64, base, length / 64, 48)
 	row(t0 + 128, base - 64, 3, 64)
+	for i in inside.size():
+		enemy(inside[i], Vector2(t0 + (i + 1) * length / (inside.size() + 1), base), {patrol_distance = 32.0})
+
+
+## A switchback climb of 320 px: a left-facing diagonal spring at the foot
+## of a cliff throws Sproto up-left onto a plank ledge 160 px up, where a
+## right-facing one (right where he comes down holding right) throws him
+## up-right onto the top of the cliff. The flight left is marked for the lint.
+## (Node names avoid "switch": the lint counts those as doors and switches.)
+func switchback(approach := 800) -> void:
+	flat(approach, 64, 64)
+	var s := x - 16
+	var base := ground
+	place(SPRING_DIAGONAL, "ZigzagSpringLeft", Vector2(s, base), {facing = -1})
+	paint.planks(s - 736, s - 320, base - 160)
+	place(SPRING_DIAGONAL, "ZigzagSpringRight", Vector2(s - 372, base - 160), {facing = 1})
+	for t in [[-100, -96], [-200, -160], [-290, -206]]:
+		ticket_at(Vector2(s + t[0], base + t[1]))
+	for t in [[-200, -260], [-100, -330], [0, -370], [100, -380]]:
+		ticket_at(Vector2(s + t[0], base + t[1]))
+	row(s - 700, base - 160, 6, 48)
+	leftward_marker(Rect2(s - 576, base - 220, 576, 40))
+	paint.cliff(base - 320)
+	mark(s + 200, "spring landing")
+
+
+## A calm stretch with a few tickets (before an arena gate).
+func corridor(length := 848, tickets := 5) -> void:
+	var x0 := x
+	paint.flat(length)
+	row(x0 + 64, ground, tickets, (length - 128) / maxi(tickets, 1))
 
 
 ## A decorative waterfall (behind the terrain) from (x0, y0), `w` x `h`.
@@ -297,6 +335,10 @@ func waterfall(x0: float, y0: float, w := 48.0, h := 128.0) -> void:
 ## A checkpoint post at x (Sproto's centre height above the ground there).
 func checkpoint(at_x := -1) -> Node2D:
 	var cx := x if at_x < 0 else at_x
+	for e in enemies.get_children():
+		var dx: float = cx - (e as Node2D).position.x
+		if dx >= 0.0 and dx < SCREEN:
+			warnings.append("%s at x %.0f is %.0f px before a checkpoint (respawns next to it)" % [e.name, (e as Node2D).position.x, dx])
 	var node := place(CHECKPOINT, "Checkpoint%d" % _next("checkpoint"), Vector2(cx, ground - STAND))
 	mark(cx, "checkpoint")
 	return node
@@ -363,7 +405,7 @@ func backwall(rect: Rect2) -> void:
 
 
 ## A marker the QA lint reads as a leftward stretch (its width).
-func leftward_marker(rect: Rect2, label := "LeftwardSwitchback") -> void:
+func leftward_marker(rect: Rect2, label := "LeftwardZigzag") -> void:
 	var marker := ReferenceRect.new()
 	marker.name = label
 	marker.position = rect.position

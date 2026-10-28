@@ -41,7 +41,8 @@ func _build() -> void:
 	b.flat(192, 32, 40)
 	b.descent(128)
 	b.flat(192, 32, 40)
-	b.hill(64, 64, true, W)
+	b.hill(64, 64, false, W)
+	b.flat(320, 32, 40)                       # no enemy within a screen of a respawn
 	print("checkpoint 1 at ", b.x)
 	b.checkpoint()
 
@@ -57,6 +58,7 @@ func _build() -> void:
 	b.flat(864, 64, 64)
 	b.hill(48, 96, false, W)
 	b.stump(W)
+	b.flat(320, 32, 40)
 	print("checkpoint 2 at ", b.x)
 	b.checkpoint()
 	b.flat(704, 32, 64)
@@ -64,7 +66,7 @@ func _build() -> void:
 	b.loop(true, 384)                         # second loop, on the upper hills
 	b.flat(640, 64, 64)
 	b.hill(48, 96, false, W)
-	b.drop(64)
+	b.descent(64)                             # a slope, not a drop: no hard landing on the next hill
 	b.flat(256, 32, 40)
 	b.hill(48, 128, false, H)
 	b.up_spring(96)
@@ -82,7 +84,7 @@ func _build() -> void:
 	b.hill(32, 64, false, H)
 	b.hill(48, 64, true, W)
 	b.flat(192, 32, 40)
-	b.hill(32, 96, false, LevelBuilder.FLOATER, {}, 160)
+	b.hill(32, 96, false, LevelBuilder.FLOATER, {}, 160, -44.0)
 	b.hill(48, 64, false, H)
 	b.hill(32, 64, false, W)
 	b.hill(48, 64, true, H)
