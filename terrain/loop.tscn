@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://terrain/loop.gd" id="1_loop"]
 [ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="2_curve"]
 [ext_resource type="Script" path="res://terrain/path_switcher.gd" id="3_switch"]
+[ext_resource type="Script" path="res://terrain/loop_guard.gd" id="4_guard"]
 
 [node name="Loop" type="Node2D"]
 script = ExtResource("1_loop")
@@ -46,3 +47,6 @@ grounded_only = true
 
 [node name="ExitSwitcher" type="Area2D" parent="."]
 script = ExtResource("3_switch")
+
+[node name="Guard" type="Area2D" parent="."]
+script = ExtResource("4_guard")

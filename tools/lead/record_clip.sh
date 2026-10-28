@@ -38,7 +38,14 @@ for attempt in 1 2; do
 	godot --path "$project_dir" --always-on-top --write-movie "$out_dir/$name.avi" --quit-after "$frames" -- "$@" >"$log" 2>&1
 	{ kill "$awake_pid" && wait "$awake_pid"; } 2>/dev/null || true
 	# A typo'd --scene silently records the dev menu, so treat any error as fatal.
-	if grep -E "ERROR|SCRIPT ERROR" "$log"; then
+	# Exit-time leak notices are ignored here: Movie Maker stops mixing audio
+	# before quitting, so music still playing is reported as in use at exit.
+	# (Headless smoke tests still catch real leaks.)
+	ignored=$(grep -E "ERROR|SCRIPT ERROR" "$log" | grep -cE "still in use at exit|resources still in use|Leaked instance|leaked at exit" || true)
+	if [[ "$ignored" -gt 0 ]]; then
+		echo "record_clip: ignored $ignored exit-time leak notice(s) (watch for this number jumping)" >&2
+	fi
+	if grep -E "ERROR|SCRIPT ERROR" "$log" | grep -vE "still in use at exit|resources still in use|Leaked instance|leaked at exit"; then
 		echo "record_clip: Godot reported errors (full log: $log)" >&2
 		rm -f "$out_dir/$name.avi"
 		exit 1

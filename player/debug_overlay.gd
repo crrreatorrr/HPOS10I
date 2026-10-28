@@ -23,8 +23,11 @@ func _ready() -> void:
 	_layer = CanvasLayer.new()
 	_layer.layer = 100
 	add_child(_layer)
+	# Top-right: the HUD uses the top-left (and the touch pause button, top
+	# right, is hidden once a key such as F1 is pressed).
 	var panel := PanelContainer.new()
-	panel.position = Vector2(2, 2)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 2)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.55)
 	style.set_content_margin_all(3)
