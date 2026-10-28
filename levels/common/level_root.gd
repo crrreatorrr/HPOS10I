@@ -428,11 +428,14 @@ func _backdrop_layer(index: int, texture: Texture2D) -> Parallax2D:
 	if index == 0:
 		layer.scroll_offset = Vector2(0.0, y_offset)
 		if size.y < view.y:
-			layer.add_child(_backdrop_fill(texture, size, view))
+			layer.add_child(_backdrop_fill(texture, size, view.y - size.y + 1.0))
 	else:
 		var lowest_top := _bounds.end.y - view.y
 		var horizon := _bounds.end.y - horizon_height
 		layer.scroll_offset = Vector2(0.0, horizon - lowest_top + y_offset - size.y + lowest_top * scale_y)
+		# Below a layer, continue its bottom colour, so the sky never shows
+		# through between it and the ground when the camera climbs.
+		layer.add_child(_backdrop_fill(texture, size, view.y * 2.0))
 	var sprite := Sprite2D.new()
 	sprite.texture = texture
 	sprite.centered = false
@@ -441,14 +444,19 @@ func _backdrop_layer(index: int, texture: Texture2D) -> Parallax2D:
 	return layer
 
 
-## Fills the screen below a far layer shorter than the screen with its bottom colour.
-func _backdrop_fill(texture: Texture2D, size: Vector2, view: Vector2) -> ColorRect:
+## A strip under a layer in its bottom row's colour (nothing if that is transparent).
+func _backdrop_fill(texture: Texture2D, size: Vector2, height: float) -> Node:
 	var fill := ColorRect.new()
+	fill.position = Vector2(0.0, size.y)
+	fill.size = Vector2(size.x, height)
+	fill.color = Color(0, 0, 0, 0)
 	var image := texture.get_image()
 	if image != null and not image.is_empty():
 		if image.is_compressed():
 			image.decompress()
-		fill.color = image.get_pixel(0, image.get_height() - 1)
-	fill.position = Vector2(0.0, size.y)
-	fill.size = Vector2(size.x, view.y - size.y + 1.0)
+		var bottom := image.get_pixel(image.get_width() / 2, image.get_height() - 1)
+		if bottom.a > 0.9:
+			fill.color = bottom
+	if fill.color.a == 0.0:
+		fill.visible = false
 	return fill

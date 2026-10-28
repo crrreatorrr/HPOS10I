@@ -57,6 +57,7 @@ const TICKET_UP := 16.0
 ## Placeholder colours for CurveTerrain pieces, matching the placeholder tiles.
 const SOIL := Color(0.75, 0.44, 0.2)
 const GRASS := Color(0.36, 0.82, 0.24)
+const CAVE := Color(0.33, 0.17, 0.09)
 
 # Landmarks (px).
 const STUMP := Rect2i(480, -32, 32, 32)
@@ -170,6 +171,19 @@ func _build_terrain(terrain: Node2D) -> void:
 	p.planks(BRIDGE.x, BRIDGE.y, BRIDGE.z)
 	p.carve(Rect2i(TERRACE.x, TUNNEL_TOP, TERRACE.y - TERRACE.x, -TUNNEL_TOP))
 	p.floor_at(TERRACE.x, TERRACE.y, 0)
+
+	# Dark back walls, so the tunnel and the gate passage read as holes in the
+	# rock instead of floating slabs.
+	var shade := _group(terrain, "BackWalls")
+	shade.z_index = -10
+	for rect in [Rect2(TERRACE.x, TUNNEL_TOP, TERRACE.y - TERRACE.x, -TUNNEL_TOP),
+			Rect2(GATE.position.x, -40, GATE.size.x, 40)]:
+		var wall := ColorRect.new()
+		wall.position = rect.position
+		wall.size = rect.size
+		wall.color = CAVE
+		wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_own(shade, wall)
 
 	var loop: Node2D = (load(LOOP) as PackedScene).instantiate()
 	loop.name = "Loop"

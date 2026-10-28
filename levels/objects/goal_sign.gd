@@ -85,7 +85,8 @@ func _draw() -> void:
 	var angle := _angle()
 	var width := cos(angle)
 	var centre := Vector2(0.0, -POST_HEIGHT - PANEL_RADIUS + 2.0)
-	draw_set_transform(centre, 0.0, Vector2(maxf(absf(width), 0.08), 1.0))
+	var squash := maxf(absf(width), 0.08)
+	draw_set_transform(centre, 0.0, Vector2(squash, 1.0))
 	draw_circle(Vector2.ZERO, PANEL_RADIUS + 1.5, OUTLINE)
 	draw_circle(Vector2.ZERO, PANEL_RADIUS, RIM)
 	# Front (ticket) before the pass; the back face shows Sproto.
@@ -93,11 +94,30 @@ func _draw() -> void:
 	if _triggered and _spin_frames >= SPIN_FRAMES:
 		front = false
 	if front:
-		draw_set_transform(centre, 0.0, Vector2(maxf(absf(width), 0.08) * 1.6, 1.6))
-		ScatteredTicket.draw_ticket(self, 1.0)
+		_draw_ticket_emblem(1.7)
 	else:
 		_draw_sproto_face()
 	draw_set_transform(Vector2.ZERO)
+
+
+## The golden ticket, like ScatteredTicket.draw_ticket() but drawn within the
+## current transform (that helper resets it), `size` times bigger.
+func _draw_ticket_emblem(size: float) -> void:
+	var w := ScatteredTicket.TICKET_SIZE.x / 2.0 * size
+	var h := ScatteredTicket.TICKET_SIZE.y / 2.0 * size
+	var notch := 1.4 * size
+	var cut := 1.6 * size
+	var outline := PackedVector2Array([Vector2(-w, -h), Vector2(w, -h), Vector2(w, -h + cut),
+			Vector2(w - notch, 0.0), Vector2(w, h - cut), Vector2(w, h), Vector2(-w, h),
+			Vector2(-w, h - cut), Vector2(-w + notch, 0.0), Vector2(-w, -h + cut)])
+	draw_colored_polygon(outline, ScatteredTicket.COLOR_FILL)
+	draw_polyline(outline + PackedVector2Array([outline[0]]), ScatteredTicket.COLOR_RIM, 1.0)
+	draw_line(Vector2(-w + 2.0, -h + 1.5), Vector2(w - 3.0, -h + 1.5), ScatteredTicket.COLOR_SHINE, 1.0)
+	var star := PackedVector2Array()
+	for i in 10:
+		var r := (1.8 if i % 2 == 0 else 0.8) * size
+		star.append(Vector2.from_angle(-PI * 0.5 + PI * i / 5.0) * r)
+	draw_colored_polygon(star, ScatteredTicket.COLOR_RIM)
 
 
 ## A simple emblem of Sproto: blue and yellow halves, eyes, red nose.
