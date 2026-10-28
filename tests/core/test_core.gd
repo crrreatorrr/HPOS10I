@@ -89,7 +89,8 @@ func test_difficulty_rises_through_the_game() -> void:
 		var d := Difficulty.for_stage(entry[0], entry[1])
 		assert_true(d > previous, "%s act %d should be harder than the act before" % entry)
 		previous = d
-	assert_eq(Difficulty.for_stage("z2_wizard_academy", 3), 4, "boss uses act 2's difficulty")
+	assert_eq(Difficulty.for_stage("z2_wizard_academy", 3), Difficulty.BOSSES.z2_wizard_academy.d,
+			"the boss stage uses the boss's own difficulty")
 	assert_eq(Difficulty.for_stage("", 1), Difficulty.DEFAULT, "playgrounds use the default")
 
 
@@ -159,3 +160,64 @@ func test_open_scene_rejects_missing_scenes() -> void:
 	SceneRouter.open_scene("res://does/not/exist.tscn")
 	await tree.process_frame
 	assert_eq(tree.current_scene, before, "no scene change")
+
+
+func test_timeline_does_not_double_press_on_its_first_frame() -> void:
+	var dev := tree.root.get_node("Dev")
+	var presses := [0]
+	var counter := func(event: InputEvent) -> void:
+		if event is InputEventAction and event.action == &"move_down" and event.pressed:
+			presses[0] += 1
+	var probe := _InputProbe.new()
+	probe.callback = counter
+	add_node(probe)
+	dev._timeline = [[dev._frame + 1, "move_down", true, 0]]
+	dev.set_physics_process(true)
+	await physics_frames(4)
+	assert_eq(presses[0], 1, "one press event for one timeline press")
+	dev._held.clear()
+	dev._timeline.clear()
+	Input.action_release(&"move_down")
+
+
+class _InputProbe extends Node:
+	var callback: Callable
+	func _input(event: InputEvent) -> void:
+		callback.call(event)
+
+
+func test_difficulty_ramps_up_within_each_act() -> void:
+	assert_near(Difficulty.ramp(0.0, false), Difficulty.OPENING_BONUS, 0.001, "easier opening")
+	assert_eq(Difficulty.ramp(0.5, false), 0.0, "middle is the act's own difficulty")
+	assert_near(Difficulty.ramp(1.0, false), Difficulty.FINALE_BONUS, 0.001, "harder finale")
+	assert_near(Difficulty.ramp(1.0, true), Difficulty.PRE_BOSS_BONUS, 0.001, "steepest before a boss")
+	var previous := -INF
+	for i in 21:
+		var value := Difficulty.ramp(i / 20.0, true)
+		assert_true(value >= previous, "never gets easier as the act goes on (at %d%%)" % (i * 5))
+		previous = value
+	assert_true(Difficulty.is_pre_boss_act("z1_retro_rush_hills", 2), "Z1 act 2 leads to the boss")
+	assert_true(not Difficulty.is_pre_boss_act("z1_retro_rush_hills", 1), "Z1 act 1 doesn't")
+	assert_true(not Difficulty.is_pre_boss_act("test_zone", 1), "the test zone has no boss")
+	assert_true(Difficulty.speed_mult(Difficulty.FINALE_BONUS + 8.0) > Difficulty.speed_mult(8),
+			"a pre-boss finale is faster than the act's middle")
+
+
+func test_last_two_bosses_are_the_hardest() -> void:
+	var order := ["z1_retro_rush_hills", "z2_wizard_academy", "z3_capital_mansion", "z4_neon_rush_remix"]
+	var previous := {}
+	for zone_id in order:
+		var boss := Difficulty.boss(zone_id)
+		assert_eq(boss.is_empty(), false, "%s has boss tuning" % zone_id)
+		if not previous.is_empty():
+			assert_true(boss.d > previous.d, "%s boss harder than the one before" % zone_id)
+			assert_true(boss.weak_window <= previous.weak_window, "%s weak window not longer" % zone_id)
+			assert_true(boss.attacks_per_cycle >= previous.attacks_per_cycle, "%s attack chain not shorter" % zone_id)
+		previous = boss
+	for zone_id in ["z3_capital_mansion", "z4_neon_rush_remix"]:
+		var hard := Difficulty.boss(zone_id)
+		assert_true(hard.d > Difficulty.MAX - 1, "%s boss is harder than its zone's acts" % zone_id)
+		assert_true(hard.desperation, "%s has a desperation phase" % zone_id)
+		assert_true(hard.ticket_refills <= 1, "%s gives almost no tickets" % zone_id)
+		assert_true(Difficulty.telegraph(hard.telegraph, hard.d) >= Difficulty.MIN_TELEGRAPH,
+				"%s still telegraphs every attack" % zone_id)

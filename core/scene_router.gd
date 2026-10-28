@@ -78,6 +78,18 @@ func respawn() -> void:
 		_load_stage()
 
 
+## Restarts the current stage from its checkpoint without costing a life
+## (the pause menu's Restart). Playgrounds simply reload.
+func restart() -> void:
+	if not _claim("restart"):
+		return
+	GameState.restart_from_checkpoint()
+	if _free_scene != "":
+		_change_to(_free_scene)
+	else:
+		_load_stage()
+
+
 ## Opens any scene directly (dev menu, sandboxes). Not tied to a zone.
 func open_scene(path: String) -> void:
 	if not ResourceLoader.exists(path):
