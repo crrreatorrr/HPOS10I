@@ -68,7 +68,7 @@ LEVELS.md rules:
 
 ## Bugs
 
-### BUG-02-01: Jumping into a loop traps Sproto inside the ring
+### BUG-02-01: Jumping into a loop traps Sproto inside the ring (FIXED in 883c648)
 
 - **Severity:** major. It happens on the main route; a jump on the run-up is common; and the escape (spin dash or roll) is not obvious to a first-time player.
 - **Owner:** physics (`terrain/loop.tscn` / TerrainLoop path switching)
@@ -113,3 +113,34 @@ LEVELS.md rules:
 - **Bot runner:** goal at frames 1599, 1689 and 1605 (jump every 0/150/240), 0 deaths.
   - With a jump every 90 frames the goal comes at 2395. Sproto spends 6.4 s at x 5630 inside the loop, which is BUG-02-01 again (physics, fix in progress); he gets out on his own.
 - **Still open:** BUG-02-01 (major, physics), which I'll re-check when the physics agent reports.
+
+## Re-check: BUG-02-01 fix, physics @ 883c648 (merged with main 4b18adb): FIXED
+
+- **Fix:** LoopGuard (`terrain/loop_guard.gd`), plus 50d932a (UI-01/02) and decc4af (perf).
+- **Merge:** `git merge-tree` with main 4b18adb is clean.
+- **Checks:** 0 import errors; 360 passed, 0 failed; smoke 24/24; 0 originality hits.
+- **QA repro** (`qa/repros/physics/BUG-02-01_loop_jump_trap.gd`): it now passes. Sproto still lands inside the ring, at (2366, -28) on path B, but holding left walks him out.
+- **New QA guard, `tests/qa/test_loop_escape.gd`:**
+  - 28 tests over radii 48, 80, 112 and 200, with 23 awkward starts per radius:
+    - drops into the ring and onto both feet;
+    - respawns inside the ring and at the footprint edges;
+    - slow ground entries at 1.5/3/4.5 px/f, running and rolling, from both sides;
+    - spin dashes and hurt knockback inside;
+    - jumps into the ring from both run-ups at 4 take-off distances.
+  - After each start, holding left and (separately) holding right for 8 s must each leave the loop, and Sproto must never end up inside terrain.
+  - On 883c648 all 28 tests pass. Without the guard (53a6989 plus a stub `loop_guard.gd`), 21 of 28 fail. The guard skips until `terrain/loop_guard.gd` exists.
+- **Bots on the test zone:**
+  - The runner reaches the goal at every jump interval: never, 30, 45, 60, 90, 120, 150 and 240 frames. Goal frames run 1599–2449, with 0 deaths and no stuck period before the goal.
+  - The runner jumping every 45 frames, which was trapped before, now reaches the goal at frame 1639.
+  - Fuzz without pause, 4 × 5 min: 0 errors, 0 NaN, 0 orphans. On the playground (2 × 5 min) also clean.
+- **Frame identity (playground, physics branch alone, 53a6989 vs 883c648):**
+  - Fuzz seeds 5 and 9 and runner jump-every 240 are byte-identical.
+  - Runner jump-every 45 differs from frame 521, inside the r112 loop: before the fix he stayed trapped there to the end, max x 2493; now he walks out and reaches the end, x 4350.
+  - Runner jump-every 90 differs from frame 1004, inside the r80 loop, after a turn back; both runs reach x 4350.
+  - That is the accepted behaviour change: a turn back now opens the way out.
+
+**BUG-02-03 (new, minor; physics):**
+- In a **radius-48** loop, a Sproto standing still inside who holds **right** pushes on the steep right quarter forever. He never rolls back past the bottom centre, so the guard never opens that side. 9 of the 23 starts at r48 show it.
+- Holding left walks out, and a spin dash goes through. It doesn't affect radius 80 and up (playground and test-zone loops are 80/112).
+- `test_loop_escape.gd` logs these cases and only requires one direction below r80.
+- Fix idea: let the guard also open the way ahead for a standing or pushing Sproto once he is past the bottom centre, not only after a turn back.
