@@ -1,13 +1,13 @@
-# QA report 01: physics @ 3aa4be3, re-checked @ 9f3303c and @ 94dcac3
+# QA report 01: physics @ 3aa4be3, re-checked @ 9f3303c, @ 94dcac3 and @ 4eead62
 
-> **Final verdict (re-check #2 @ 94dcac3): FIX FIRST.**
-> - BUG-01-01 to 01-04 and 01-06 to 01-09 are fixed; BUG-01-05 is WONTFIX.
-> - The BUG-01-08 fix introduced a regression: Sproto loses 2–5 px/frame and can stall at every sharp crest of two 45° slopes (**BUG-01-10, blocker**). The fix should be small.
-> - One pre-existing softlock remains: a sharp V valley with 50–60° sides (**BUG-01-11, major**). Levels can avoid it with fillets of 48 px or more.
-> - Everything else checked is clean.
-> - The test suite runs in about 5 s (146 tests).
+> **Final verdict (re-check #3 @ 4eead62): MERGE.**
+> - Every blocker and major found in this step is fixed and guarded by a regression test: BUG-01-01 to 01-04 and 01-06 to 01-11.
+> - The new sharp-V rule could not be made to misfire. It stays off on loops, quarter pipes, U-shaped valleys and layered terrain; every V and U can be left; and 32 of 32 reference trajectories match 9f3303c frame for frame.
+> - Backlog (minor): BUG-01-12 (jump ignored on the lower part of a steep V side), BUG-01-13 (the centre pops 11–15 px at sharp concave corners into steep sides).
+> - WONTFIX: BUG-01-05.
+> - The test suite runs 155 tests in about 6 s.
 >
-> See "Re-check #2 @ 94dcac3" at the end.
+> See "Re-check #3 @ 4eead62" at the end.
 
 - Date: 2026-10-28
 - Branch: `physics` @ `3aa4be3` (Merge main into physics), base `main` @ `560175a`
@@ -543,7 +543,7 @@ This is far under both the 8-minute flag and the 20-minute CI limit; even a 5× 
 - **Severity:** blocker. It hits the genre's standard slope angle at normal running speeds (4–10 px/f); at 4–6 px/f he stalls on the peak. It is a regression introduced by the BUG-01-08 fix in this step, and it shapes the feel of every tile-built hill or roof. It should be a small fix.
 - **Owner:** physics agent (`player/player.gd` grounded re-check, `player/sensors.gd :: surface_angle`)
 - **Checklist:** PHY-D7, PHY-B9 (transitions without speed loss)
-- **Repro:** `qa/repros/physics/BUG-01-10_crest_45_stall.gd`. Polygon (100,0) → (250,-150) → (400,0) on a flat floor; run over it at 4/6/10 px/f in both directions. It passes at 9f3303c and fails at 94dcac3.
+- **Repro:** `qa/repros/physics/BUG-01-10_crest_45_stall.gd` (fixed @ 4eead62; now `tests/qa/test_physics_fixes.gd :: test_bug_01_10_sharp_45_crests_and_valleys`). Polygon (100,0) → (250,-150) → (400,0) on a flat floor; run over it at 4/6/10 px/f in both directions. It passes at 9f3303c and fails at 94dcac3.
 - **Expected:** as at 9f3303c, at most about 0.1 px/f lost in a frame at the crest, and he runs over it.
 - **Actual:** at the crest the floor reading flips between 45° and 315°. That is more than `SUSPICIOUS_ANGLE_STEP` (45°), so the angle is re-measured. `surface_angle()` returns 314.999563° instead of 315°, which is just on the wall side of the floor / left-wall boundary (`mode_for_angle`: floor at ≥ 315). Sproto spends a frame in left-wall mode and loses speed in one frame:
 
@@ -565,7 +565,7 @@ This is far under both the 8-minute flag and the 20-minute CI limit; even a 5× 
 - **Severity:** major. It is a softlock, but only in a geometry no level uses yet, and level design can avoid it until it is fixed. Same result at 3aa4be3, 9f3303c and 94dcac3; found in this pass.
 - **Owner:** physics agent (`player/player.gd`: wall check in wall modes, slip lock, jump clearance)
 - **Checklist:** PHY-D4, PHY-E (stuck in terrain shapes)
-- **Repro:** `qa/repros/physics/BUG-01-11_v_valley_trap.gd`. A V of two 60° slopes, 150 px deep, no fillet; run in at 6 px/f, then hold right and jump six times.
+- **Repro:** `qa/repros/physics/BUG-01-11_v_valley_trap.gd` (fixed @ 4eead62; now `tests/qa/test_physics_fixes.gd :: test_bug_01_11_sharp_v_valleys_can_be_left`). A V of two 60° slopes, 150 px deep, no fillet; run in at 6 px/f, then hold right and jump six times.
 - **Expected:** Sproto gets out, or runs through.
 - **Actual:**
   - He comes to rest at the bottom in a wall mode at speed 0 (x 195.8, mode left wall, `idle`).
@@ -596,3 +596,82 @@ This is far under both the 8-minute flag and the 20-minute CI limit; even a 5× 
   - 7 new guards in `tests/qa/test_physics_fixes.gd`. All 16 checks there pass on 94dcac3 and skip on main (main: 73 passed).
   - Repros for BUG-01-10 and 01-11 in `qa/repros/physics/`.
   - The promoted BUG-01-06 to 01-09 repros were removed.
+
+## Re-check #3 @ 4eead62
+
+- Branch: `physics` @ `4eead62` ("Fix QA bugs 01-10 and 01-11"). It includes `main` and the re-check #2 guards; no QA file was changed by the merge.
+- Review copy: `git archive 4eead62`, plus `build/.gdignore`. Baselines: the 9f3303c and 94dcac3 copies, running the same probes.
+
+### Verdict @ 4eead62: MERGE
+
+Both bugs are fixed. The new sharp-V rule was attacked in every situation you listed and did not misfire; where it engages, Sproto can always get out. Only minor items remain, for the backlog.
+
+Open: **0 blocker, 0 major, 2 minor** (BUG-01-12, BUG-01-13); BUG-01-05 WONTFIX.
+
+### Status
+
+| Bug | Status | Evidence |
+|---|---|---|
+| BUG-01-10 45° crest stall | FIXED | `tests/qa/test_physics_fixes.gd :: test_bug_01_10_sharp_45_crests_and_valleys`. 45° crests and valleys in both directions at 4/6/10/14 px/f: floor mode only, under 0.2 px/f lost per frame. The repro passes. |
+| BUG-01-11 sharp V trap | FIXED | `test_bug_01_11_sharp_v_valleys_can_be_left` (50/50 and 60/60 at 150 px deep by spin dash; 70/50 and 60/60 at 64 px deep by jump); the repro passes |
+
+### Trying to make the V rule misfire
+
+The rule switches on when sensors A and B straddle a "\" and a "/". From a wall mode it uses a 48 px downward probe, and inside a valley the wall check is off. Every run below also watched for the centre inside terrain and for per-frame snaps, comparing against 9f3303c and 94dcac3.
+
+| Situation | Result | Evidence |
+|---|---|---|
+| Loop bottoms (radius 48/64/112): at rest, slow entries at 1/2/4 px/f both ways | PASS | rule never engaged, never inside terrain, comes to rest at the bottom; `test_v_rule_stays_off_on_loops_and_quarter_pipes` |
+| Loop sweep, radii 48–256 × 8/10/12/16 px/f × 3 phases × both ways (180 runs) | PASS | 0 failures, and the valley flag was never set inside a loop |
+| Quarter pipe bottom at 0.5 / 2 / 5 px/f | PASS | rule never engaged |
+| U valleys (fillet 16/48/96 × sides 30/45/60 × 1/4/10 px/f) | PASS | No burial, no snaps beyond 4 px. Fillets of 48 or more: runs through. 60° sides with a 16 px fillet, 150 px deep: settles flat at the bottom (rule at rest) and leaves by spin dash; a jump can't clear 150 px, as you'd expect. |
+| V next to a wall (no gap and a 10 px gap, 6/12/16 px/f) | PASS | Never inside terrain. At speed he runs up the 60° side, up the wall and over it, which is classic momentum; at 6 px/f he stops at the wall. |
+| V under a low ceiling (30 and 40 px above the rims, walking and rolling) | PASS | never inside the ceiling; the walker is stopped by the head-height ray at the mouth; rolling in rests at the bottom with room to stand |
+| V on top-only terrain / path A / path B (player on A) | PASS | stands in the top-only and path-A V's; falls through the path-B one; `test_v_valley_layers_and_landings` |
+| Landing in a 60° V while hurt, and after a spring launch | PASS | lands, hurt and spring states end, never inside terrain |
+| Spin dash released in a V toward the steeper side (50/70, 70/50, 60/60, both ways) | PASS (see BUG-01-13) | The spin dash starts (before the fix it did not even start: stuck in a wall mode) and leaves the V. There is a one-frame 13.5 px pop where he enters the 70° side. |
+| Deep and asymmetric V's (50/70, 70/50, 45/60, 60/80, 46/46, 89/60; 64 and 300 px deep; 2/8/16 px/f) | PASS | No burial. Every case leaves by jump from rest or by spin dash; before the fix most of these trapped him. Snaps of 11–15 px happen at mode switches (they were 16–18 px before): BUG-01-13. |
+| 45° crests and valleys, both directions, 2–14 px/f | PASS | floor mode only. At 2 px/f a crest costs 0.41 px/f for one frame, identical at 3aa4be3/9f3303c/94dcac3, so not a regression (too small to file). |
+| Frame identity with 9f3303c (sharp 60° ramp, cliff, wall, block, ramps with 16/48 fillets, hills, quarter pipe, loops 80/112, at 4–14 px/f) | PASS | 32 of 32 trajectories identical. Crest/valley sweep identical except the 60/60 valley, which now escapes instead of trapping. |
+
+### Standard runs @ 4eead62
+
+| Tool | Result |
+|---|---|
+| Tests | 151 passed on the agent's commit; **155 passed, 0 failed with the 4 new QA guards, in 5.83 s wall-clock** (headless, `--fixed-fps 60`). Nothing to trim. |
+| Fuzz seeds 1–3 × 18 000 frames (3 × 5 min) | 0 errors, 0 NaN, only contract states; nodes 155 at the end, orphans 0, memory 24.9 → 29.9 MB |
+| Bot runner (7 200 frames) | crosses the whole sandbox, 0 deaths |
+| `scene_smoke.sh` | 7/7 PASS |
+| Originality | 0 hits in files; 0 in commits `94dcac3..4eead62` |
+| Scope | `player/`, `terrain/`, `tests/physics/` only |
+| QA guards on `main` | skip cleanly (77 passed) |
+
+### Backlog (minor)
+
+#### BUG-01-12: Jump is ignored on the lower part of a steep V side
+
+- **Severity:** minor. He can still get out: jump once he is back at the bottom, or spin dash.
+- **Owner:** physics agent (`player/player.gd :: _has_jump_clearance` in wall modes)
+- **Repro:** V of 70° (left) and 50° (right), 64 px deep. Run in at 16 px/f and hold right: he cycles between resting flat at the bottom and sliding up the 50° side (right-wall mode, slip lock). A jump pressed while he is on that side does nothing, because the clearance ray points sideways (perpendicular to the slope) and hits the 70° side within 25 px.
+- **Expected:** jump works on any floor he stands on, as long as there is room above along the jump direction.
+- **Notes:** an option is to measure clearance along the actual jump direction, and only as far as the head can travel in the first frames.
+
+#### BUG-01-13: The centre pops 11–15 px at sharp concave corners into steep sides
+
+- **Severity:** minor (visual pop, pre-existing; 4eead62 reduced it from 16–18 px)
+- **Owner:** physics agent (collision mode switch at sharp corners)
+- **Repro:** run at 8 px/f into a sharp V with a 70° side, or spin dash toward the steeper side of a 50/70 V. In the frame where the mode switches between floor and wall, the centre moves 11–15 px more than the speed accounts for.
+- **Notes:** this is classic behaviour for sharp corners. The level rule already covers it: use fillets (CurveTerrain's default of 48 px) where floors meet steep slopes.
+
+### Notes for the lead (re-check #3)
+
+- **Level rules for the level agent's guide** (from all four reviews):
+  - Leave radius + thickness + 112 px on each side of a loop's centre.
+  - No spawns between a loop's foot and its side switcher.
+  - Put low tunnel mouths on flat ground.
+  - Roll tunnels: lower than 38 px means roll only.
+  - Solid pieces at least 18 px wide.
+  - Prefer fillets of 48 px or more where floors meet slopes steeper than 45°: V's are now safe, but a 60° U with a small fillet needs a spin dash to leave.
+- **New QA files on branch `qa`:**
+  - 4 new guards in `tests/qa/test_physics_fixes.gd`, which now holds 20 checks; all skip on main.
+  - The BUG-01-10/11 repros were removed. `qa/repros/physics/` keeps BUG-01-05 (WONTFIX) and the clip scenes.

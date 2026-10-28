@@ -446,3 +446,155 @@ func test_head_height_ray_ignores_top_only_and_other_path() -> void:
 			assert_true(p.global_position.x < 100.0, "own path at head height blocks")
 		else:
 			assert_true(p.global_position.x > 300.0, "layer %d at head height does not block" % layer)
+
+
+# --- Re-check #3 @ 4eead62: BUG-01-10, BUG-01-11 and the V-valley rule ---------------
+
+## A V with its bottom at (0, 0): left side `a` deg, right side `b` deg, depth `h`,
+## optional fillet `f` (symmetric sides only), on collision layer `layer`.
+func _v_world(a: float, b: float, h: float, f := 0.0, layer := L.SOLID) -> Node2D:
+	var w := L.world(self)
+	var left := -h / tan(deg_to_rad(a))
+	var right := h / tan(deg_to_rad(b))
+	var pts := PackedVector2Array([Vector2(left - 400, -h), Vector2(left, -h)])
+	if f > 0.0:
+		var c := f / cos(deg_to_rad(a))
+		var dt := f * sin(deg_to_rad(a))
+		for k in 25:
+			var d := -dt + 2.0 * dt * k / 24.0
+			pts.append(Vector2(d, -c + sqrt(f * f - d * d)))
+	else:
+		pts.append(Vector2.ZERO)
+	pts.append_array(PackedVector2Array([Vector2(right, -h), Vector2(right + 400, -h),
+			Vector2(right + 400, 400), Vector2(left - 400, 400)]))
+	L.poly(w, pts, layer)
+	return w
+
+
+func _not_in_valley(p: Node2D) -> bool:
+	return p.get(&"_in_valley") != true  # null (renamed internals) counts as unknown
+
+
+func test_bug_01_10_sharp_45_crests_and_valleys() -> void:
+	if _skip():
+		return
+	for valley in [false, true]:
+		for dir in [1, -1]:
+			for speed in [4.0, 6.0, 10.0, 14.0]:
+				var w: Node2D
+				if valley:
+					w = _v_world(45.0, 45.0, 150.0)
+				else:
+					w = L.world(self)
+					L.floor_at(w, -3000, 3000)
+					L.poly(w, PackedVector2Array([Vector2(-150, 0), Vector2(0, -150), Vector2(150, 0)]))
+				var p = await L.spawn(self, w, Vector2(-350.0 * dir, -150.0 if valley else 0.0))
+				p.ground_speed = speed * dir
+				var action := &"move_right" if dir > 0 else &"move_left"
+				press(action)
+				var drop := 0.0
+				var walls := false
+				var last: float = absf(p.ground_speed)
+				for i in 150:
+					await physics_frames(1)
+					if p.grounded:
+						drop = maxf(drop, last - absf(p.ground_speed))
+						walls = walls or p.collision_mode != L.FLOOR
+					last = absf(p.ground_speed)
+				release(action)
+				var label := "%s dir %d at %s" % ["45 valley" if valley else "45 crest", dir, speed]
+				assert_true(not walls, "%s: stays in floor mode" % label)
+				assert_true(drop < 0.2, "%s: lost %.2f px/frame in one frame" % [label, drop])
+
+
+func test_bug_01_11_sharp_v_valleys_can_be_left() -> void:
+	if _skip():
+		return
+	# Run in, settle, then jump out holding right (shallow V) or spin dash out (deep).
+	for c in [[50.0, 50.0, 150.0, "spindash"], [60.0, 60.0, 150.0, "spindash"],
+			[70.0, 50.0, 64.0, "jump"], [60.0, 60.0, 64.0, "jump"]]:
+		var w := _v_world(c[0], c[1], c[2])
+		var p = await L.spawn(self, w, Vector2(-c[2] / tan(deg_to_rad(c[0])) - 100.0, -c[2]))
+		p.ground_speed = 6.0
+		press(&"move_right")
+		await physics_frames(200)
+		release(&"move_right")
+		await physics_frames(120)
+		if c[3] == "jump":
+			press(&"move_right")
+			press(&"jump")
+			await physics_frames(25)
+			release(&"jump")
+			await physics_frames(120)
+			release(&"move_right")
+		else:
+			Dev.send_action(&"move_down", true)
+			await physics_frames(3)
+			for k in 6:
+				Dev.send_action(&"jump", true)
+				await physics_frames(1)
+				Dev.send_action(&"jump", false)
+				await physics_frames(1)
+			Dev.send_action(&"move_down", false)
+			await physics_frames(200)
+		var out: bool = p.global_position.y < -c[2] - 10.0 or absf(p.global_position.x) > c[2] * 2.0
+		assert_true(out, "V %s/%s depth %s: out by %s (at %s, %s)" % [c[0], c[1], c[2], c[3], p.global_position, p.state])
+
+
+func test_v_rule_stays_off_on_loops_and_quarter_pipes() -> void:
+	if _skip(true):
+		return
+	for radius in [48.0, 112.0]:
+		for speed in [0.0, 1.0, 4.0]:
+			var made := await _loop_world(Vector2(-20.0, 0), radius)
+			var p = made[1]
+			p.ground_speed = speed
+			for i in 300:
+				await physics_frames(1)
+				assert_true(_not_in_valley(p) and not L.centre_in_terrain(p),
+						"loop r%s from %s px/f: frame %d" % [radius, speed, i])
+				if not _not_in_valley(p) or L.centre_in_terrain(p):
+					break
+	for speed in [0.5, 2.0, 5.0]:
+		var w := L.world(self)
+		L.floor_at(w, -2000, 0)
+		L.curve_terrain(w, Vector2.ZERO, {shape = 1, radius = 96.0, thickness = 48.0, wall_height = 224.0})
+		var q = await L.spawn(self, w, Vector2(-40, 0))
+		q.ground_speed = speed
+		for i in 300:
+			await physics_frames(1)
+			assert_true(_not_in_valley(q), "quarter pipe bottom from %s px/f: frame %d" % [speed, i])
+			if not _not_in_valley(q):
+				break
+
+
+func test_v_valley_layers_and_landings() -> void:
+	if _skip():
+		return
+	# Path B V is not solid for a path A player; a top-only V is stood on.
+	for layer in [L.TOP_ONLY, L.PATH_B]:
+		var w := _v_world(60.0, 60.0, 150.0, 0.0, layer)
+		var p = await L.spawn(self, w, Vector2(-200, -150))
+		p.respawn_at(Vector2(0, -150))
+		await physics_frames(120)
+		if layer == L.PATH_B:
+			assert_true(p.global_position.y > 300.0, "path B V: fell through on path A")
+		else:
+			assert_true(p.grounded and not L.centre_in_terrain(p), "top-only V: standing in it")
+	# Landing in a sharp V after a hit or a spring.
+	for how in ["hurt", "spring"]:
+		var w2 := _v_world(60.0, 60.0, 150.0)
+		var q = await L.spawn(self, w2, Vector2(-200, -150))
+		GameState.add_coins(5)
+		q.respawn_at(Vector2(-30, -120))
+		await physics_frames(1)
+		if how == "hurt":
+			q.hurt(q.global_position + Vector2(-20, 0))
+		else:
+			q.launch(Vector2(1.0, -3.0))
+		for i in 240:
+			await physics_frames(1)
+			assert_true(not L.centre_in_terrain(q), "%s landing: frame %d inside terrain" % [how, i])
+			if L.centre_in_terrain(q):
+				break
+		assert_true(q.grounded and q.state != &"hurt" and q.state != &"spring", "%s: landed (%s)" % [how, q.state])
