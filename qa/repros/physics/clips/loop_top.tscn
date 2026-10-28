@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="1_curve"]
+[ext_resource type="PackedScene" path="res://terrain/loop.tscn" id="2_loop"]
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="3_player"]
+
+[node name="LoopTopRepro" type="Node2D"]
+
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(-1500, 0)
+script = ExtResource("1_curve")
+shape = 4
+size = Vector2(3000, 400)
+
+[node name="Loop" parent="." instance=ExtResource("2_loop")]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(0, -261)
+
+[node name="Camera" type="Camera2D" parent="Player"]

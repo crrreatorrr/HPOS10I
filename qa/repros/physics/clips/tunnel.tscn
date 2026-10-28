@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="1_curve"]
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="3_player"]
+
+[node name="TunnelRepro" type="Node2D"]
+
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(-600, 0)
+script = ExtResource("1_curve")
+shape = 4
+size = Vector2(1800, 200)
+
+[node name="Ceiling" type="StaticBody2D" parent="."]
+position = Vector2(100, -232)
+script = ExtResource("1_curve")
+shape = 4
+size = Vector2(300, 200)
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(-60, -19)
+
+[node name="Camera" type="Camera2D" parent="."]
+position = Vector2(150, -60)
