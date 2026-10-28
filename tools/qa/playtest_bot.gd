@@ -57,6 +57,10 @@ var _queue: Array = []  # [frame, action, pressed], sorted by frame
 var _held := {}  # action -> true
 var _sent: Array = []  # [frame, action, pressed] for --record
 var _recording := false
+## Tick on which the boot target (--scene, or the --zone/--stage act) first
+## became the current scene: frame 0 of recorded timelines, as for Dev's
+## replay clock (core/dev.gd, Z1-01). -1 until then.
+var _clock_start := -1
 var _inputs_sent := 0
 var _finished := false
 
@@ -127,6 +131,7 @@ func _tick() -> void:
 		return
 	var f := _frame
 	_frame += 1
+	_start_clock(f)
 	_run_queue(f)
 	_track_scene(f)
 	_sample_perf(f)
@@ -364,7 +369,7 @@ func _send(f: int, action: StringName, pressed: bool) -> void:
 		_held.erase(action)
 	_inputs_sent += 1
 	if _recording:
-		_sent.append([f, String(action), pressed])
+		_sent.append([maxi(0, f - maxi(_clock_start, 0)), String(action), pressed])
 	var event := InputEventAction.new()
 	event.action = action
 	event.pressed = pressed
@@ -460,10 +465,35 @@ func _final_snapshot() -> Dictionary:
 
 
 ## Dev input timeline (core/dev.gd format), one event per line for diffs.
+## Frame 0 of recorded timelines: the first tick the boot target is current.
+func _start_clock(f: int) -> void:
+	if _clock_start >= 0:
+		return
+	var target := ""
+	var dev := root.get_node_or_null("Dev")
+	if dev != null and dev.has_method(&"timeline_scene"):
+		target = str(dev.call(&"timeline_scene", _dev_args()))
+	elif _args.has("scene"):
+		target = str(_args.scene)
+	elif _args.has("zone"):
+		target = ZoneRegistry.stage_path(str(_args.zone), int(_args.get("stage", "1")))
+	if target == "" or (current_scene != null and current_scene.scene_file_path == target):
+		_clock_start = f
+
+
+func _dev_args() -> Dictionary:
+	var out := {}
+	for key in ["scene", "zone", "stage"]:
+		if _args.has(key):
+			out[key] = str(_args[key])
+	return out
+
+
 func _timeline_json() -> String:
 	var meta := {
 		tool = "playtest_bot", target = _target_label(), policy = _policy, seed = _rng.seed,
-		frames = _frame, note = "frames are physics ticks since boot (Dev timeline format)",
+		frames = _frame, clock_start = _clock_start,
+		note = "frame 0 is the first tick the boot target is the current scene (Dev timeline clock)",
 	}
 	var lines := PackedStringArray()
 	for event in _sent:
