@@ -37,6 +37,16 @@ const CHASER := "res://levels/enemies/chaser.tscn"
 const FLOATER := "res://levels/enemies/floater.tscn"
 const PELLET_PILL := "res://levels/enemies/pellet_pill.tscn"
 const SPIKE_PILL := "res://levels/enemies/spike_pill.tscn"
+# Wizard Academy (Zone 2).
+const SHIFTING_STAIRCASE := "res://levels/objects/z2/shifting_staircase.tscn"
+const BOOKSHELF := "res://levels/objects/z2/moving_bookshelf.tscn"
+const CANDLE := "res://levels/objects/z2/candle.tscn"
+const FALLING_BOOK := "res://levels/objects/z2/falling_book.tscn"
+const AUTOSCROLL := "res://levels/objects/z2/autoscroll_section.tscn"
+const SPELLBOOK := "res://levels/enemies/z2/spellbook_pill.tscn"
+const SPELLBOOK_DIVER := "res://levels/enemies/z2/spellbook_diver.tscn"
+const KNIGHT := "res://levels/enemies/z2/knight_pill.tscn"
+const LANTERN := "res://levels/enemies/z2/lantern_pill.tscn"
 
 const SCREEN := 424
 ## Sproto's centre stands this far above the floor.
@@ -61,6 +71,8 @@ var bottom := 64
 ## Fill colours for CurveTerrain pieces until materials land (match the tiles).
 var soil := Color(0.75, 0.44, 0.2)
 var grass := Color(0.36, 0.82, 0.24)
+## Colour of back walls (caves, halls).
+var cave := CAVE
 
 ## [x, what] of every spring landing, loop exit and checkpoint so far.
 var safe_marks: Array = []
@@ -337,6 +349,147 @@ func waterfall(x0: float, y0: float, w := 48.0, h := 128.0) -> void:
 	node.z_index = 0
 
 
+# --- Wizard Academy sections ---------------------------------------------------------
+
+## A stone staircase up: `steps` risers of `rise` px (too tall to walk: hop
+## each one), each with a `tread` px landing and a ticket over it.
+func stairs_up(steps: int, rise := 32, tread := 64) -> void:
+	for i in steps:
+		paint.cliff(ground - rise)
+		ticket(x + tread / 2, ground)
+		paint.flat(tread)
+
+
+## A stone staircase down: `steps` drops of `drop` px with `tread` px landings.
+func stairs_down(steps: int, drop := 32, tread := 64) -> void:
+	for i in steps:
+		paint.cliff(ground + drop)
+		paint.flat(tread)
+	ticket(x - tread / 2, ground)
+
+
+## A hall: `length` px of floor under a stone ceiling slab `height` px up
+## (its top is a floor too), with a back wall and a row of tickets.
+func hall(length: int, height := 176, ticket_step := 96) -> void:
+	var x0 := x
+	var floor_y := ground
+	paint.solid(Rect2i(x0, floor_y - height - 32, length, 32))
+	backwall(Rect2(x0, floor_y - height, length, height))
+	flat(length, 48, ticket_step)
+
+
+## A shifting staircase (levels/objects/z2) from here up to a ledge
+## (steps - 1) * 32 px higher, after a `runup`: pillar steps that fold flat
+## into the floor and rise again on a timer. Arriving while it is flat, wait
+## at the ledge's foot: the top step lifts you up.
+func shifting_flight(steps := 5, runup := 128, props := {}) -> Node2D:
+	flat(runup)
+	var x0 := x
+	var base := ground
+	var settings := {steps = steps, pillars = true, step_size = Vector2(48, 16), rise = Vector2(48, -32),
+			fold = Vector2(0, 32)}
+	settings.merge(props, true)
+	var stairs := place(SHIFTING_STAIRCASE, "ShiftingStaircase%d" % _next("staircase"), Vector2(x0, base), settings)
+	stairs.z_index = -1
+	paint.flat(steps * 48)
+	for i in steps:
+		ticket_at(Vector2(x0 + i * 48 + 24, base - 32 * i - 40))
+	paint.cliff(base - 32 * (steps - 1))
+	return stairs
+
+
+## A bookshelf lift (levels/objects/z2): a shelf `64` px tall standing at the
+## foot of a cliff rises `travel` px to the ledge on a telegraphed timer,
+## waits there, and sinks back. Its body reaches into the floor, so nothing
+## can get under it. Hop on, ride up, step off.
+func bookshelf_lift(travel := 96, runup := 128, props := {}) -> Node2D:
+	flat(runup)
+	var x0 := x
+	var settings := {size = Vector2(64, 64 + travel), travel = Vector2(0, -travel), close_speed = 2.0,
+			open_speed = 1.5, rest_frames = 120, out_frames = 100, telegraph_seconds = 0.6}
+	settings.merge(props, true)
+	var shelf := place(BOOKSHELF, "BookshelfLift%d" % _next("lift"), Vector2(x0, ground - 64), settings)
+	shelf.z_index = -1
+	paint.flat(64)
+	for y in [-96, -96 - travel / 2, -96 - travel]:
+		ticket_at(Vector2(x0 + 32, ground + y))
+	paint.cliff(ground - 64 - travel)
+	return shelf
+
+
+## A shelf gate: a bookshelf flush with the floor that rises `height` px out of
+## it on a telegraphed timer, blocking the hall, then sinks again. Standing on
+## it just gives a ride (no ceiling above it).
+func shelf_gate(height := 96, runup := 96, props := {}) -> Node2D:
+	flat(runup)
+	var settings := {size = Vector2(48, height), travel = Vector2(0, -height), close_speed = 2.0,
+			open_speed = 1.5, rest_frames = 150, out_frames = 60, telegraph_seconds = 0.6}
+	settings.merge(props, true)
+	var shelf := place(BOOKSHELF, "ShelfGate%d" % _next("gate"), Vector2(x, ground), settings)
+	shelf.z_index = -1
+	flat(48 + 96)
+	return shelf
+
+
+## `count` candles along a flat, `spacing` px apart, flaring out of step,
+## after a short run with tickets.
+func candles(count: int, spacing := 128, props := {}) -> void:
+	flat(192, 32, 64)  # tickets first: never meet a flare straight after a hit
+	for i in count:
+		var settings := {first_delay = (i * 37) % 90}
+		settings.merge(props, true)
+		place(CANDLE, "Candle%d" % _next("candle"), Vector2(x, ground), settings)
+		paint.flat(spacing)
+		if i < count - 1:
+			arc(x - spacing / 2, ground, 3, 48, 48)
+
+
+## A flat of `length` px with `count` falling books hanging `height` px up.
+func book_hall(length: int, count: int, height := 176) -> void:
+	var x0 := x
+	var floor_y := ground
+	hall(length, height + 24)
+	for i in count:
+		var bx := x0 + (i + 1) * length / (count + 1)
+		place(FALLING_BOOK, "FallingBook%d" % _next("book"), Vector2(bx, floor_y - height))
+
+
+## A flat of `width` px with an enemy `at` px in (feet on the floor, or
+## `up` px above it for flyers).
+func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}) -> Node2D:
+	var x0 := x
+	var floor_y := ground
+	flat(width, 32, 64)
+	return enemy(enemy_path, Vector2(x0 + at, floor_y - up), props)
+
+
+## The flying-broom chase: an autoscroll section (levels/objects/z2) over a
+## `length` px hall. `obstacles` adds low hurdles, candles and books inside.
+func broom_chase(length := 2560, speed := 90.0, obstacles := true) -> Node2D:
+	var x0 := x
+	var floor_y := ground
+	var section := place(AUTOSCROLL, "AutoscrollBroomChase", Vector2(x0, floor_y), {length = float(length), speed = speed})
+	backwall(Rect2(x0, floor_y - 240, length + SCREEN, 240))
+	var done := 0
+	var k := 0
+	while done < length:
+		var piece := mini(320, length - done)
+		if obstacles and k % 4 == 1 and piece == 320:
+			paint.flat(160)
+			paint.cliff(ground - 32).flat(32).cliff(ground + 32)  # a low hurdle
+			paint.flat(128)
+			arc(x - 144, floor_y, 3, 64, 56)
+		elif obstacles and k % 4 == 3 and piece == 320:
+			paint.flat(160)
+			place(CANDLE, "Candle%d" % _next("candle"), Vector2(x, ground), {low_frames = 120, first_delay = (k * 41) % 100})
+			paint.flat(160)
+		else:
+			flat(piece, 32, 64)
+		done += piece
+		k += 1
+	return section
+
+
 ## A checkpoint post at x (Sproto's centre height above the ground there).
 func checkpoint(at_x := -1) -> Node2D:
 	var cx := x if at_x < 0 else at_x
@@ -404,7 +557,7 @@ func backwall(rect: Rect2) -> void:
 	wall.name = "BackWall%d" % _next("backwall")
 	wall.position = rect.position
 	wall.size = rect.size
-	wall.color = CAVE
+	wall.color = cave
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	own(decor, wall)
 
