@@ -222,3 +222,20 @@ func test_spring_under_narrow_column_stops_at_its_bottom() -> void:
 				stopped = true
 				break
 		assert_true(stopped, "%s px column: upward speed stopped by it" % width)
+
+
+func test_launch_under_a_ceiling_never_penetrates() -> void:
+	for speed in [6.0, 10.0, 16.0]:
+		for height in [40.0, 60.0, 90.0, 130.0]:
+			for phase in [0.0, 2.0, 4.0]:
+				world = W.new_world(self)
+				W.add_floor(world)
+				var bottom: float = -height - phase
+				W.add_rect(world, Rect2(-100, bottom - 200.0, 200, 200))
+				await _spawn()
+				player.launch(Vector2(0.0, -speed))
+				var deepest := 0.0
+				for i in 30:
+					await physics_frames(1)
+					deepest = maxf(deepest, bottom - (player.global_position.y - player.get_radii().y))
+				assert_true(deepest <= 0.01, "launch %s under a ceiling %s up: head %.2f px inside" % [speed, -bottom, deepest])
