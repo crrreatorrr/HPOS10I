@@ -224,7 +224,9 @@ func test_restart_and_quit_from_the_playground() -> void:
 	H.tap_pause()
 	(menu.get_node("%Quit") as Button).pressed.emit()
 	assert_true(not tree.paused, "quit unpauses")
-	assert_true(await _wait_for_scene(SceneRouter.MAIN_SCENE), "back at the boot menu")
+	var menu_scene := SceneRouter.TITLE_SCENE if ResourceLoader.exists(SceneRouter.TITLE_SCENE) \
+			else SceneRouter.MAIN_SCENE
+	assert_true(await _wait_for_scene(menu_scene), "back at the title (or the boot menu)")
 	assert_true(not SceneRouter.in_gameplay(), "menus are not gameplay")
 	assert_true(not menu.visible, "pause menu hidden in the menu")
 	tree.current_scene.queue_free()
