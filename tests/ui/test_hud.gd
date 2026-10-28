@@ -94,19 +94,25 @@ func test_zero_tickets_flash_red() -> void:
 	var hud := _hud()
 	GameState.lose_tickets()
 	await tree.process_frame
-	var lit := 0
-	var dark := 0
-	for i in 60:
-		if hud.is_warning_lit():
-			lit += 1
-		else:
-			dark += 1
+	# Measured in game seconds (frame deltas), so any frame rate works.
+	var lit := 0.0
+	var dark := 0.0
+	var elapsed := 0.0
+	while elapsed < 1.0:
 		await tree.process_frame
-	assert_true(lit > 10 and dark > 10, "blinks at 0 tickets (lit %d, dark %d)" % [lit, dark])
+		var delta := hud.get_process_delta_time()
+		elapsed += delta
+		if hud.is_warning_lit():
+			lit += delta
+		else:
+			dark += delta
+	assert_true(lit > 0.3 and dark > 0.3, "blinks at 0 tickets (lit %.2f s, dark %.2f s)" % [lit, dark])
 	GameState.add_tickets(1)
 	assert_true(not hud.is_warning_lit(), "steady once a ticket is held")
-	for i in 40:
+	elapsed = 0.0
+	while elapsed < 0.7:
 		await tree.process_frame
+		elapsed += hud.get_process_delta_time()
 		if hud.is_warning_lit():
 			fail("lit with tickets in hand")
 			break
