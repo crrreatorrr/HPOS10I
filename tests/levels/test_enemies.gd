@@ -177,14 +177,44 @@ func test_hopper_hops_in_place_after_a_telegraph() -> void:
 
 
 func test_difficulty_scales_speed_and_intervals() -> void:
-	var walker := (await _setup([[WALKER, Vector2(0, 0)]]))[0]
+	# Without a level root an enemy uses the act's D (Difficulty.current()).
 	SceneRouter.zone_id = "test_zone"
 	SceneRouter.stage = 1
-	assert_near(walker.move_speed(1.0), 1.0, 1e-6, "D0: base speed")
-	assert_eq(walker.interval_frames(80), 80, "D0: base interval")
+	var calm := (await _setup([[WALKER, Vector2(0, 0)]]))[0]
+	assert_near(calm.move_speed(1.0), 1.0, 1e-6, "D0: base speed")
+	assert_eq(calm.interval_frames(80), 80, "D0: base interval")
 	SceneRouter.zone_id = "z4_neon_rush_remix"
 	SceneRouter.stage = 2
-	assert_near(walker.move_speed(1.0), Difficulty.speed_mult(), 1e-6, "D8: speed scaled")
-	assert_true(walker.move_speed(1.0) > 1.3, "noticeably livelier in zone 4")
-	assert_true(walker.interval_frames(80) < 80, "D8: shorter intervals")
-	assert_true(walker.telegraph_frames(0.4) >= roundi(Difficulty.MIN_TELEGRAPH * 60.0), "telegraph floor")
+	var lively := W.place(world, WALKER, Vector2(200, 0)) as Enemy
+	assert_near(lively.move_speed(1.0), Difficulty.speed_mult(Difficulty.current()), 1e-6, "D8: speed scaled")
+	assert_true(lively.move_speed(1.0) > 1.3, "noticeably livelier in zone 4")
+	assert_true(lively.interval_frames(80) < 80, "D8: shorter intervals")
+	assert_true(lively.telegraph_frames(0.4) >= roundi(Difficulty.MIN_TELEGRAPH * 60.0), "telegraph floor")
+
+
+## The same enemy is quicker in an act's finale than in its opening
+## (Difficulty.local(LevelRoot.progress_at(x))).
+func test_finale_enemies_are_livelier_than_opening_ones() -> void:
+	SceneRouter.zone_id = "z1_retro_rush_hills"
+	SceneRouter.stage = 2
+	var placed := {}
+	var level := await W.mini_level(self, Vector2(64, -19), 0.0, 2000.0, func(root: Node) -> void:
+		W.place(root, "res://levels/objects/goal_sign.tscn", Vector2(1864, 0))
+		placed.opening = W.place(root, WALKER, Vector2(150, 0))
+		placed.middle = W.place(root, WALKER, Vector2(964, 0))
+		placed.finale = W.place(root, WALKER, Vector2(1800, 0))
+		placed.hopper_opening = W.place(root, HOPPER, Vector2(200, 0))
+		placed.hopper_finale = W.place(root, HOPPER, Vector2(1750, 0)))
+	assert_near(level.progress_at(64.0), 0.0, 1e-6, "progress 0 at the start")
+	assert_near(level.progress_at(1864.0), 1.0, 1e-6, "progress 1 at the goal")
+	var opening := placed.opening as Enemy
+	var middle := placed.middle as Enemy
+	var finale := placed.finale as Enemy
+	assert_near(middle.local_difficulty(), 2.0, 1e-6, "middle: the act's D")
+	assert_true(opening.local_difficulty() < middle.local_difficulty(), "the opening is easier")
+	assert_true(finale.local_difficulty() > middle.local_difficulty(), "the finale is harder")
+	assert_true(finale.move_speed(1.0) > opening.move_speed(1.0),
+			"higher speed_mult in the finale (%.3f vs %.3f)" % [finale.move_speed(1.0), opening.move_speed(1.0)])
+	var hopper_opening := placed.hopper_opening as Enemy
+	var hopper_finale := placed.hopper_finale as Enemy
+	assert_true(hopper_finale.interval_frames(80) < hopper_opening.interval_frames(80), "shorter hop interval in the finale")

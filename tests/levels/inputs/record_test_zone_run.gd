@@ -11,7 +11,8 @@ extends SceneTree
 ## the up spring, rolls down into the hopper, takes the diagonal spring onto
 ## the bridge, rolls through the breakable wall and the tunnel, hops out of
 ## the roll onto the booster, goes round the loop and up the quarter pipe,
-## rolls down into the last walker and coasts through the goal.
+## rolls down into the finale walker and the finale hopper, and runs through
+## the goal.
 ## Re-record after changing the layout; test_test_zone.gd replays it.
 ## Add `--trace` after `--` to print Sproto's state every 10 frames.
 
@@ -33,8 +34,10 @@ const MOVES := [
 	[2760.0, ROLL, "roll down into the hopper and through the gate"],
 	[4440.0, ROLL, "roll into the breakable wall and through the tunnel"],
 	[5020.0, HOP, "hop out of the roll before the booster"],
-	[7110.0, ROLL, "roll down into the last walker"],
-	[7400.0, HOP, "hop out of the roll and run to the goal"],
+	[7366.0, ROLL, "roll down into the finale walker"],
+	[7600.0, HOP, "hop out of the roll"],
+	[7906.0, ROLL, "roll down the small hill into the finale hopper"],
+	[8070.0, HOP, "hop out of the roll and run to the goal"],
 ]
 
 var _frame := 0

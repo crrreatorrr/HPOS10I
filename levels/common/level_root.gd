@@ -97,6 +97,7 @@ var camera: Camera2D
 var use_scene_router := true
 
 var _bounds := Rect2()
+var _progress_span := Vector2(NAN, NAN)  # start x, goal x
 var _has_bounds := false
 var _spawn := Vector2.ZERO
 var _settle_frames := 0
@@ -123,8 +124,12 @@ static func find(from: Node) -> Node2D:
 	return null
 
 
-func _ready() -> void:
+func _enter_tree() -> void:
+	# Joined before the children's _ready, so enemies can find the root then.
 	add_to_group(&"level_root")
+
+
+func _ready() -> void:
 	_read_bounds()
 	GameState.timer_running = true
 	_apply_art_zone()
@@ -147,6 +152,32 @@ func current_art_zone_id() -> String:
 ## Bounds in world space (camera limits; below the bottom edge is a pit).
 func get_bounds() -> Rect2:
 	return _bounds
+
+
+## How far along the act `x` is: 0 at PlayerStart, 1 at the goal sign
+## (clamped). Without a goal sign (boss arenas) the Bounds' right edge stands
+## in. Enemies feed it to Difficulty.local() for the in-act ramp. Safe to call
+## from children's _ready (before this node's own _ready).
+func progress_at(x: float) -> float:
+	if is_nan(_progress_span.x):
+		_progress_span = _find_progress_span()
+	var length := _progress_span.y - _progress_span.x
+	if length <= 0.0:
+		return 0.0
+	return clampf((x - _progress_span.x) / length, 0.0, 1.0)
+
+
+func _find_progress_span() -> Vector2:
+	var start := get_node_or_null(^"PlayerStart") as Node2D
+	var from := start.global_position.x if start != null else global_position.x
+	var to := -INF
+	for node in find_children("*", "", true, false):
+		if node is GoalSign:
+			to = maxf(to, (node as Node2D).global_position.x)
+	if to == -INF:
+		var bounds := get_node_or_null(^"Bounds") as Control
+		to = bounds.get_global_rect().end.x if bounds != null else from
+	return Vector2(from, to)
 
 
 ## True once the goal was reached.

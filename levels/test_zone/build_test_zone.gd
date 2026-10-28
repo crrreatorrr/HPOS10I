@@ -8,12 +8,15 @@ extends SceneTree
 ##
 ## The route, left to right (ground line y = 0, up is negative), about 20
 ## screens at difficulty D0 (docs/LEVELS.md): T1 enemies only (4, 0.2 per
-## screen), one checkpoint near halfway, about 6 tickets per screen, R1
-## (straight; the high and low routes rejoin within a few screens). No enemy
-## within 2 screens after a spring landing, a loop exit or the checkpoint.
+## screen), about 6 tickets per screen, R1 (straight; the high and low
+## routes rejoin within a few screens). No enemy within 2 screens after a
+## spring landing, a loop exit or a checkpoint.
+## Sections by progress (LevelRoot.progress_at): opening (to 25 %) one
+## enemy, middle one, finale (from 75 %) two, so the finale is the densest.
+## Checkpoints: one near halfway, one where the finale starts.
 ##   start flats (side spring at the wall) -> a stump to jump, with a walker
 ##      pill behind it (jump on it)
-##   -> gentle (1:2) and steep (1:1) hills; a walker patrols the valley
+##   -> gentle (1:2) and steep (1:1) hills
 ##   -> up spring against a 128 px cliff onto the mesa
 ##   -> 45 degree descent -> hopper pill at its foot -> the spring gate: a
 ##      40 px passage (too low to jump in, so nobody skips the spring) and a
@@ -23,7 +26,8 @@ extends SceneTree
 ##   -> checkpoint -> a terrace: walkers jump up its face, rollers break the
 ##      cracked wall at its foot and race through the ticket tunnel under it
 ##   -> speed booster -> loop -> quarter pipe up to the last stretch
-##   -> gentle slope down -> walker pill at its foot -> goal sign.
+##   -> finale checkpoint -> gentle slope down -> walker pill at its foot
+##   -> a small hill -> hopper pill at its foot -> goal sign.
 ## Enemy spots also suit the QA playtest bot (hold right, jump when blocked):
 ## behind the stump its standing jump lands on the walker, and at the foot of
 ## a slope a knockback lands it on the slope, where it keeps moving and runs
@@ -76,7 +80,9 @@ const BOOSTER_X := 5248
 const LOOP_X := 5568
 const PIPE_X := 5936
 const PIPE_RADIUS := 64.0
-const UPPER := Vector3i(6016, 7104, -64)  # x0, x1, y
+const UPPER := Vector3i(6016, 7360, -64)  # x0, x1, y
+const FINALE_CHECKPOINT_X := 6496
+const LAST_HILL := Vector2i(7744, 48)  # x0, rise
 const GOAL_X := 8256
 
 var level: Node2D
@@ -161,6 +167,8 @@ func _build_terrain(terrain: Node2D) -> void:
 	p.skip(int(PIPE_RADIUS) + 16)      # the quarter pipe
 	p.cliff(UPPER.z).flat(UPPER.y - p.x)  # last stretch, up top
 	p.gentle_down(-UPPER.z)            # back down to the ground line
+	p.flat(LAST_HILL.x - p.x)
+	p.gentle_up(LAST_HILL.y).flat(64).gentle_down(LAST_HILL.y)  # a small hill
 	p.flat(RIGHT - p.x)
 
 	# Walls at both ends, the spring gate's rock column (a 40 px passage:
@@ -220,18 +228,20 @@ func _build_objects() -> void:
 	_place(SPRING_DIAGONAL, "SpringDiagonal", Vector2(GATE.end.x + 32, 0), {facing = 1})
 	_place(SPIKES, "Spikes", Vector2(3936, 0), {width = 32.0})
 	_place(CHECKPOINT, "Checkpoint", Vector2(CHECKPOINT_X, -STAND))
+	_place(CHECKPOINT, "FinaleCheckpoint", Vector2(FINALE_CHECKPOINT_X, UPPER.z - STAND))
 	_place(BREAKABLE_WALL, "BreakableWall", Vector2(TERRACE.x + 12, 0), {size = Vector2(24, -TUNNEL_TOP)})
 	_place(BOOSTER, "SpeedBooster", Vector2(BOOSTER_X, 0), {facing = 1})
 	_place(GOAL_SIGN, "GoalSign", Vector2(GOAL_X, 0))
 
 	_place(WALKER, "Walker", Vector2(STUMP.end.x + 78, 0), {patrol_distance = 8.0}, enemies)
-	_place(WALKER, "ValleyWalker", Vector2(HILLS_X + 336, 0), {patrol_distance = 24.0, direction = 1}, enemies)
 	_place(HOPPER, "Hopper", Vector2(2936, 0), {}, enemies)
-	_place(WALKER, "LastWalker", Vector2(UPPER.y + 152, 0), {patrol_distance = 16.0}, enemies)
+	_place(WALKER, "FinaleWalker", Vector2(UPPER.y + 152, 0), {patrol_distance = 16.0}, enemies)
+	var hill_foot := LAST_HILL.x + LAST_HILL.y * 4 + 64
+	_place(HOPPER, "FinaleHopper", Vector2(hill_foot + 24, 0), {first_hop_delay = 20}, enemies)
 
 
 func _build_tickets() -> void:
-	_row(176, 0, 5, 32)                                    # start
+	_row(176, 0, 4, 32)                                    # start
 	_row(352, 0, 3, 32)
 	for t in [[488, -64], [520, -76], [552, -72], [584, -56]]:  # over the stump onto the walker
 		_ticket(t[0], t[1])
@@ -239,18 +249,17 @@ func _build_tickets() -> void:
 		_ticket(x, -(x - HILLS_X) / 2.0)
 	for t in [[912, -80], [944, -88], [976, -80]]:         # over the hilltop
 		_ticket(t[0], t[1])
-	for t in [[1072, -40], [1104, -56], [1136, -40]]:      # a jump over the valley walker
-		_ticket(t[0], t[1])
+	_row(1088, 0, 2, 32)                                   # valley
 	for x in [1168, 1184, 1200]:                           # up the steep side
 		_ticket(x, -(x - 1152))
 	for x in [1248, 1280, 1312]:                           # down the gentle side
 		_ticket(x, -64 + (x - 1216) / 2.0)
-	_row(1408, 0, 6, 32)                                   # run-up to the spring
+	_row(1408, 0, 4, 48)                                   # run-up to the spring
 	for y in [-64, -112, -160]:                            # up spring column
 		_ticket(MESA_X - 16, y)
-	_row(1984, MESA_Y, 6, 32)                              # mesa
-	_row(2272, MESA_Y, 6, 32)
-	_row(2560, MESA_Y, 5, 32)
+	_row(1984, MESA_Y, 4, 32)                              # mesa
+	_row(2272, MESA_Y, 4, 32)
+	_row(2560, MESA_Y, 4, 32)
 	for x in [2784, 2816, 2848]:                           # down the 45 degree slope
 		_ticket(x, MESA_Y + (x - MESA_END))
 	for t in [[2904, -56], [2936, -72], [2968, -56]]:      # over the hopper
@@ -258,31 +267,36 @@ func _build_tickets() -> void:
 	_row(3040, 0, 4, 32)                                   # into the gate
 	for t in [[3392, -112], [3456, -168], [3520, -208]]:   # diagonal spring flight
 		_ticket(t[0], t[1])
-	_row(3872, BRIDGE.z, 8, 32)                            # plank bridge
+	_row(3872, BRIDGE.z, 6, 40)                            # plank bridge
 	for base in [PIT_1.x, PIT_2.x]:                        # arcs over the pits
 		for t in [[16, -32], [48, -48], [80, -32]]:
 			_ticket(base + t[0], t[1])
 	_row(3600, 0, 3, 32)                                   # island
 	for t in [[3920, -48], [3952, -48]]:                   # over the spikes
 		_ticket(t[0], t[1])
-	_row(4192, 0, 4, 32)                                   # after the merge
-	_row(4416, 0, 3, 32)                                   # after the checkpoint
-	_row(TERRACE.x + 64, 0, 9, 40)                         # tunnel (the shortcut's reward)
-	_row(TERRACE.x + 128, TERRACE.z, 5, 48)                # terrace top
+	_row(4192, 0, 3, 32)                                   # after the merge
+	_row(4416, 0, 2, 32)                                   # after the checkpoint
+	_row(TERRACE.x + 64, 0, 7, 48)                         # tunnel (the shortcut's reward)
+	_row(TERRACE.x + 128, TERRACE.z, 4, 56)                # terrace top
 	_row(BOOSTER_X - 128, 0, 3, 32)                        # booster run
 	for a in [60.0, 120.0, 180.0, 240.0, 300.0]:           # inside the loop
 		var r := 112.0 - STAND
 		_ticket_at(Vector2(LOOP_X + sin(deg_to_rad(a)) * r, -112.0 + cos(deg_to_rad(a)) * r))
 	for y in [-100, -150, -200]:                           # quarter pipe launch
 		_ticket_at(Vector2(PIPE_X + PIPE_RADIUS - STAND, y))
-	_row(6464, UPPER.z, 5, 32)                             # last stretch, up top
-	_row(6784, UPPER.z, 5, 32)
-	for x in [7136, 7168, 7200]:                           # down the gentle slope
+	_row(6560, UPPER.z, 4, 32)                             # last stretch, up top
+	_row(6880, UPPER.z, 4, 32)
+	_row(7168, UPPER.z, 3, 32)
+	for x in [7392, 7424, 7456]:                           # down the gentle slope
 		_ticket(x, UPPER.z + (x - UPPER.y) / 2.0)
-	for t in [[7224, -56], [7256, -72], [7288, -56]]:      # a jump over the last walker
+	for t in [[7480, -56], [7512, -72], [7544, -56]]:      # a jump over the finale walker
 		_ticket(t[0], t[1])
-	_row(7424, 0, 4, 32)
-	_row(7936, 0, 5, 32)                                   # before the goal
+	_row(7600, 0, 4, 32)                                   # refill before the hill
+	for x in [7776, 7808]:                                 # up the small hill
+		_ticket(x, -(x - LAST_HILL.x) / 2.0)
+	for t in [[7976, -56], [8008, -72], [8040, -56]]:      # a jump over the finale hopper
+		_ticket(t[0], t[1])
+	_row(8112, 0, 3, 32)                                   # before the goal
 
 
 ## `count` tickets from x0, `step` apart, above a floor at `floor_y`.

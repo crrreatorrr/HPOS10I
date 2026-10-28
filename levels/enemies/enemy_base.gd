@@ -17,7 +17,10 @@ extends PlayerArea
 ## Difficulty: never hard-code a speed, interval or telegraph. Use
 ## move_speed(px_per_frame), interval_frames(frames) and
 ## telegraph_frames(seconds); they apply Difficulty.speed_mult(),
-## interval_mult() and telegraph() for the running act.
+## interval_mult() and telegraph() at this enemy's local difficulty:
+## Difficulty.local(level root's progress_at(x)) from where it was placed, so
+## the same enemy is livelier near the end of an act (Difficulty.current()
+## without a level root, e.g. in playgrounds).
 ##
 ## Writing a new behaviour (T2-T4 roster): extend this script, set `tier`,
 ## move in _enemy_physics(delta), draw in _draw(), and override as needed:
@@ -45,6 +48,7 @@ const BOUNCE_META := &"enemy_bounce_frame"
 @export_range(1, 4) var tier := 1
 
 var alive := true
+var _local_d := NAN
 ## Vertical speed while airborne, px/frame (gravity_step()).
 var fall_speed := 0.0
 var grounded := false
@@ -134,19 +138,39 @@ func _bounce(player: Player) -> void:
 
 # --- Difficulty -------------------------------------------------------------------
 
-## A movement speed (px/frame) scaled for the act's difficulty.
+## This enemy's difficulty, worked out once from where it starts.
+func local_difficulty() -> float:
+	if is_nan(_local_d):
+		var root := _level_root()
+		_local_d = Difficulty.local(root.call(&"progress_at", global_position.x)) \
+				if root != null else Difficulty.current()
+	return _local_d
+
+
+## A movement speed (px/frame) scaled for the local difficulty.
 func move_speed(base_px_per_frame: float) -> float:
-	return base_px_per_frame * Difficulty.speed_mult()
+	return base_px_per_frame * Difficulty.speed_mult(local_difficulty())
 
 
-## Frames between attacks, hops or shots, scaled for the act's difficulty.
+## Frames between attacks, hops or shots, scaled for the local difficulty.
 func interval_frames(base_frames: float) -> int:
-	return maxi(1, roundi(base_frames * Difficulty.interval_mult()))
+	return maxi(1, roundi(base_frames * Difficulty.interval_mult(local_difficulty())))
 
 
-## A telegraph (warning) in frames, scaled for the act's difficulty (never under 0.35 s).
+## A telegraph (warning) in frames, scaled for the local difficulty (never under 0.35 s).
 func telegraph_frames(base_seconds: float) -> int:
-	return maxi(1, roundi(Difficulty.telegraph(base_seconds) * PhysicsConstants.FPS))
+	return maxi(1, roundi(Difficulty.telegraph(base_seconds, local_difficulty()) * PhysicsConstants.FPS))
+
+
+## The level root above this enemy (found by group and method, not by class,
+## so this script doesn't depend on level_root.gd).
+func _level_root() -> Node:
+	var node := get_parent()
+	while node != null:
+		if node.is_in_group(&"level_root") and node.has_method(&"progress_at"):
+			return node
+		node = node.get_parent()
+	return null
 
 
 # --- Movement and terrain ---------------------------------------------------------

@@ -49,10 +49,46 @@ func test_structure_and_d0_targets() -> void:
 	assert_near(enemies.size() / screens, targets.enemies_per_screen, 0.05, "enemies per screen")
 	for enemy in enemies:
 		assert_eq((enemy as Enemy).tier, 1, "%s is T1" % enemy.name)
-	assert_eq(int(counts.get("res://levels/objects/checkpoint.tscn", 0)), targets.checkpoints, "checkpoints")
+	var checkpoints := int(counts.get("res://levels/objects/checkpoint.tscn", 0))
+	assert_true(absi(checkpoints - int(targets.checkpoints)) <= 1, "checkpoints: %d (row %d, plus the finale one)" % [checkpoints, targets.checkpoints])
 	var tickets := int(counts.get("res://levels/objects/ticket.tscn", 0))
 	assert_near(tickets / screens, targets.tickets_per_screen, targets.tickets_per_screen * 0.25, "tickets per screen")
 	root.free()
+
+
+## Opening (to 25 %), middle and finale (from 75 %) by LevelRoot.progress_at:
+## a checkpoint opens the finale and the finale is the densest section.
+func test_sections_ramp_towards_the_finale() -> void:
+	var level := await W.test_zone(self)
+	var start := (level.get_node(^"PlayerStart") as Node2D).global_position.x
+	var goal := (level.get_node(^"Objects/GoalSign") as Node2D).global_position.x
+	assert_near(level.progress_at(start), 0.0, 1e-6, "0 at PlayerStart")
+	assert_near(level.progress_at(goal), 1.0, 1e-6, "1 at the goal sign")
+	assert_near(level.progress_at(start - 500.0), 0.0, 1e-6, "clamped below")
+	assert_near(level.progress_at(goal + 500.0), 1.0, 1e-6, "clamped above")
+	var per_section := {opening = 0, middle = 0, finale = 0}
+	for enemy in tree.get_nodes_in_group(&"enemies"):
+		per_section[_section(level.progress_at((enemy as Node2D).global_position.x))] += 1
+	var widths := {opening = Difficulty.OPENING_END, middle = Difficulty.FINALE_START - Difficulty.OPENING_END,
+			finale = 1.0 - Difficulty.FINALE_START}
+	var density := {}
+	for key: String in per_section:
+		density[key] = per_section[key] / widths[key]
+	assert_true(per_section.finale >= 1, "enemies in the finale")
+	assert_true(density.finale > density.middle, "the finale is denser than the middle %s" % per_section)
+	assert_true(density.finale > density.opening, "the finale is denser than the opening %s" % per_section)
+	var finale_checkpoint := false
+	for node in level.find_children("*", "Area2D", true, false):
+		if node is Checkpoint:
+			var at := level.progress_at((node as Node2D).global_position.x)
+			finale_checkpoint = finale_checkpoint or (at >= Difficulty.FINALE_START - 0.02 and at <= Difficulty.FINALE_START + 0.06)
+	assert_true(finale_checkpoint, "a checkpoint where the finale starts")
+
+
+static func _section(progress: float) -> String:
+	if progress < Difficulty.OPENING_END:
+		return "opening"
+	return "middle" if progress < Difficulty.FINALE_START else "finale"
 
 
 func test_player_start_is_on_solid_ground() -> void:

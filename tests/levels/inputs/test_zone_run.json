@@ -1,5 +1,5 @@
 {
-  "meta": {"goal_frame":1574,"note":"frames are physics ticks since boot (Dev timeline format); replay with --scene and --inputs","scene":"res://levels/test_zone/test_zone.tscn","tool":"record_test_zone_run.gd"},
+  "meta": {"goal_frame":1573,"note":"frames are physics ticks since boot (Dev timeline format); replay with --scene and --inputs","scene":"res://levels/test_zone/test_zone.tscn","tool":"record_test_zone_run.gd"},
   "events": [
     [2,"move_right",true],
     [96,"jump",true],
@@ -20,12 +20,18 @@
     [816,"move_right",true],
     [938,"jump",true],
     [947,"jump",false],
-    [1383,"move_right",false],
-    [1383,"move_down",true],
-    [1388,"move_down",false],
-    [1390,"move_right",true],
-    [1424,"jump",true],
-    [1433,"jump",false],
-    [1605,"move_right",false]
+    [1425,"move_right",false],
+    [1425,"move_down",true],
+    [1430,"move_down",false],
+    [1432,"move_right",true],
+    [1459,"jump",true],
+    [1468,"jump",false],
+    [1514,"move_right",false],
+    [1514,"move_down",true],
+    [1519,"move_down",false],
+    [1521,"move_right",true],
+    [1543,"jump",true],
+    [1552,"jump",false],
+    [1604,"move_right",false]
   ]
 }
