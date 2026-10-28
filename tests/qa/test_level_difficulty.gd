@@ -1,7 +1,9 @@
 extends TestCase
 ## QA: every built act matches its row of the difficulty curve (docs/LEVELS.md,
 ## core/difficulty.gd) and is not easier than the act before it
-## (tests/qa/qa_difficulty.gd has the measures and rules). Errors fail;
+## (tests/qa/qa_difficulty.gd has the measures and rules), including the
+## in-act ramp: a denser, one-tier-harder finale that starts at a checkpoint,
+## and a checkpoint outside the boss gate in the act before a boss. Errors fail;
 ## warnings are printed. Skips while the curve or the acts don't exist.
 ## Full report: godot --headless --path . -s res://tools/qa/level_lint.gd
 ## Owned by QA.
@@ -24,8 +26,8 @@ func test_acts_follow_the_difficulty_curve() -> void:
 			fail("%s: does not load" % path)
 			continue
 		var m := Diff.measure(root as Node2D)
-		print("  INFO %s D%d: %s" % [path.get_file(), act.d, Diff.summary(m)])
-		_report(path.get_file(), Diff.check(m, act.d, Diff.targets(act.d)))
+		print("  INFO %s D%s: %s" % [path.get_file(), str(act.d), Diff.summary(m)])
+		_report(path.get_file(), Diff.check(m, act.d, Diff.targets(act.d), bool(act.get("pre_boss", false))))
 		acts.append({path = path, d = act.d, m = m})
 		root.queue_free()
 		await physics_frames(1)
@@ -33,6 +35,7 @@ func test_acts_follow_the_difficulty_curve() -> void:
 		print("  SKIP qa/test_level_difficulty.gd: no zone acts yet")
 		return
 	_report("order", Diff.check_order(acts))
+	_report("enemies", Diff.check_local_source())
 
 
 func _report(label: String, findings: Array[Dictionary]) -> void:
