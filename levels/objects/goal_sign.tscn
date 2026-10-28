@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://levels/objects/goal_sign.gd" id="1_obj"]
+
+[node name="GoalSign" type="Area2D"]
+collision_layer = 64
+collision_mask = 16
+monitorable = false
+script = ExtResource("1_obj")
