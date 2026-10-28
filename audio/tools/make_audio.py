@@ -34,6 +34,8 @@ RNG = np.random.default_rng(1990)
 # Peak ceiling after normalisation (QA wants below -0.5 dBFS after encoding).
 PEAK_DB = -2.0
 SFX_RMS_DB = -14.0
+# Per-effect level offsets (dB) after normalising, for sounds that play often.
+SFX_GAIN_DB = {"enemy_telegraph": -7.0}
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +323,15 @@ def sfx_boss_telegraph():
     return cat(beep_hi, gap, beep_lo, gap, beep_hi, gap, beep_lo)
 
 
+def sfx_enemy_telegraph():
+    # A pill robot about to act: a quick, light rising blip (thin pulse, two
+    # notes a fifth apart), much softer and shorter than the boss warning.
+    a = tone(86, 0.05, 0.125, release=0.008)
+    b = square(vibrato(midi(93), 0.13, 18.0, 0.012), 0.13, 0.125) \
+        * expdecay(0.13, 0.06) * env(0.13, release=0.04)
+    return cat(a, silence(0.015), b)
+
+
 def sfx_one_up():
     # A short original fanfare: up the scale, a skip, and a held top note.
     seq = [(72, 0.09), (76, 0.09), (79, 0.09), (84, 0.09), (81, 0.09), (84, 0.09), (88, 0.42)]
@@ -354,7 +365,8 @@ SFX = {
     "spring": sfx_spring, "booster": sfx_booster, "break_wall": sfx_break_wall,
     "enemy_pop": sfx_enemy_pop, "checkpoint": sfx_checkpoint, "goal_sign": sfx_goal_sign,
     "boss_hit": sfx_boss_hit, "boss_explode": sfx_boss_explode,
-    "boss_telegraph": sfx_boss_telegraph, "one_up": sfx_one_up,
+    "boss_telegraph": sfx_boss_telegraph, "enemy_telegraph": sfx_enemy_telegraph,
+    "one_up": sfx_one_up,
     "menu_move": sfx_menu_move, "menu_select": sfx_menu_select, "pause": sfx_pause,
     "tally_tick": sfx_tally_tick,
 }
@@ -824,7 +836,9 @@ def main(names):
     jobs = []
     for name, fn in SFX.items():
         if not names or name in names:
-            jobs.append((name, os.path.join(SFX_DIR, name + ".ogg"), lambda fn=fn: fade_edges(normalise(fn(), SFX_RMS_DB)), None))
+            gain = 10 ** (SFX_GAIN_DB.get(name, 0.0) / 20.0)
+            jobs.append((name, os.path.join(SFX_DIR, name + ".ogg"),
+                         lambda fn=fn, gain=gain: fade_edges(normalise(fn(), SFX_RMS_DB)) * gain, None))
     for name, (fn, _bpm, loops) in MUSIC.items():
         if not names or name in names:
             render = (lambda fn=fn: normalise(fn())) if loops \

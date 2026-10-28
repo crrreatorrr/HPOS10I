@@ -1,0 +1,5 @@
+# Reviewed exceptions to the originality scan (path glob, or path:line).
+# Director decision 2026-10-28: the act-clear emerald keeps the director's
+# chosen display name. It lives in this one file; everything else shows it
+# through Emeralds.NAME.
+core/emeralds.gd
