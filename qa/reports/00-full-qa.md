@@ -79,6 +79,7 @@ The missing pieces in FQ-03:
 | FQ-22 | physics | **`tests/physics/test_loop.gd:24` tracks `lowest` but never asserts it,** so that check doesn't run. | static review (UNUSED_VARIABLE) | Assert it, or remove it. |
 | FQ-23 | qa (tooling); listed owners (fixes) | **GDScript warnings only print with `-d`, so CI never sees them.** | helper run of `parse_check.gd -d` | QA adds a `-d` warning pass with a baseline to `scene_smoke.sh`; owners fix the 9 shipping warnings. |
 | FQ-24 | art | **prompts.md:** | main `prompts.md:9-11`; art `prompts.md:15` | Fix the template. Use the statuses that `06-art.md` ART-F6 now checks (`pending`/`approved`/`rejected`/`replaced`). |
+| FQ-35 | lead | **`docs/LEVELS.md` (main 65d4adf) names `Difficulty.telegraph_mult()`, but the code has `Difficulty.telegraph(seconds, d)`.** CONTRACTS uses the real name. | `docs/LEVELS.md` "Aggression scaling", `core/difficulty.gd` | Use `telegraph(seconds)` in LEVELS.md. |
 | FQ-25 | ui-audio | **Audio manager:** a missing music file leaves the previous track playing, and `play_sfx` creates a new player for every sound with no cap. | `audio/audio_manager.gd:22-41` | Stop the music when the track is missing; pool about 8 SFX players. |
 
 Details for the multi-part rows:
