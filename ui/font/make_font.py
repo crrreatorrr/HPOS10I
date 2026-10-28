@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Builds the Sproto Pixel bitmap fonts: an original, hand-drawn early-90s
-console-style typeface in two weights, written out as PNG glyph sheets plus
-BMFont text descriptors (.fnt) that Godot imports as FontFile resources.
+console-style typeface in two weights.
 
-  python3 ui/font/make_font.py            (run from anywhere)
+  python3 ui/font/make_font.py            (run from anywhere; needs `godot`)
 
-Outputs (next to this script):
+Writes PNG glyph sheets plus BMFont descriptors (.fnt) to ui/font/src/ (a
+.gdignore'd folder: never imported), then has Godot turn each one into a
+ready-made FontFile, ui/font/<name>.res. The game and theme load those .res
+files directly, with no import step, so a fresh checkout's first import is
+clean.
+
+Fonts:
   sproto_small.png/.fnt          5x7 glyphs, 1 px strokes, plain white (menus)
   sproto_small_outline.png/.fnt  same glyphs with a baked 1 px dark outline
                                  (labels drawn over gameplay)
@@ -19,10 +24,13 @@ Every glyph below was drawn for this project; '#' is ink, '.' is empty.
 """
 
 import os
+import subprocess
 
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(HERE, "src")
+PROJECT = os.path.dirname(os.path.dirname(HERE))
 
 # ---------------------------------------------------------------------------
 # Glyphs. Every glyph is 7 rows tall; widths vary per glyph.
@@ -197,7 +205,7 @@ def build(glyphs, name, face, outline, ramp, space_advance):
             px[ox + pad + x, oy + pad + y] = (r, g, b, 255)
         rects[ch] = (ox, oy, w + 2 * pad, 7 + 2 * pad)
     png = name + ".png"
-    img.save(os.path.join(HERE, png))
+    img.save(os.path.join(SRC, png))
 
     # Line metrics: the body sits on rows [pad, pad + 7); baseline below it.
     base = 7 + pad
@@ -226,20 +234,17 @@ def build(glyphs, name, face, outline, ramp, space_advance):
     for (cid, x, y, w, h, xo, yo, adv) in chars:
         lines.append("char id=%d x=%d y=%d width=%d height=%d xoffset=%d yoffset=%d "
                      "xadvance=%d page=0 chnl=15" % (cid, x, y, w, h, xo, yo, adv))
-    with open(os.path.join(HERE, name + ".fnt"), "w") as f:
+    with open(os.path.join(SRC, name + ".fnt"), "w") as f:
         f.write("\n".join(lines) + "\n")
-    _write_import_stub(name + ".fnt")
     return rects
 
 
-def _write_import_stub(fnt):
-    """First import only: integer-only scaling keeps 2x/3x text crisp."""
-    path = os.path.join(HERE, fnt + ".import")
-    if os.path.exists(path):
-        return
-    with open(path, "w") as f:
-        f.write('[remap]\n\nimporter="font_data_bmfont"\ntype="FontFile"\n\n'
-                "[params]\n\nfallbacks=[]\ncompress=true\nscaling_mode=2\n")
+def convert_with_godot():
+    """BMFont sources -> ui/font/<name>.res FontFiles (src/build_fonts.gd).
+    On the very first build Godot reports the theme's missing .res fonts while
+    it starts up; that is expected and harmless."""
+    cmd = ["godot", "--headless", "--path", PROJECT, "-s", "res://ui/font/src/build_fonts.gd"]
+    subprocess.run(cmd, check=True)
 
 
 def main():
@@ -250,7 +255,8 @@ def main():
     build(SMALL, "sproto_small_outline", "Sproto Pixel Small Outline", True, plain, 4)
     build(BOLD, "sproto_bold", "Sproto Pixel Bold", True, WHITE_SHADE, 5)
     build(BOLD, "sproto_bold_gold", "Sproto Pixel Bold Gold", True, GOLD_RAMP, 5)
-    print("fonts written to", HERE)
+    print("font sources written to", SRC)
+    convert_with_godot()
 
 
 if __name__ == "__main__":

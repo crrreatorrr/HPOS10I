@@ -1,17 +1,19 @@
 extends TestCase
 ## The Sproto Pixel fonts: every required glyph is in each glyph sheet and
-## each imported FontFile, lowercase falls back to capitals, and the theme
-## uses them.
+## each pre-built FontFile, lowercase falls back to capitals, the fonts need
+## no import step, and the theme uses them.
 
 const REQUIRED := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-.!?/x'"
 const FONTS := ["sproto_small", "sproto_small_outline", "sproto_bold", "sproto_bold_gold"]
 const DIR := "res://ui/font/"
+## Generator output (BMFont sheets); .gdignore'd, read straight from disk.
+const SRC := "res://ui/font/src/"
 
 
 func test_every_font_file_has_the_required_glyphs() -> void:
 	for name in FONTS:
-		var font := load(DIR + name + ".fnt") as FontFile
-		assert_true(font != null, "%s.fnt imports as a FontFile" % name)
+		var font := load(DIR + name + ".res") as FontFile
+		assert_true(font != null, "%s.res loads as a FontFile" % name)
 		if font == null:
 			continue
 		for i in REQUIRED.length():
@@ -25,11 +27,11 @@ func test_every_font_file_has_the_required_glyphs() -> void:
 
 func test_every_glyph_sheet_has_ink_for_each_required_glyph() -> void:
 	for name in FONTS:
-		var image := Image.load_from_file(ProjectSettings.globalize_path(DIR + name + ".png"))
+		var image := Image.load_from_file(ProjectSettings.globalize_path(SRC + name + ".png"))
 		assert_true(image != null and not image.is_empty(), "%s.png loads" % name)
 		if image == null or image.is_empty():
 			continue
-		var rects := _parse_fnt(DIR + name + ".fnt")
+		var rects := _parse_fnt(SRC + name + ".fnt")
 		for i in REQUIRED.length():
 			var c := REQUIRED.unicode_at(i)
 			if not rects.has(c):
@@ -41,8 +43,8 @@ func test_every_glyph_sheet_has_ink_for_each_required_glyph() -> void:
 
 func test_glyphs_are_distinct() -> void:
 	# Hand-drawn glyphs: no two required characters share a bitmap.
-	var image := Image.load_from_file(ProjectSettings.globalize_path(DIR + "sproto_bold.png"))
-	var rects := _parse_fnt(DIR + "sproto_bold.fnt")
+	var image := Image.load_from_file(ProjectSettings.globalize_path(SRC + "sproto_bold.png"))
+	var rects := _parse_fnt(SRC + "sproto_bold.fnt")
 	var seen := {}
 	for i in REQUIRED.length():
 		var rect: Rect2i = rects[REQUIRED.unicode_at(i)]
@@ -55,11 +57,25 @@ func test_glyphs_are_distinct() -> void:
 func test_theme_uses_the_pixel_fonts() -> void:
 	var theme := load("res://ui/theme/game_theme.tres") as Theme
 	assert_true(theme != null, "game_theme.tres loads")
-	assert_eq(theme.default_font.resource_path, DIR + "sproto_small.fnt", "default font")
+	assert_eq(theme.default_font.resource_path, DIR + "sproto_small.res", "default font")
 	assert_eq(theme.default_font_size, 8, "native size")
 	for variation in ["HudLabel", "HudValue", "TitleLabel", "OutlineLabel", "HeaderLabel"]:
 		assert_true(theme.get_type_variation_list(&"Label").has(StringName(variation)), "variation %s" % variation)
-	assert_eq(theme.get_font(&"font", &"HudLabel").resource_path, DIR + "sproto_bold_gold.fnt", "HUD labels in gold")
+	assert_eq(theme.get_font(&"font", &"HudLabel").resource_path, DIR + "sproto_bold_gold.res", "HUD labels in gold")
+
+
+func test_fonts_need_no_import_step() -> void:
+	# A fresh checkout's first import loads the project theme before anything
+	# is imported, so the fonts must be plain resources.
+	for name in FONTS:
+		assert_true(FileAccess.file_exists(DIR + name + ".res"), "%s.res is committed" % name)
+		assert_true(not FileAccess.file_exists(DIR + name + ".res.import"), "%s.res is not imported" % name)
+		var font := load(DIR + name + ".res") as FontFile
+		if font != null:
+			assert_eq(font.fixed_size, 8, "%s: 8 px bitmap font" % name)
+			assert_eq(font.fixed_size_scale_mode, TextServer.FIXED_SIZE_SCALE_INTEGER_ONLY, "%s: integer scaling" % name)
+			assert_eq(font.antialiasing, TextServer.FONT_ANTIALIASING_NONE, "%s: no antialiasing" % name)
+	assert_true(FileAccess.file_exists(SRC + ".gdignore"), "generator sources are never imported")
 
 
 func _parse_fnt(path: String) -> Dictionary:
