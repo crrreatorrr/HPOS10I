@@ -85,6 +85,8 @@ var soil := Color(0.75, 0.44, 0.2)
 var grass := Color(0.36, 0.82, 0.24)
 ## Colour of back walls (caves, halls).
 var cave := CAVE
+## Spacing of the tickets past a guard()'s enemy.
+var guard_ticket_step := 40
 
 ## [x, what] of every spring landing, loop exit and checkpoint so far.
 var safe_marks: Array = []
@@ -367,6 +369,7 @@ func waterfall(x0: float, y0: float, w := 48.0, h := 128.0) -> void:
 ## each one), each with a `tread` px landing and a ticket over it, then a
 ## `landing` px flat with tickets at the top (keep enemies off it).
 func stairs_up(steps: int, rise := 32, tread := 64, landing := 128) -> void:
+	paint.flat(32)  # the first riser stands clear of whatever was just placed
 	for i in steps:
 		paint.cliff(ground - rise)
 		ticket(x + tread / 2, ground)
@@ -479,7 +482,9 @@ func book_hall(length: int, count: int, height := 176) -> void:
 ## `up` px above it for flyers). Most of its tickets lie just past the enemy,
 ## so a Sproto who takes the hit runs through it (invincible) and picks some
 ## back up before the next one.
-func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}) -> Node2D:
+func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}, ticket_step := 0) -> Node2D:
+	if ticket_step <= 0:
+		ticket_step = guard_ticket_step
 	var x0 := x
 	var floor_y := ground
 	paint.flat(width)
@@ -488,7 +493,7 @@ func guard(enemy_path: String, width := 320, at := 192, up := 0.0, props := {}) 
 	var tx := x0 + at + 48
 	while tx <= x0 + width + 16:
 		ticket(tx, floor_y)
-		tx += 40
+		tx += ticket_step
 	return enemy(enemy_path, Vector2(x0 + at, floor_y - up), props)
 
 
@@ -576,28 +581,35 @@ func ballroom(length := 512, height := 192) -> Node2D:
 	return enemy(CHANDELIER, Vector2(x0 + length / 2, floor_y - height + 24))
 
 
-## A camera post: a camera pill (T4 sniper) on a `rise` px pedestal with the
-## approach it covers in front of it (`approach` px of flat, tickets low).
-func camera_post(approach := 384, rise := 32) -> Node2D:
-	var x0 := x
-	var floor_y := ground
+## A camera post: a camera pill (T4 sniper) on top of a 64 px terrace with a
+## roll tunnel under it, covering the `approach` px of hall in front. Its line
+## of fire to a target on the floor passes over a runner's head, so running
+## at it is safe; standing in its sight is not.
+func camera_post(approach := 384, length := 192) -> Node2D:
+	var base := ground
 	flat(approach, 32, 64)
-	paint.cliff(floor_y - rise)
-	paint.flat(64)
-	var cam := enemy(CAMERA, Vector2(x - 32, floor_y - rise))
-	paint.cliff(floor_y)
+	var t0 := x
+	paint.cliff(base - 64).flat(length)
+	paint.cliff(base)
+	paint.carve(Rect2i(t0, base - 48, length, 48))
+	paint.floor_at(t0, t0 + length, base)
+	backwall(Rect2(t0, base - 48, length, 48))
+	row(t0 + 48, base, length / 64, 48)
+	var cam := enemy(CAMERA, Vector2(t0 + length / 2, base - 64))
+	paint.flat(96)
 	return cam
 
 
 ## A rooftop run: a booster, then `count` roof gaps of `gap` px between
-## `roof` px roofs (jumped at speed; the booster gives it), a chimney stump
-## before each gap as a cue.
-func rooftops(count := 3, roof := 256, gap := 64, runup := 192) -> void:
+## `roof` px roofs, each roof `step` px lower than the last, so a run at
+## speed clears every gap (jumping clears them with room to spare).
+func rooftops(count := 3, roof := 256, gap := 64, step := 16, runup := 192) -> void:
 	paint.flat(runup)
 	place(BOOSTER, "SpeedBooster%d" % _next("booster"), Vector2(x - 48, ground), {facing = 1})
 	for i in count:
 		flat(roof, 48, 64)
 		paint.skip(gap)
+		paint.cliff(ground + step)
 	flat(roof, 48, 64)
 
 
@@ -608,7 +620,10 @@ func shaft_down(depth := 480, width := 96) -> void:
 	var top_y := ground
 	paint.cliff(top_y + depth)
 	paint.flat(width)
-	paint.solid(Rect2i(x0 - 16, top - 200, 16, top_y + 40 - (top - 200)))  # a back wall above the drop
+	# The shaft's far wall, from high up down to 48 px above the lower floor
+	# (the way on is under it), so the drop reads as a shaft.
+	paint.solid(Rect2i(x0 + width, top - 200, 16, (top_y + depth - 64) - (top - 200)))
+	backwall(Rect2(x0, top_y - 64, width, depth + 64))
 	for k in range(64, depth - 32, 96):
 		ticket_at(Vector2(x0 + width / 2, top_y + k))
 
@@ -639,7 +654,7 @@ func leftward_exit(corridor_len := 640, depth := 240) -> void:
 	paint.solid(Rect2i(left - 48, low_y - 200, 48, 200 + 64))  # the corridor's left wall
 	paint.solid(Rect2i(left, low_y, corridor_len, FILL_BOTTOM - low_y))
 	backwall(Rect2(left, low_y - 128, corridor_len + 96, 128))
-	var belt := place(CONVEYOR, "ExitConveyor", Vector2(left + 128, low_y), {size = Vector2(corridor_len - 128, 48), speed = -8.0}, terrain)
+	var belt := place(CONVEYOR, "ExitConveyor", Vector2(left + 128, low_y), {size = Vector2(corridor_len - 128, 48), speed = -9.0}, terrain)
 	belt.z_index = 1
 	paint.carve(Rect2i(left + 128, low_y, corridor_len - 128, 48))
 	leftward_marker(Rect2(left, low_y - 160, corridor_len, 32), "LeftwardBunkerExit")

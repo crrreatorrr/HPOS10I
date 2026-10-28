@@ -1,6 +1,7 @@
 extends PlayerArea
 ## A floor switch (Capital Mansion): a brass plate in the floor that Sproto
-## presses by stepping (or landing) on it. It opens the doors at `doors`
+## presses by stepping (or landing) on it; its sensor reaches `trigger_height`
+## px up, so running or jumping across the plate presses it too. It opens the doors at `doors`
 ## (NodePaths to door.gd nodes), plays `menu_select` as its click and stays
 ## pressed. The origin is the plate's centre, on the floor. Node names should
 ## contain "switch" (QA's lint counts doors and switches for R4).
@@ -14,6 +15,7 @@ const OUTLINE := Color(0.08, 0.08, 0.12)
 
 @export var doors: Array[NodePath] = []
 @export var width := 32.0
+@export var trigger_height := 96.0
 
 var is_pressed := false
 
@@ -23,9 +25,9 @@ func _ready() -> void:
 	monitorable = false
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
-	rect.size = Vector2(width, 12.0)
+	rect.size = Vector2(width, trigger_height + 2.0)
 	shape.shape = rect
-	shape.position = Vector2(0.0, -4.0)
+	shape.position = Vector2(0.0, -trigger_height / 2.0 + 1.0)
 	add_child(shape)
 
 
@@ -58,3 +60,6 @@ func _draw() -> void:
 	draw_rect(Rect2(-half - 1.0, -6.0, width + 2.0, 6.0), FRAME)
 	draw_rect(Rect2(-half + 1.0, -h, width - 2.0, h), PLATE_DARK)
 	draw_rect(Rect2(-half + 1.0, -h, width - 2.0, 1.0), PLATE)
+	if not is_pressed:
+		# A faint light column over the plate: the sensor.
+		draw_rect(Rect2(-half + 4.0, -trigger_height, width - 8.0, trigger_height - 6.0), Color(PLATE, 0.12))
