@@ -375,6 +375,9 @@ func _send(f: int, action: StringName, pressed: bool) -> void:
 	event.pressed = pressed
 	event.strength = 1.0 if pressed else 0.0
 	Input.parse_input_event(event)
+	# Apply it now: the headless and windowed display servers flush buffered
+	# input at different points, which put windowed runs 2 ticks behind.
+	Input.flush_buffered_events()
 
 
 # ---------------------------------------------------------------------------
