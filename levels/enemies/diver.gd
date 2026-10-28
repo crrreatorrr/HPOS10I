@@ -1,9 +1,12 @@
 extends Enemy
 ## Diver pill robot (tier 3, docs/LEVELS.md): hovers at its post, bobbing.
-## When Sproto comes within range below it (and it is on screen), it marks
-## the spot where he is, flashes its visor and a target ring there and plays
+## When Sproto comes within range below it, at least `min_dive_drop` px below
+## its post (and it is on screen), it marks the spot where he is, flashes its visor and a target ring there and plays
 ## the telegraph sound for at least 0.35 s, then swoops in a straight line at
-## that spot. It never homes: moving after the telegraph avoids it. It pulls
+## that spot. It never homes: running the moment it flashes always avoids it
+## (docs/LEVELS.md fairness). That needs a long enough dive, so it never dives
+## at a target less than 120 px below its post (BUG-Z2-01): closer, it keeps
+## hovering and turns to watch him, with no telegraph. It pulls
 ## back up to its post, rests and can dive again. A jump or roll destroys it
 ## at any time, the swoop included. Swoop and return speeds, the rest and the
 ## telegraph scale with the local difficulty. Zone costumes extend this
@@ -15,10 +18,17 @@ const HALF_LENGTH := 6.0
 const RADIUS := 7.0
 ## Telegraph before a swoop, seconds at difficulty 1.
 const TELEGRAPH := 0.6
+## The fairness floor for min_dive_drop, px.
+const MIN_DIVE_DROP := 120.0
 
 ## How far it notices Sproto: px either side, and px below.
 @export var range_x := 128.0
 @export var range_y := 224.0
+## The shortest dive: it only dives at a target at least this far below its
+## post (never under MIN_DIVE_DROP).
+@export var min_dive_drop := MIN_DIVE_DROP:
+	set(value):
+		min_dive_drop = maxf(value, MIN_DIVE_DROP)
 ## Swoop and return speeds at difficulty 1, px/frame.
 @export var swoop_speed := 4.0
 @export var return_speed := 1.5
@@ -87,17 +97,22 @@ func _step_towards(point: Vector2, px: float) -> bool:
 	return false
 
 
-## A live player in range below, while this diver is on screen.
+## A live player in range below, far enough below its post to dive at,
+## while this diver is on screen. A player in range but too close is watched.
 func _spot_player() -> Player:
 	if not on_screen():
 		return null
-	var player := nearest_player(range_x + range_y)
+	var player := nearest_player(range_x + range_y + min_dive_drop)
 	if player == null:
 		return null
 	var d := player.global_position - global_position
-	if absf(d.x) <= range_x and d.y > 8.0 and d.y <= range_y:
-		return player
-	return null
+	if absf(d.x) > range_x or d.y <= 8.0 or d.y > maxf(range_y, min_dive_drop):
+		return null
+	if player.global_position.y - _home.y < min_dive_drop:
+		if absf(d.x) > 0.5:
+			_facing = 1 if d.x > 0.0 else -1  # keep watching him, no dive
+		return null
+	return player
 
 
 func is_telegraphing() -> bool:

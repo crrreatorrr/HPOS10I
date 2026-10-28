@@ -160,6 +160,37 @@ func test_moving_after_the_telegraph_avoids_the_swoop() -> void:
 		await physics_frames(1)
 
 
+## BUG-Z2-01: from posts 60-160 px above the floor at D1, D6 and D10, running
+## the moment it flashes always avoids the dive, and it never dives at a
+## target less than 120 px below its post.
+func test_diver_never_dives_short_and_running_at_the_flash_always_avoids_it() -> void:
+	var acts := {1: ["z1_retro_rush_hills", 1], 6: ["z3_capital_mansion", 2], 10: ["z4_neon_rush_remix", 3]}
+	for d: int in acts:
+		_set_act(acts[d][0], acts[d][1])
+		assert_near(Difficulty.current(), float(d), 0.01, "D%d" % d)
+		for post: float in [60.0, 80.0, 100.0, 120.0, 160.0]:
+			for dx: float in [0.0, 60.0]:
+				var diver := (await _setup([[DIVER, Vector2(0, -post)]], Vector2(-400, 0)))[0]
+				var telegraphs := [0]
+				diver.telegraphed.connect(func() -> void: telegraphs[0] += 1)
+				await _stand(Vector2(dx, 0))
+				var spotted := await W.wait_for(self, func() -> bool: return diver.call(&"is_telegraphing"), 30)
+				var drop := post - FEET
+				var label := "D%d, post %.0f px up, Sproto %.0f px across" % [d, post, dx]
+				if drop < 120.0:
+					await physics_frames(60)
+					assert_eq(telegraphs[0], 0, "%s: a %.0f px dive is too short: no telegraph" % [label, drop])
+					assert_true(diver.get(&"mode") == 0, "%s: it keeps hovering" % label)
+				else:
+					assert_true(spotted >= 0, "%s: it dives" % label)
+					press(&"move_right")  # he runs the moment it flashes
+					await W.wait_for(self, func() -> bool: return diver.get(&"mode") == 3 or hurts > 0, 180)
+					release(&"move_right")
+					assert_eq(hurts, 0, "%s: running at the flash avoids it" % label)
+				world.queue_free()
+				await physics_frames(1)
+
+
 func test_a_jump_destroys_the_diver_mid_swoop() -> void:
 	_set_act("test_zone", 1)
 	var divers := await _setup([[DIVER, Vector2(0, -150)]], Vector2(-400, 0))
