@@ -47,8 +47,9 @@ games (prompts included).
 
 A small, very fast creature, the mascot of the game.
 
-- **Head:** round, with 2–3 soft upward tufts on top. Never swept-back
-  spikes.
+- **Head:** round, with 2–3 soft upward spikes on top. The spikes grow
+  ONLY from the blue half of the head, so the yellow face half has none
+  (director's note). Never swept-back spikes.
 - **Face:**
   - Split down the middle: blue on one side, yellow on the other.
   - Big round white eyes with black pupils and a white shine, and no heavy
