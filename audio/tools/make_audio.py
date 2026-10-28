@@ -8,8 +8,9 @@ Vorbis with ffmpeg.
   python3 audio/tools/make_audio.py jump z1   # only these names
 
 Writes audio/sfx/<name>.ogg for every SFX name in docs/CONTRACTS.md and
-audio/music/{z1,title}.ogg. Music gets an .import stub with loop=true before
-Godot first imports it. WAVs only live in a temp folder (the project must hold
+audio/music/<name>.ogg for every music name: seven loops plus the act_clear
+and game_over jingles. Music gets an .import stub (loop=true for loops,
+false for jingles) before Godot first imports it. WAVs only live in a temp folder (the project must hold
 Ogg only). Uses ffmpeg's libvorbis when present, else its built-in Vorbis
 encoder (stereo-only, so mono is duplicated to two channels).
 
@@ -365,14 +366,24 @@ SFX = {
 
 
 class Song:
-    def __init__(self, bpm, bars):
+    def __init__(self, bpm, bars, loop=True, tail=1.0):
         self.step = 60.0 / bpm / 2.0  # one eighth note
         self.bars = bars
+        self.loop = loop
         self.length = int(round(self.step * 8 * bars * SR))
+        if not loop:
+            # Jingles: no wrap-around; let the last notes ring out.
+            self.length += int(round(tail * SR))
         self.buf = np.zeros(self.length)
 
     def add(self, start_s, wave_):
-        """Mixes in, wrapping the tail to the start so the loop is seamless."""
+        """Mixes in, wrapping the tail to the start so the loop is seamless
+        (jingles just clip at the end of their tail)."""
+        if not self.loop:
+            i = int(round(start_s * SR))
+            seg = wave_[:max(0, self.length - i)]
+            self.buf[i:i + len(seg)] += seg
+            return
         i = int(round(start_s * SR)) % self.length
         n = len(wave_)
         first = min(n, self.length - i)
@@ -383,18 +394,19 @@ class Song:
             self.buf[:k] += rest[:k]
             rest = rest[k:]
 
-    def lead(self, bars, gain=0.3, duty=0.25):
+    def lead(self, bars, gain=0.3, duty=0.25, echo=0.22, octave=0):
         notes = _parse([s for bar in bars for s in bar])
         for slot, note, length in notes:
             d = length * self.step
-            f = midi(note)
+            f = midi(note + 12 * octave)
             if d > 0.3:
                 vib_depth = np.clip((_t(d) - 0.18) / 0.2, 0, 1) * 0.008
                 f = f * (1.0 + vib_depth * np.sin(2 * np.pi * 5.5 * _t(d)))
             w = square(f, d, duty) * env(d, attack=0.004, decay=0.12, sustain=0.75, release=0.03)
             # A soft echo voice an eighth later gives the lead some space.
             self.add(slot * self.step, w * gain)
-            self.add((slot + 1) * self.step, w * gain * 0.22)
+            if echo:
+                self.add((slot + 1) * self.step, w * gain * echo)
 
     def arp(self, chords, gain=0.12, duty=0.125, pattern=(0, 1, 2, 1)):
         sixteenth = self.step / 2.0
@@ -406,12 +418,14 @@ class Song:
                 self.add((b * 16 + k) * sixteenth, w * gain)
 
     def bass(self, roots, patterns, gain=0.42):
+        """Patterns of 8 (eighths) or 16 (sixteenths) slots per bar."""
         for b, root in enumerate(roots):
             pat = patterns[b % len(patterns)]
+            step = self.step * 8.0 / len(pat)
             for slot, offset, length in _parse_offsets(pat):
-                d = length * self.step
-                w = triangle(midi(root + offset), d) * env(d, attack=0.003, release=0.03)
-                self.add((b * 8 + slot) * self.step, w * gain)
+                d = length * step
+                w = triangle(midi(root + offset), d) * env(d, attack=0.003, release=min(0.03, d / 3))
+                self.add(b * 8 * self.step + slot * step, w * gain)
 
     def drums(self, patterns, gain=1.0):
         kick = _kick()
@@ -544,7 +558,182 @@ def song_title():
     return s.render()
 
 
-MUSIC = {"z1": (song_z1, 150), "title": (song_title, 120)}
+def song_zone_select():
+    """Zone select: 128 BPM, F major, 8 bars (15 s). Light and bouncy."""
+    s = Song(128, 8)
+    F, Dm, Bb, C, Am = (72, 77, 81), (69, 74, 77), (70, 74, 77), (67, 72, 76), (69, 72, 76)
+    s.lead([
+        [72, "-", 77, "-", 76, 77, 79, "-"],
+        [77, "-", 74, "-", 69, "-", 74, "-"],
+        [70, "-", 74, 77, 82, "-", 81, 79],
+        [77, "-", 76, "-", 79, "-", "-", "-"],
+        [81, "-", 79, 77, 76, "-", 77, "-"],
+        [76, "-", 72, "-", 69, "-", 72, 76],
+        [74, "-", 77, "-", 82, "-", 79, 77],
+        [76, "-", 72, "-", 67, "-", 72, "-"],
+    ], gain=0.28, duty=0.25)
+    s.arp([F, Dm, Bb, C, F, Am, Bb, C], gain=0.08, pattern=(0, 2, 1, 2))
+    s.bass([41, 50, 46, 48, 41, 45, 46, 48], [[0, "-", 12, "-", 7, "-", 12, "-"]], gain=0.38)
+    s.drums(["K...h...S...h..."] * 7 + ["K...h...S.S.SSS."], gain=0.8)
+    return s.render()
+
+
+def song_z2():
+    """Wizard Academy: 132 BPM, D minor with a raised 7th, 16 bars (29 s).
+    Mysterious and magical: a twinkling high arpeggio and a sighing lead."""
+    s = Song(132, 16)
+    Dm, Bb, Gm, A, F, C, Am = (74, 77, 81), (70, 74, 77), (67, 70, 74), (69, 73, 76), \
+        (69, 72, 77), (67, 72, 76), (69, 72, 76)
+    chords = [Dm, Bb, Gm, A, Dm, F, Gm, A, Bb, C, Am, Dm, Gm, Bb, A, A]
+    s.lead([
+        [81, "-", "-", 80, 81, "-", 77, "-"],
+        [74, "-", 77, "-", 82, "-", 81, "-"],
+        [79, "-", "-", 77, 74, "-", 70, "-"],
+        [73, "-", 76, "-", 81, "-", "-", "-"],
+        [81, "-", 82, 81, 77, "-", 74, "-"],
+        [72, "-", 77, "-", 81, "-", 84, "-"],
+        [82, "-", 81, 79, 77, "-", 74, 76],
+        [73, "-", "-", "-", ".", ".", 69, 73],
+        [74, "-", 77, 82, 81, "-", 77, "-"],
+        [76, "-", 79, 84, 82, "-", 79, "-"],
+        [81, "-", 76, "-", 72, "-", 76, 81],
+        [77, "-", "-", 76, 74, "-", "-", "-"],
+        [70, "-", 74, 79, 82, "-", 79, "-"],
+        [77, "-", 82, "-", 86, "-", 84, 82],
+        [81, "-", 80, "-", 81, "-", 85, "-"],
+        [88, "-", "-", "-", 85, "-", 81, 76],
+    ], gain=0.26, duty=0.125, echo=0.35)
+    # Twinkle: chord tones an octave up, upward runs.
+    s.arp([tuple(n + 12 for n in c) for c in chords], gain=0.06, duty=0.25, pattern=(0, 1, 2, 1, 2, 0))
+    roots = [50, 46, 43, 45, 50, 41, 43, 45, 46, 48, 45, 50, 43, 46, 45, 45]
+    s.bass(roots, [[0, "-", "-", 7, 12, "-", 7, "-"]], gain=0.36)
+    soft = "K.......S...h.o."
+    s.drums([soft] * 7 + ["K.......S...S.SS"] + [soft] * 7 + ["K...h...S.S.SSSS"], gain=0.7)
+    return s.render()
+
+
+def song_z3():
+    """Capital Mansion: 112 BPM, C minor, 12 bars (25.7 s). Stately and
+    tense: a dotted march with snare rolls."""
+    s = Song(112, 12)
+    Cm, Ab, Fm, G, Eb, Bb = (60, 63, 67), (60, 63, 68), (60, 65, 68), (62, 67, 71), (63, 67, 70), (62, 65, 70)
+    chords = [Cm, Ab, Fm, G, Cm, Eb, Bb, G, Ab, Fm, G, G]
+    s.lead([
+        [72, "-", "-", 72, 75, "-", 79, "-"],
+        [80, "-", "-", 79, 77, "-", 75, "-"],
+        [77, "-", "-", 75, 72, "-", 68, "-"],
+        [71, "-", "-", 74, 79, "-", "-", "-"],
+        [79, "-", "-", 80, 79, "-", 75, "-"],
+        [79, "-", "-", 82, 79, "-", 75, "-"],
+        [74, "-", "-", 77, 82, "-", 77, "-"],
+        [79, "-", 77, 75, 74, "-", 71, "-"],
+        [72, "-", 75, 80, 84, "-", 80, "-"],
+        [80, "-", 77, 72, 77, "-", 80, "-"],
+        [79, "-", 83, "-", 86, "-", 83, "-"],
+        [77, "-", 74, "-", 71, "-", 67, "-"],
+    ], gain=0.28, duty=0.5, echo=0.18)
+    s.arp(chords, gain=0.07, duty=0.5, pattern=(0, 2, 1, 2))
+    roots = [48, 44, 41, 43, 48, 51, 46, 43, 44, 41, 43, 43]
+    s.bass(roots, [[0, "-", 12, "-", 7, "-", 12, "-"]], gain=0.4)
+    march = "K...S.SSK...S..."
+    s.drums([march, march, march, "K...S.SSK.S.SSSS"] * 3, gain=0.85)
+    return s.render()
+
+
+def song_z4():
+    """Neon Rush Remix: the Zone 1 tune at 172 BPM (16 bars, 22.3 s) with
+    synthwave drive: sixteenth octave bass, four-on-the-floor, long echoes."""
+    s = Song(172, 16)
+    D, Bm, G, A, Em, Fsm = (74, 78, 81), (71, 74, 78), (67, 71, 74), (69, 73, 76), (76, 79, 83), (73, 78, 81)
+    chords = [D, Bm, G, A, D, Bm, Em, A, G, A, Fsm, Bm, Em, A, D, A]
+    s.lead([
+        [74, "-", 73, 74, 76, "-", 74, "-"],
+        [71, "-", "-", 69, 71, "-", 74, "-"],
+        [79, "-", 78, 76, 74, "-", 71, "-"],
+        [73, "-", 74, 76, 73, "-", 69, "-"],
+        [74, "-", 73, 74, 78, "-", 76, 74],
+        [76, "-", 74, 71, 74, "-", 78, "-"],
+        [79, "-", 78, 79, 81, "-", 79, 78],
+        [76, "-", "-", "-", 73, 74, 76, 73],
+        [71, 74, 79, "-", 78, "-", 76, "-"],
+        [73, 76, 81, "-", 79, "-", 78, "-"],
+        [78, "-", 76, 73, 69, "-", 73, "-"],
+        [74, "-", 76, 78, 76, "-", 74, "-"],
+        [71, "-", 74, 79, 78, "-", 76, "-"],
+        [76, "-", 78, 79, 81, "-", 79, "-"],
+        [78, "-", 74, "-", 76, 78, 74, "-"],
+        [73, "-", 76, "-", 81, "-", 76, 73],
+    ], gain=0.27, duty=0.5, echo=0.4)
+    s.arp([tuple(n + 12 for n in c) for c in chords], gain=0.07, duty=0.125, pattern=(0, 1, 2, 0, 1, 2, 1, 0))
+    roots = [38, 35, 43, 45, 38, 35, 40, 45, 43, 45, 42, 35, 40, 45, 38, 45]
+    pump = [0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12]
+    s.bass(roots, [pump], gain=0.4)
+    four = "K.o.S.o.K.o.S.oo"
+    s.drums([four] * 7 + ["K.o.S.o.K.SSS.SS"] + [four] * 7 + ["K.S.S.S.SSSSSSSS"], gain=0.95)
+    return s.render()
+
+
+def song_boss():
+    """Boss: 160 BPM, E phrygian, 8 bars (12 s). Intense and driving."""
+    s = Song(160, 8)
+    Em, F, D, G, B = (64, 67, 71), (65, 69, 72), (62, 66, 69), (67, 71, 74), (63, 66, 71)
+    s.lead([
+        [76, 76, 79, 76, 77, 76, 74, 76],
+        [77, "-", 76, 77, 81, "-", 77, "-"],
+        [79, 79, 83, 79, 77, 79, 76, "-"],
+        [74, "-", 78, "-", 81, "-", 78, 74],
+        [76, 76, 79, 76, 77, 76, 74, 76],
+        [77, "-", 81, "-", 84, "-", 81, 77],
+        [79, "-", 83, 86, 83, "-", 79, "-"],
+        [78, "-", 75, "-", 71, "-", 75, 78],
+    ], gain=0.27, duty=0.25, echo=0.15)
+    s.arp([Em, F, Em, D, Em, F, G, B], gain=0.07, duty=0.125, pattern=(0, 1, 2, 1))
+    s.bass([40, 41, 40, 38, 40, 41, 43, 47], [[0, 0, 12, 0, 0, 12, 0, 12]], gain=0.42)
+    hit = "K.hKS.hKK.hKS.hS"
+    s.drums([hit] * 7 + ["K.SKS.SSKSSSSSSS"], gain=1.0)
+    return s.render()
+
+
+def song_act_clear():
+    """Act clear jingle: a short C major fanfare (about 4 s, no loop)."""
+    s = Song(150, 2, loop=False, tail=1.0)
+    s.lead([
+        [67, 72, 76, 79, "-", 76, 79, "-"],
+        [84, "-", "-", "-", "-", "-", "-", "."],
+    ], gain=0.32, duty=0.25, echo=0.25)
+    s.lead([
+        [64, 67, 72, 76, "-", 72, 76, "-"],
+        [79, "-", "-", "-", "-", "-", "-", "."],
+    ], gain=0.16, duty=0.5, echo=0.0)
+    s.bass([48, 48], [[0, "-", 7, "-", 12, "-", 7, "-"], [0, "-", "-", "-", "-", "-", "-", "."]], gain=0.4)
+    s.drums(["K...S...K.S.SSSS", "K..............."], gain=0.8)
+    return s.render()
+
+
+def song_game_over():
+    """Game over jingle: a slow fall in C minor (about 5 s, no loop)."""
+    s = Song(96, 2, loop=False, tail=0.8)
+    s.lead([
+        [79, "-", 75, "-", 74, "-", 72, "-"],
+        [71, "-", "-", "-", 72, "-", "-", "."],
+    ], gain=0.3, duty=0.5, echo=0.3)
+    s.bass([48, 43], [[0, "-", "-", "-", 3, "-", "-", "-"], [-1, "-", "-", "-", 5, "-", "-", "."]], gain=0.4)
+    s.drums(["K...............", "K.......K......."], gain=0.6)
+    return s.render()
+
+
+# name -> (composer, bpm, loops)
+MUSIC = {
+    "z1": (song_z1, 150, True),
+    "title": (song_title, 120, True),
+    "zone_select": (song_zone_select, 128, True),
+    "z2": (song_z2, 132, True),
+    "z3": (song_z3, 112, True),
+    "z4": (song_z4, 172, True),
+    "boss": (song_boss, 160, True),
+    "act_clear": (song_act_clear, 150, False),
+    "game_over": (song_game_over, 96, False),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -582,8 +771,11 @@ def write_wav(path, y):
 
 
 # Vorbis quality (-q:a). Square waves and drum transients need a little more
-# than speech; this keeps everything together around 0.7 MB.
+# than speech.
 QUALITY = 3
+# Music is stored at 32 kHz (everything up to 16 kHz kept), which keeps all
+# nine tracks plus the effects well under the 2 MB audio budget.
+MUSIC_RATE = 32000
 
 
 def _encoder():
@@ -596,8 +788,11 @@ def _encoder():
             "-q:a", str(QUALITY)]
 
 
-def encode(wav, ogg):
-    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", wav] + _encoder() + [ogg]
+def encode(wav, ogg, rate=None):
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", wav] + _encoder()
+    if rate:
+        cmd += ["-ar", str(rate)]
+    cmd += [ogg]
     subprocess.run(cmd, check=True)
 
 
@@ -613,13 +808,14 @@ def peak_db(ogg):
     return peak, mean
 
 
-def write_music_import(ogg, bpm):
+def write_music_import(ogg, loops):
     path = ogg + ".import"
     if os.path.exists(path):
         return
     with open(path, "w") as f:
         f.write('[remap]\n\nimporter="oggvorbisstr"\ntype="AudioStreamOggVorbis"\n\n'
-                "[params]\n\nloop=true\nloop_offset=0.0\nbpm=0.0\nbeat_count=0\nbar_beats=4\n")
+                "[params]\n\nloop=%s\nloop_offset=0.0\nbpm=0.0\nbeat_count=0\nbar_beats=4\n"
+                % ("true" if loops else "false"))
 
 
 def main(names):
@@ -629,19 +825,21 @@ def main(names):
     for name, fn in SFX.items():
         if not names or name in names:
             jobs.append((name, os.path.join(SFX_DIR, name + ".ogg"), lambda fn=fn: fade_edges(normalise(fn(), SFX_RMS_DB)), None))
-    for name, (fn, bpm) in MUSIC.items():
+    for name, (fn, _bpm, loops) in MUSIC.items():
         if not names or name in names:
-            jobs.append((name, os.path.join(MUSIC_DIR, name + ".ogg"), lambda fn=fn: normalise(fn()), bpm))
+            render = (lambda fn=fn: normalise(fn())) if loops \
+                else (lambda fn=fn: fade_edges(normalise(fn()), 0.001, 0.05))
+            jobs.append((name, os.path.join(MUSIC_DIR, name + ".ogg"), render, loops))
     total = 0
     bad = []
     with tempfile.TemporaryDirectory() as tmp:
-        for name, ogg, render, bpm in jobs:
+        for name, ogg, render, loops in jobs:
             wav = os.path.join(tmp, name + ".wav")
             y = render()
             write_wav(wav, y)
-            encode(wav, ogg)
-            if bpm is not None:
-                write_music_import(ogg, bpm)
+            encode(wav, ogg, MUSIC_RATE if loops is not None else None)
+            if loops is not None:
+                write_music_import(ogg, loops)
             size = os.path.getsize(ogg)
             total += size
             peak, mean = peak_db(ogg)

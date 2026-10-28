@@ -9,7 +9,8 @@ extends Node
 ## - SFX play through a fixed pool of MAX_SFX_VOICES players on the "SFX"
 ##   bus; when all are busy the oldest one is reused. The same effect twice in
 ##   one frame plays once (32 scattered tickets do not stack 32 voices).
-## - Music plays on the "Music" bus, looped, and ducks while the game is paused.
+## - Music plays on the "Music" bus, looped (the act_clear and game_over
+##   jingles play once), and ducks while the game is paused.
 ## - Buses "SFX" and "Music" are created at runtime if the project has no bus
 ##   layout with them.
 ## - Web: browsers keep audio locked until the first user gesture: a key,
@@ -43,6 +44,8 @@ const MUSIC_NAMES: Array[StringName] = [
 	&"title", &"zone_select", &"z1", &"z2", &"z3", &"z4", &"boss",
 	&"act_clear", &"game_over",
 ]
+## Short tracks that play once instead of looping.
+const JINGLES: Array[StringName] = [&"act_clear", &"game_over"]
 
 const MAX_SFX_VOICES := 8
 const SFX_BUS := &"SFX"
@@ -126,7 +129,7 @@ func play_music(music_name: StringName) -> void:
 		_music.stop()  # missing track: silence, not the previous song
 		return
 	if &"loop" in stream:
-		stream.set(&"loop", true)
+		stream.set(&"loop", not music_name in JINGLES)
 	_music.stream = stream
 	if not _locked:
 		_music.play()

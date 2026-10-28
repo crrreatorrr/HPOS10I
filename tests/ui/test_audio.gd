@@ -12,7 +12,7 @@ const CONTRACT_SFX := [
 	"boss_telegraph", "one_up", "menu_move", "menu_select", "pause", "tally_tick",
 ]
 const CONTRACT_MUSIC := ["title", "zone_select", "z1", "z2", "z3", "z4", "boss", "act_clear", "game_over"]
-const BUILT_MUSIC := ["z1", "title"]
+const JINGLES := ["act_clear", "game_over"]
 ## Total audio budget for the web build.
 const MAX_TOTAL_BYTES := 2 * 1024 * 1024
 
@@ -58,15 +58,19 @@ func test_every_contract_sfx_has_a_file() -> void:
 			"Audio.MUSIC_NAMES matches the contract")
 
 
-func test_music_files_loop_and_fit_the_budget() -> void:
-	for track in BUILT_MUSIC:
+func test_every_music_track_exists_loops_or_plays_once_and_fits_the_budget() -> void:
+	for track in CONTRACT_MUSIC:
 		var stream := load("res://audio/music/%s.ogg" % track) as AudioStreamOggVorbis
 		assert_true(stream != null, "%s.ogg exists" % track)
 		if stream == null:
 			continue
-		assert_true(stream.loop, "%s loops (import setting)" % track)
-		assert_true(stream.get_length() >= 15.0 and stream.get_length() <= 32.0,
-				"%s is a short loop (%.1f s)" % [track, stream.get_length()])
+		var length := stream.get_length()
+		if track in JINGLES:
+			assert_true(not stream.loop, "%s plays once (import setting)" % track)
+			assert_true(length >= 2.0 and length <= 7.0, "%s is a short jingle (%.1f s)" % [track, length])
+		else:
+			assert_true(stream.loop, "%s loops (import setting)" % track)
+			assert_true(length >= 10.0 and length <= 32.0, "%s is a short loop (%.1f s)" % [track, length])
 	var total := 0
 	for dir in ["res://audio/sfx", "res://audio/music"]:
 		for file in DirAccess.get_files_at(dir):
@@ -140,9 +144,17 @@ func test_missing_sounds_are_silent() -> void:
 	assert_true(music.playing, "z1 plays")
 	audio.play_music(&"z1")
 	assert_true(music.playing, "asking again keeps it playing")
-	audio.play_music(&"z2")  # not composed yet
+	audio.play_music(&"no_such_track")
 	assert_true(not music.playing, "a missing track is silence, not the old song")
-	assert_eq(audio.current_music(), &"z2", "remembers the request")
+	assert_eq(audio.current_music(), &"no_such_track", "remembers the request")
+
+
+func test_jingles_play_once_and_loops_keep_looping() -> void:
+	var music: AudioStreamPlayer = audio.get(&"_music")
+	audio.play_music(&"act_clear")
+	assert_true(music.playing and not music.stream.get(&"loop"), "act_clear plays once")
+	audio.play_music(&"z4")
+	assert_true(music.playing and music.stream.get(&"loop"), "zone music loops")
 
 
 func test_web_unlock_starts_waiting_music_on_first_input() -> void:
