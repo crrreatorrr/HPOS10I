@@ -37,7 +37,7 @@ const SFX_NAMES: Array[StringName] = [
 	&"jump", &"roll", &"spindash_charge", &"spindash_release", &"skid",
 	&"ticket", &"ticket_loss", &"hurt", &"death", &"spring", &"booster",
 	&"break_wall", &"enemy_pop", &"checkpoint", &"goal_sign", &"boss_hit",
-	&"boss_explode", &"boss_telegraph", &"one_up", &"menu_move", &"menu_select",
+	&"boss_explode", &"boss_telegraph", &"enemy_telegraph", &"one_up", &"menu_move", &"menu_select",
 	&"pause", &"tally_tick",
 ]
 const MUSIC_NAMES: Array[StringName] = [
