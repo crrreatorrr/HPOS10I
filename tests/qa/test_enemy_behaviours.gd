@@ -149,3 +149,35 @@ func test_t2_t3_scale_with_local_difficulty() -> void:
 		intervals.append(int(e.call(&"interval_frames", 120.0)))
 	print("  INFO interval_frames(120) at D 1 / D 10: %s" % [intervals])
 	assert_true(intervals[1] < intervals[0], "shorter intervals at D 10")
+
+
+func test_dropper_telegraph_floor_and_respawn_safety() -> void:
+	var scene := _scene("dropper")
+	if scene == null:
+		return
+	# Telegraph floor at D 1 and D 10: walk in under it.
+	for d in [1.0, 10.0]:
+		var made: Array = await _setup(scene, d, 0.0, -300.0)
+		var e: Node2D = made[0]
+		var p: Node2D = made[1]
+		e.position.y = -160.0
+		await physics_frames(90)  # arm_frames
+		p.respawn_at(Vector2(-120.0, -19.0))
+		await physics_frames(2)
+		press(&"move_right")
+		var lead: int = await _telegraph_lead(e, func() -> bool: return bool(e.call(&"is_falling")), 400)
+		release(&"move_right")
+		print("  INFO dropper at D %s: drops %d frames after the telegraph" % [d, lead])
+		assert_true(lead >= MIN_TELEGRAPH_FRAMES, "dropper at D %s telegraphs at least 0.35 s (got %d)" % [d, lead])
+	# Respawn safety: a Sproto placed under a fresh dropper never triggers it.
+	var made2: Array = await _setup(scene, 10.0, 0.0, 0.0)
+	var e2: Node2D = made2[0]
+	e2.position.y = -160.0
+	await physics_frames(300)
+	assert_true(not e2.has_meta(&"qa_telegraph_tick"), "a dropper above a (re)spawn point never drops on him")
+	var p2: Node2D = made2[1]
+	p2.respawn_at(Vector2(-150.0, -19.0))
+	await physics_frames(5)
+	p2.respawn_at(Vector2(0.0, -19.0))
+	await physics_frames(30)
+	assert_true(e2.has_meta(&"qa_telegraph_tick"), "leaving and coming back triggers it")

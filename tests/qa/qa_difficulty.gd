@@ -203,7 +203,8 @@ static func measure(root: Node2D, is_enemy := Callable()) -> Dictionary:
 	var forced := _all(root, func(n: Node) -> bool: return _named(n, ["autoscroll", "reverse"])).size()
 	var doors := _all(root, func(n: Node) -> bool:
 		return _named(n, ["door", "switch"]) and not _named(n, ["pathswitch", "path_switch"])).size()
-	var dead_ends := _dead_ends(space, columns, lo + END_MARGIN, hi - END_MARGIN, springs)
+	var dead_end_spots := _dead_end_spots(space, columns, lo + END_MARGIN, hi - END_MARGIN, springs)
+	var dead_ends := dead_end_spots.size()
 
 	# In-act ramp, by progress along the route.
 	var span := goal_x - start_x
@@ -255,6 +256,7 @@ static func measure(root: Node2D, is_enemy := Callable()) -> Dictionary:
 				too_close.append({kind = spot.kind, name = spot.name, x = spot.x, enemy = String(e.name), ahead = ahead})
 
 	var m := {
+		dead_end_spots = dead_end_spots,
 		too_close = too_close,
 		sections = sections, checkpoint_progress = checkpoint_progress, finale_x = finale_x,
 		gate_x = gate_x, start_x = start_x, goal_x = goal_x,
@@ -592,9 +594,10 @@ static func _width(node: Node) -> float:
 
 ## Floor runs that end at a wall too tall to jump (> 96 px), with no spring
 ## within 160 px, between x0 and x1. Both directions; one per 32 px cell.
-static func _dead_ends(space: PhysicsDirectSpaceState2D, columns: Array, x0: float, x1: float,
-		springs: Array[Vector2]) -> int:
+static func _dead_end_spots(space: PhysicsDirectSpaceState2D, columns: Array, x0: float, x1: float,
+		springs: Array[Vector2]) -> Array[Vector2]:
 	var seen := {}
+	var spots: Array[Vector2] = []
 	for i in range(1, columns.size() - 1):
 		var c: Dictionary = columns[i]
 		if c.skipped or c.x < x0 or c.x > x1:
@@ -624,5 +627,8 @@ static func _dead_ends(space: PhysicsDirectSpaceState2D, columns: Array, x0: flo
 						near_spring = true
 				if near_spring:
 					continue
-				seen[Vector2i(int(c.x / 32.0), int(f.y / 32.0))] = true
-	return seen.size()
+				var key := Vector2i(int(c.x / 32.0), int(f.y / 32.0))
+				if not seen.has(key):
+					seen[key] = true
+					spots.append(Vector2(c.x, f.y))
+	return spots
