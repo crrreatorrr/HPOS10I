@@ -14,7 +14,8 @@ extends SceneTree
 ##
 ## A pilot plays the act the way a player would: it holds right, jumps into
 ## each enemy it meets (rolling through walkers and chasers at speed, jumping
-## early over spikes and shields), jumps pellets, hops when blocked, backs
+## early over spikes and shields), jumps pellets, hops up steps and when
+## blocked, backs
 ## off for a run-up when it stalls on a slope, and rolls into breakable walls
 ## (the secrets). It reads
 ## the level only to time those inputs; the recording is plain input events.
@@ -29,6 +30,8 @@ const JUMP_HOLD := 16
 const SHORT_HOP := 8
 ## Standing centre to feet, px.
 const FEET := 19.0
+## Solid terrain and path A (Layers.TERRAIN_SOLID | TERRAIN_PATH_A).
+const TERRAIN := 1 | 2
 
 var _zone := ""
 var _stage := 1
@@ -133,6 +136,10 @@ func _pilot(f: int, p) -> void:
 		else:
 			_jump(f, "blocked")
 		return
+	# A low step ahead (a stair riser, a stump): hop it like a person would.
+	if _step_ahead(pos, gs):
+		_jump(f, "hop up a step", JUMP_HOLD)
+		return
 	# A breakable wall ahead: roll into it (the secret).
 	for wall in _walls:
 		if not is_instance_valid(wall):
@@ -174,6 +181,21 @@ func _pilot(f: int, p) -> void:
 		else:
 			_jump(f, "hop at %s" % enemy.name)
 		return
+
+
+## True when solid terrain stands just ahead at foot height but not at head
+## height (a step up to hop), on flat ground.
+func _step_ahead(pos: Vector2, gs: float) -> bool:
+	if gs < 0.0:
+		return false
+	var space := root.get_world_2d().direct_space_state
+	var reach := 20.0 + gs * 6.0
+	var low := PhysicsRayQueryParameters2D.create(pos + Vector2(0, 12), pos + Vector2(reach, 12), TERRAIN)
+	var high := PhysicsRayQueryParameters2D.create(pos + Vector2(0, -60), pos + Vector2(reach + 16.0, -60), TERRAIN)
+	var hit := space.intersect_ray(low)
+	if hit.is_empty() or absf((hit.normal as Vector2).x) < 0.9:
+		return false  # nothing, or a slope
+	return space.intersect_ray(high).is_empty()
 
 
 ## The enemy's behaviour, from its script's file name.
