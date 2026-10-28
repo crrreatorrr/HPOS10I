@@ -361,7 +361,7 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 - **SFX:** `jump`, `roll`, `spindash_charge`, `spindash_release`, `skid`,
   `ticket`, `ticket_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
   `enemy_pop`, `checkpoint`, `goal_sign`, `boss_hit`, `boss_explode`,
-  `boss_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`
+  `boss_telegraph`, `enemy_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`
 - **Music:** `title`, `zone_select`, `z1`, `z2`, `z3`, `z4`, `boss`,
   `act_clear`, `game_over`
 

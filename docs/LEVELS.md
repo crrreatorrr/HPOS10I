@@ -29,11 +29,18 @@ the lead.
      rolling Sproto.
    - No enemy within 2 screens after a spring landing, a loop exit or a
      checkpoint until difficulty 5.
-4. **Readable direction.** When the way forward isn't simply "right":
+4. **Momentum-friendly terrain.** As in the classic games, Sproto can't
+   climb a 1:2 (26.6°) slope from a standstill: the slope's pull beats his
+   acceleration. Landing on an up-slope while falling faster than he moves
+   sideways also turns the fall into backward speed. So:
+   - never drop the player onto the foot of an up-hill;
+   - give every climb a run-up, a booster or a gentler approach;
+   - never put a steep hill right after a checkpoint.
+5. **Readable direction.** When the way forward isn't simply "right":
    - Signal it with level art (arrows, lit doors, ticket trails).
    - Never require backtracking more than 3 screens without a visible
      reason.
-5. **Generosity tapers off.**
+6. **Generosity tapers off.**
    - Ticket density and checkpoint frequency drop slowly across the game.
    - Extra lives move from in plain sight to hidden.
 
@@ -43,7 +50,7 @@ the lead.
 |---|---|---|---|
 | T1 | Walker | Patrols, turns at walls and edges | Jump or roll |
 | T1 | Hopper | Bounces in place on a timer | Time the jump |
-| T2 | Chaser | Patrols; sees Sproto within 6 screens' width ahead, telegraphs (eye flash), then rushes | Jump over or roll through |
+| T2 | Chaser | Patrols; sees Sproto within half a screen (212 px) ahead, telegraphs (eye flash), then rushes | Jump over or roll through |
 | T2 | Floater | Hovers on a sine path | Jump to its height |
 | T2 | Pellet pill | Stands still; telegraphs, then fires a slow pellet along the ground or in an arc | Jump the pellet, or hit it between shots |
 | T3 | Armored pill | Front shield; hit from above or behind, or roll into it at ground speed 4.5 or more | Spin dash or bounce on it |
