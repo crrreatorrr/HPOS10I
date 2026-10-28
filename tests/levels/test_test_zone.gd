@@ -99,9 +99,10 @@ func test_player_start_is_on_solid_ground() -> void:
 	assert_near(level.player.global_position.x, level.get_node(^"PlayerStart").global_position.x, 0.5, "where it started")
 
 
-## Replays the recorded run in-process, booted the way Dev replays it
-## (SceneRouter.open_scene, frames counted from that call), and checks the
-## route features it is meant to show off.
+## Replays the recorded run in-process the way Dev replays it: frame 0 is
+## the first physics tick on which the scene is current, inputs go through
+## the input queue (core/dev.gd), and checks the route features it is meant
+## to show off.
 func test_recorded_run_uses_every_feature_and_reaches_the_goal() -> void:
 	var events := Dev.load_timeline(RUN)
 	assert_true(events.size() > 5, "timeline loaded")
@@ -112,21 +113,20 @@ func test_recorded_run_uses_every_feature_and_reaches_the_goal() -> void:
 	var player: Player = null
 	var enemies_at_start := 0
 	var frame := 0
+	var level_frame := -1
 	while frame < 2000 and not seen.goal:
 		await physics_frames(1)
 		frame += 1
-		while not events.is_empty() and events[0][0] <= frame:
-			var event: Array = events.pop_front()
-			if event[2]:
-				press(StringName(event[1]))
-			else:
-				release(StringName(event[1]))
 		if level == null:
 			level = tree.current_scene as LevelRoot
 			if level == null:
 				continue
+			level_frame = frame
 			level.use_scene_router = false
 			enemies_at_start = tree.get_nodes_in_group(&"enemies").size()
+		while not events.is_empty() and int(events[0][0]) <= frame - level_frame:
+			var event: Array = events.pop_front()
+			Dev.send_action(StringName(event[1]), event[2])
 		if player == null:
 			player = level.player
 			player.state_changed.connect(func(_old: StringName, new: StringName) -> void:
