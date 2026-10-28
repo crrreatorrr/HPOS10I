@@ -96,6 +96,10 @@ debug_overlay={
 ]
 }
 
+[gui]
+
+theme/custom="res://ui/theme/game_theme.tres"
+
 [layer_names]
 
 2d_physics/layer_1="terrain_solid"
@@ -107,6 +111,10 @@ debug_overlay={
 2d_physics/layer_7="objects"
 2d_physics/layer_8="hazards"
 2d_physics/layer_9="boss"
+
+[physics]
+
+common/physics_interpolation=true
 
 [rendering]
 
