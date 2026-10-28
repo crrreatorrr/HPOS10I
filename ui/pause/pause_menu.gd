@@ -14,9 +14,9 @@ extends CanvasLayer
 ## come from the player's keyboard layout (InputHints), and Esc is never
 ## offered for pause (browsers keep it for leaving fullscreen).
 ##
-## Pausing releases every held game input. Resuming waits for a physics frame
-## without a fresh jump press, so the key that closed the menu never makes
-## Sproto jump. On the web and touch devices, losing focus (tab switch, phone
+## Pausing releases every held game input. Resuming waits for two physics
+## frames without a fresh jump press, so the key that closed the menu never
+## makes Sproto jump. On the web and touch devices, losing focus (tab switch, phone
 ## call) pauses the game.
 
 signal opened
@@ -28,9 +28,11 @@ const TOUCH_CONTROLS_SCENE := "res://ui/touch_controls/touch_controls.tscn"
 const DEVICE_COLUMNS := {"keyboard": 1, "gamepad": 2, "touch": 3}
 const HEADER_ACTIVE := Color(1, 0.86, 0.34)
 const HEADER_IDLE := Color(0.62, 0.66, 0.82)
+const QUIET_FRAMES_TO_RESUME := 2
 
 var _open := false
 var _resume_pending := false
+var _quiet_frames := 0
 var _last_device := "keyboard"
 var _quiet_focus := false
 
@@ -76,8 +78,16 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	# A jump pressed this frame would reach the player the moment it unpauses.
-	if _resume_pending and not Input.is_action_just_pressed(&"jump"):
+	if not _resume_pending:
+		return
+	# A jump pressed this frame would reach the player the moment it unpauses,
+	# and a press that lands mid-frame only counts from the next frame, so
+	# wait for two quiet physics frames in a row (about 33 ms).
+	if Input.is_action_just_pressed(&"jump"):
+		_quiet_frames = 0
+	else:
+		_quiet_frames += 1
+	if _quiet_frames >= QUIET_FRAMES_TO_RESUME:
 		_resume_pending = false
 		_close()
 		get_tree().paused = false
@@ -141,12 +151,13 @@ func open_menu() -> void:
 	opened.emit()
 
 
-## Closes the menu and unpauses on the next physics frame without a fresh
-## jump press.
+## Closes the menu and unpauses once two physics frames in a row had no
+## fresh jump press (see _physics_process).
 func request_resume() -> void:
 	if not _open or _resume_pending:
 		return
 	_resume_pending = true
+	_quiet_frames = 0
 	release_game_inputs()
 
 

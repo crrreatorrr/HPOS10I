@@ -38,6 +38,8 @@ const MUSIC_BUS := &"Music"
 ## Music sits a little under the effects; quieter still while paused.
 const MUSIC_DB := -4.0
 const PAUSED_MUSIC_DB := -14.0
+## How long quitting waits for the mixer after stopping every player.
+const EXIT_DRAIN_MS := 60
 
 var _music: AudioStreamPlayer
 var _current_music := &""
@@ -147,6 +149,18 @@ func _process(_delta: float) -> void:
 	if paused != _ducked:
 		_ducked = paused
 		_music.volume_db = PAUSED_MUSIC_DB if paused else MUSIC_DB
+
+
+## On quit the players stop as they leave the tree, but the mixer drops their
+## playbacks a few mix steps later; a sound still playing at exit is otherwise
+## reported as leaked resources (and fails the headless scene smoke test).
+## Only waits if anything ever played.
+func _exit_tree() -> void:
+	_music.stop()
+	for voice in _voices:
+		voice.stop()
+	if _start_counter > 0 or _music.stream != null:
+		OS.delay_msec(EXIT_DRAIN_MS)
 
 
 ## An idle voice, or the one that started longest ago.

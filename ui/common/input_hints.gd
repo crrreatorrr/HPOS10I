@@ -20,9 +20,13 @@ static func key_label(physical: Key) -> String:
 	var lead := _lead_labels()
 	if lead != null:
 		return str(lead.call(&"for_physical", physical)).to_upper()
-	var logical := DisplayServer.keyboard_get_label_from_physical(physical)
-	if logical == KEY_NONE:
-		logical = physical
+	var logical := physical
+	# Desktop platforms know the layout; elsewhere (web, headless) the key's
+	# own (US) name is the best guess.
+	if _knows_layout():
+		var label := DisplayServer.keyboard_get_label_from_physical(physical)
+		if label != KEY_NONE:
+			logical = label
 	return OS.get_keycode_string(logical).to_upper()
 
 
@@ -81,3 +85,9 @@ static func _lead_labels() -> GDScript:
 		if method.name == "for_physical":
 			return script
 	return null
+
+
+## keyboard_get_label_from_physical() works on the desktop display servers;
+## the web and headless ones report an error instead.
+static func _knows_layout() -> bool:
+	return DisplayServer.get_name() in ["Windows", "macOS", "X11", "Wayland"]
