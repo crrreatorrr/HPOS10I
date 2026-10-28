@@ -42,3 +42,19 @@ Evidence: `qa/reports/evidence/07-ui-title/title_and_zone_select.png` (top row k
 | ID | Severity | Owner | Finding | Fix |
 |---|---|---|---|---|
 | UI-T1 | polish | ui-audio | In touch mode the zone select's bottom hint still reads "JUMP: START  PAUSE: BACK TO TITLE". | Show "TAP AN ACT  TAP BACK FOR THE TITLE" when `Display.is_touch`, as the playground hint does. |
+
+## Re-check @ 6721b36 (34d609b "menus act only as the current scene", main e822f3d with the real emerald icon): MERGE
+
+- **QA test fix (d76730e on qa):** `test_pause_only_in_gameplay` now guards its cleanup with `is_instance_valid`. It still proves its point: pause does nothing on a menu stand-in or on the real title screen, and works in the playground.
+- **The whole suite on ui-audio merged with main, with QA's tests:** 484 passed, 0 failed at 30, 60 and 144 fps (`suite_framerates.sh`). Smoke 38/38; 0 originality hits.
+- **Title disclaimer:** word for word as in `CONTRACTS.md:374`, "A free, non-commercial fan parody. All characters and art are original."
+- **Leftover-scene guard (QA probe):** a title screen or zone select that is in the tree but not the current scene ignores jump, pause and a left click. The current scene stays the level.
+- **Web (pointer only):**
+  - A headless boot driven only by pointer events reaches Zone 1 Act 1 on frame 102.
+  - The sequence is title at frame 41, then the first act button at frame 101.
+  - It works with mouse clicks and with screen touches alike.
+- **Web check:** a simulated pack is 3.0 MB (2.0 MB gzip); `web_check` reports 0 FAIL, 0 WARN.
+- **Tally overlap and the real icon** (`qa/reports/evidence/07-ui-title/tally_and_zone_select_real_icon.png`, names blacked out):
+  - In the tally preview, the panel sits between the HUD counters and the playground's bottom hint line, and the emerald name shares one line with "2 / 8".
+  - The zone select shows the 8 slots with the real emerald icon, dimmed while empty.
+- **Still open:** UI-T1 (polish, touch-mode hint text on the zone select).
