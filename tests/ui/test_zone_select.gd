@@ -132,6 +132,26 @@ func test_pause_goes_back_but_enter_chooses() -> void:
 	assert_true(other.is_busy(), "P (pause) goes back")
 
 
+func test_unreleased_zones_are_locked_but_keep_their_slots() -> void:
+	# A zone whose acts exist but that isn't released yet locks like an
+	# unbuilt one, and still shows its emerald slots.
+	assert_true(ZoneSelect.is_zone_released(ZoneRegistry.get_zone("z1_retro_rush_hills")), "zone 1 is released")
+	var registry_has_it := false
+	for method in (load("res://core/zone_registry.gd") as GDScript).get_script_method_list():
+		registry_has_it = registry_has_it or method.name == "is_released"
+	if not registry_has_it:
+		var zone := ZoneRegistry.get_zone("z1_retro_rush_hills").duplicate()
+		zone["released"] = false
+		assert_true(not ZoneSelect.is_zone_released(zone), "a released = false zone is locked (fallback)")
+	var select := _open()
+	assert_eq(select.emerald_slots().size(), Emeralds.total(), "every slot shown, released or not")
+	for entry in select.act_buttons():
+		if not ZoneSelect.is_zone_released(ZoneRegistry.get_zone(entry[0])):
+			var button: Button = entry[2]
+			assert_true(button.disabled and button.focus_mode == Control.FOCUS_NONE,
+					"%s act %d locked (unreleased)" % [entry[0], entry[1]])
+
+
 func test_hint_follows_touch_mode() -> void:
 	var select := _open()
 	var hint := select.get_node("%Hint") as Label
