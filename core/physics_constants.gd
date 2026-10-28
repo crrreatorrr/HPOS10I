@@ -2,8 +2,8 @@ class_name PhysicsConstants
 extends Resource
 ## Every movement constant for Sproto, in one place for live tuning.
 ##
-## Values are stored in the classic units from the community Sonic Physics
-## Guide: pixels per frame (speeds) and pixels per frame per frame
+## Values are stored in the classic units from the community Physics Guide:
+## pixels per frame (speeds) and pixels per frame per frame
 ## (accelerations), at a fixed 60 fps. Convert with speed() / accel() before
 ## integrating with delta, or step the controller once per 60 Hz tick.
 ##
