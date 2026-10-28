@@ -1,6 +1,6 @@
 # HPOS10I
 
-A high-speed 2D momentum platformer starring **Sproto**, a very fast white dog,
+A high-speed 2D momentum platformer starring **Sproto**, a tiny speed demon with a clown nose,
 built in Godot 4 with classic 16-bit physics.
 
 > **Free, non-commercial fan parody.** All characters, names, art, music, sound
