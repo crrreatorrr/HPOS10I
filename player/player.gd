@@ -61,6 +61,11 @@ const MIN_SUB_STEP := 2.0
 const SUB_STEP_MARGIN := 2.0
 ## The hitbox Area2D is this much shorter than the sensor box at each end.
 const HITBOX_HEIGHT_TRIM := 3.0
+## Overlap with moving terrain that still counts as touching, not crushing.
+const CRUSH_TOLERANCE := 1.0
+## A platform moving further than this in one tick teleported (a reset): it
+## doesn't take him along.
+const MAX_CARRY := 64.0
 ## Sensor labels, built once (nothing is allocated per tick).
 static var floor_labels := PackedStringArray(["A", "B", "AB"])
 static var ceiling_labels := PackedStringArray(["C", "D", "CD"])
@@ -122,6 +127,12 @@ var _in_valley := false  # standing flat across the bottom of a V
 var _invincible_frames := 0
 var _death_frames := 0
 var _frozen := false
+## The body under the floor sensors at the last floor check, and where the
+## physics server had it then.
+var _support: Object = null
+var _support_origin := Vector2.ZERO
+## How fast (px/frame) he sinks with the platform he rides (or fell onto it).
+var _ride_down := 0.0
 
 
 ## Returns the player whose hitbox is `area`, or null.
@@ -349,6 +360,7 @@ func respawn_at(new_position: Vector2) -> void:
 	pose = &""
 	z_index = 0
 	collision_path = PATH_A
+	_ride_down = 0.0
 	hitbox.set_deferred(&"monitorable", true)
 	_change_state(&"idle")
 	_update_hitbox()
@@ -365,6 +377,11 @@ func _physics_process(delta: float) -> void:
 		_invincible_frames -= 1
 	if _state == &"dead":
 		_dead_step(p, delta)
+		return
+	_carry(p)
+	if _state != &"dead":
+		_resolve_moving_terrain(p)
+	if _state == &"dead":
 		return
 	if grounded:
 		_ground_step(p, delta)
@@ -654,6 +671,7 @@ func _ground_floor_check(tolerance := -1.0) -> bool:
 		tolerance = minf(along / PhysicsConstants.FPS + SNAP_BASE, SNAP_MAX)
 	if gap > tolerance:
 		return false
+	_set_support(hit.collider)
 	global_position += down * gap
 	if valley and at_rest:
 		# Come to rest where both sensors touch: steady, so he can stay, crouch
@@ -879,6 +897,8 @@ func _land(p: PhysicsConstants, angle: float) -> bool:
 
 ## Puts the player on the ground at `angle` with ground speed `speed` (px/s).
 func _attach(p: PhysicsConstants, angle: float, speed: float) -> bool:
+	# Landing on a sinking platform: he can follow it as fast as he fell.
+	_ride_down = maxf(_vel.y / PhysicsConstants.FPS, 0.0)
 	var was_ball := _ball
 	_set_ball(false)
 	ground_angle = angle
@@ -901,6 +921,7 @@ func _attach(p: PhysicsConstants, angle: float, speed: float) -> bool:
 
 func _leave_ground() -> void:
 	grounded = false
+	_support = null
 	_in_valley = false
 	collision_mode = FLOOR
 	crouching = false
@@ -914,6 +935,127 @@ func _dead_step(p: PhysicsConstants, dt: float) -> void:
 	_death_frames += 1
 	if _death_frames == p.died_delay_frames:
 		died.emit()
+
+
+# --- Moving terrain (docs/CONTRACTS.md) -------------------------------------------
+# Moving bodies are AnimatableBody2D platforms that expose platform_delta(). The
+# physics server moves them at the end of a tick, so during a tick every sensor
+# (and the picture, with physics interpolation) has them where the last step
+# put them. Each tick, before his own movement, Sproto is carried by how far
+# the body under him moved in that step (its platform_delta() then), measured
+# from the physics server so it is right whichever script runs first. His own
+# movement then works against the same geometry the screen shows.
+
+static func _is_moving(body: Object) -> bool:
+	return body != null and is_instance_valid(body) and body.has_method(&"platform_delta")
+
+
+static func _server_origin(body: Object) -> Vector2:
+	var transform: Transform2D = PhysicsServer2D.body_get_state((body as CollisionObject2D).get_rid(),
+			PhysicsServer2D.BODY_STATE_TRANSFORM)
+	return transform.origin
+
+
+func _set_support(body: Object) -> void:
+	_support = body
+	if _is_moving(body):
+		_support_origin = _server_origin(body)
+
+
+## Carries a grounded Sproto with the body he stands on (or runs on, in the
+## wall and ceiling modes) and any conveyor_speed meta on it. Ground speed is
+## never touched. If the surface drops away faster than he could fall (more
+## than his sinking speed + gravity + the 4 px ground snap in one tick), he
+## lifts off instead.
+func _carry(p: PhysicsConstants) -> void:
+	if not grounded or _support == null or not is_instance_valid(_support):
+		return
+	var platform := _is_moving(_support)
+	var move := Vector2.ZERO
+	if platform:
+		var origin := _server_origin(_support)
+		move = origin - _support_origin
+		_support_origin = origin
+		if move.length() > MAX_CARRY:
+			move = Vector2.ZERO
+	if _support.has_meta(&"conveyor_speed"):
+		var a := deg_to_rad(ground_angle)
+		move += Vector2(cos(a), -sin(a)) * float(_support.get_meta(&"conveyor_speed"))
+	var down := mode_down(collision_mode)
+	var sink := move.dot(down) if platform else 0.0
+	if sink > maxf(_ride_down, 0.0) + p.gravity + SNAP_BASE:
+		_vel += down * maxf(_ride_down, 0.0) * PhysicsConstants.FPS
+		_leave_ground()
+		return
+	_ride_down = sink
+	if move != Vector2.ZERO:
+		_carry_by(p, move)
+
+
+## Moves a carried Sproto, stopping at walls; carried up into a ceiling with
+## no room for him, he is crushed.
+func _carry_by(p: PhysicsConstants, move: Vector2) -> void:
+	global_position += move
+	var mask := _terrain_mask(false)
+	var right := mode_right(collision_mode)
+	var side := move.dot(right)
+	if side != 0.0:
+		var dir := right * signf(side)
+		var label := "F" if side > 0.0 else "E"
+		var hit := sensors.cast(label, global_position, dir, p.push_radius, mask)
+		if collision_mode == FLOOR and angle_from_flat(ground_angle) < 1.0 and not _ball:
+			var head := global_position + Vector2(0.0, 1.0 - p.height_radius)
+			var top := sensors.cast(label, head, dir, p.push_radius, mask)
+			if top != null and (hit == null or top.distance < hit.distance):
+				hit = top
+		if hit != null and hit.collider != _support:
+			global_position -= dir * (p.push_radius - hit.distance)
+	var up := -mode_down(collision_mode)
+	if move.dot(up) > 0.0:
+		var r := get_radii()
+		var hit := sensors.cast_pair(ceiling_labels, global_position, right, up, r.x, r.y,
+				mask)
+		if hit != null and hit.collider != _support and hit.distance < r.y - CRUSH_TOLERANCE:
+			kill()
+
+
+## Before he moves: moving terrain that has moved into him pushes him out, and
+## if it leaves no room he is crushed. The rule: along each axis of the
+## current collision mode, through his centre, the free span between the
+## nearest surfaces on either side (sensor rays, solid terrain of his path)
+## is measured whenever one of them is moving terrain; shorter than his
+## current hitbox (2 x radii) by more than CRUSH_TOLERANCE, or his centre
+## inside moving terrain, is a crush (kill()). Otherwise the moving side
+## pushes him out as far as the other side leaves room.
+func _resolve_moving_terrain(p: PhysicsConstants) -> void:
+	var mask := _terrain_mask(false)
+	if sensors.moving_body_at(global_position, mask):
+		kill()
+		return
+	var r := get_radii()
+	if not _resolve_axis(mode_right(collision_mode), maxf(r.x, p.push_radius), r.x, mask):
+		_resolve_axis(mode_down(collision_mode), r.y, r.y, mask)
+
+
+## One axis of _resolve_moving_terrain(): `keep` is how far surfaces are kept
+## from his centre, `half` his hitbox half-size. Returns true when crushed.
+func _resolve_axis(dir: Vector2, keep: float, half: float, mask: int) -> bool:
+	var ahead := sensors.cast("M", global_position, dir, keep * 2.0, mask)
+	var behind := sensors.cast("M", global_position, -dir, keep * 2.0, mask)
+	var moving_ahead := ahead != null and _is_moving(ahead.collider)
+	var moving_behind := behind != null and _is_moving(behind.collider)
+	if not moving_ahead and not moving_behind:
+		return false
+	var a := ahead.distance if ahead != null else INF
+	var b := behind.distance if behind != null else INF
+	if a + b < 2.0 * half - CRUSH_TOLERANCE:
+		kill()
+		return true
+	if moving_ahead and a < keep:
+		global_position -= dir * clampf(keep - a, 0.0, maxf(b - half, 0.0))
+	elif moving_behind and b < keep:
+		global_position += dir * clampf(keep - b, 0.0, maxf(a - half, 0.0))
+	return false
 
 
 # --- Helpers --------------------------------------------------------------------
