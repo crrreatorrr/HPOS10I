@@ -15,8 +15,11 @@ Each agent works on its own branch and only touches its own folders.
 | Boss agent | `bosses` | `bosses/`, `tests/bosses/` |
 | Art agent | `art` | `assets/`, `tools/art/`, `prompts.md` |
 | UI/audio agent | `ui-audio` | `ui/`, `audio/`, `tests/ui/` |
+| QA agent | `qa` | `qa/`, `tools/qa/`, `tests/qa/` |
 
-Other agents' folders are **read-only** to you. If you need a shared-file
+Other agents' folders are **read-only** to you. The QA agent reads
+everything and changes nothing outside its folders: bugs go back to the
+owning agent. If you need a shared-file
 change (a physics constant, input action, autoload, collision layer, a change
 to this file), do not edit it. Use a local fallback marked `# LEAD-REQUEST`
 and list the request in your final report.
@@ -220,6 +223,17 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 | `ui/touch_controls/touch_controls.tscn` | Shown only when `DisplayServer.is_touchscreen_available()` |
 | `ui/tally/score_tally.tscn` | Emits `finished` |
 | `ui/game_over/game_over.tscn`, `ui/ending/ending.tscn` | |
+
+## Merge gate
+
+1. The agent finishes and reports.
+2. The QA agent reviews the branch against `qa/checklists/` and writes
+   `qa/reports/<NN>-<branch>.md` with a verdict and bugs by severity:
+   - **blocker:** must fix before merge
+   - **major:** fix this step
+   - **minor:** backlog
+3. The owner fixes blockers. QA re-checks them.
+4. The lead runs the game, records a clip, merges with `--no-ff` and pushes. CI deploys.
 
 ## Before you report back
 
