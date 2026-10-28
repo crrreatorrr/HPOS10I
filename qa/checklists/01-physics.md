@@ -161,3 +161,43 @@ Reference numbers derived from the constants (use them as expected values):
 - [ ] PHY-L2 [auto] Overlay values match the player properties on the same frame.
 - [ ] PHY-L3 [auto] Toggling the overlay does not change the simulation (same timeline with and without `--overlay` gives identical results).
 - [ ] PHY-L4 [manual] Overlay is readable at 424×240 and does not cover the HUD.
+
+## M. Moving terrain (docs/CONTRACTS.md "Moving terrain", main 0ce424e)
+
+Player side: physics agent. Objects (platforms, stairs, bookshelves, conveyors, crushers): level agent.
+`tests/qa/test_moving_terrain.gd` holds the auto items; they skip until `player/` reads `platform_delta()`.
+
+QA test platforms are `AnimatableBody2D` with `sync_to_physics = true` on `Layers.TERRAIN_SOLID`. They move in `_physics_process` at `process_physics_priority = -10` (before the player) and return their tick's displacement from `platform_delta()`.
+
+- [ ] PHY-M1 [auto] **Ride, horizontal.** Standing still on a platform moving ±2 px/f, Sproto's x changes by exactly `platform_delta().x` every tick (±0.01). He stays grounded and his `ground_speed` stays 0. At each reversal he doesn't slide, drift or step off.
+- [ ] PHY-M2 [auto] **Ride, vertical.**
+  - Up at 1–3 px/f: Sproto stays on top, grounded, with his feet on the surface (±0.5 px), and is never pushed inside it.
+  - Down at 1–3 px/f: he is carried down, grounded.
+- [ ] PHY-M3 [auto] **Ride, diagonal** (2, -1) px/f: carried on both axes, grounded.
+- [ ] PHY-M4 [auto] **Down faster than gravity.** The platform drops at 8–12 px/f, faster than Sproto falls in one tick.
+  - He either stays carried or becomes airborne and lands again on the platform or the ground.
+  - He never ends a tick inside the platform, never gets NaN, and never lands below the surface.
+  - When the platform stops, he is grounded within 30 ticks.
+- [ ] PHY-M5 [auto] **Jumping off** a platform moving 2 px/f right with no input: his x velocity in the air is his own (≈ 0), not the platform's (the contract: the platform's speed is not added).
+  - With right held, his speed is his own running speed.
+  - Landing back on the moving platform carries him again.
+- [ ] PHY-M6 [auto] **Run on and off** a moving platform at 6 px/f: no snag at its edges, no speed spike. Walking off its edge starts a normal fall.
+- [ ] PHY-M7 [auto] **Conveyors** (`conveyor_speed` meta, ±2 px/f):
+  - Standing still, he moves `conveyor_speed` per tick while grounded, and `ground_speed` stays 0.
+  - Running against it at 3 px/f, his net motion is 1 px/f.
+  - Jumping off, his air x speed is his own. Landing on a conveyor is applied from the first grounded tick.
+  - Both directions.
+- [ ] PHY-M8 [auto] **Crush rule.** A platform closing on Sproto against the floor (from above) or against a wall (from the side) calls `kill()` on the tick the gap gets smaller than his current hitbox (38 px standing, 28 px rolling: a roller fits where a stander does not).
+- [ ] PHY-M9 [auto] **No false kill.**
+  - A platform that stops 1 px above his head, or merely touches his side, never kills.
+  - A platform that pushes him sideways into open space carries or pushes him; it doesn't kill.
+  - A head bump while jumping into a moving platform's underside is a ceiling hit, not a crush.
+- [ ] PHY-M10 [auto] **Platforms and paths.** A moving platform on `TERRAIN_TOP_ONLY` can be jumped through from below and carries him once he lands. It never carries him while he is passing up through it.
+- [ ] PHY-M11 [auto] **Interpolation** (`physics_interpolation = true`).
+  - Riding a platform at 1–3 px/f, Sproto and the platform keep a constant screen offset (no 1 px jitter between them; Movie Maker at 144 Hz as in 03-camera).
+  - A platform reset or teleport calls `reset_physics_interpolation()`: no sweep frame.
+- [ ] PHY-M12 [auto] **Fuzz** on QA's platform-heavy scene (horizontal, vertical, diagonal and fast-dropping platforms, conveyors and a crusher): random inputs for 3,000 ticks with 3 seeds.
+  - Sproto is never inside terrain and never NaN.
+  - He dies only in a crusher gap.
+- [ ] PHY-M13 [auto] **Telegraphed crushers** (level objects). Every crusher shows a telegraph at least `Difficulty.telegraph(base, local)` and never under 0.35 s before it starts closing. Log telegraph start and close start per cycle. No closing motion ever starts without a telegraph, including the first cycle after a respawn and after a pause.
+- [ ] PHY-M14 [manual] Riding feels solid: no visible sliding on stairs or bookshelves, and the camera follows a carried Sproto smoothly.
