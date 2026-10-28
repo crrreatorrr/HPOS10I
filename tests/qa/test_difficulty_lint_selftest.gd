@@ -18,13 +18,15 @@ var _tier_script: GDScript
 ## Enemies along an act that follows the ramp for a T1 act: 3 in the opening,
 ## 9 in the middle, 6 in the finale (one of them T2). [progress, tier] pairs.
 static func ramped_enemies() -> Array:
+	# Clear of the 2 screens (0.045 progress) after the checkpoints at 0.35,
+	# 0.55 and 0.75 (the safe-spot rule).
 	var out: Array = []
-	for i in 3:
-		out.append([0.03 + i * 0.07, 1])
-	for i in 9:
-		out.append([0.28 + i * 0.05, 1])
+	for p in [0.03, 0.10, 0.17]:
+		out.append([p, 1])
+	for p in [0.26, 0.29, 0.32, 0.41, 0.44, 0.47, 0.50, 0.61, 0.64]:
+		out.append([p, 1])
 	for i in 6:
-		out.append([0.78 + i * 0.035, 2 if i == 3 else 1])
+		out.append([0.81 + i * 0.03, 2 if i == 3 else 1])
 	return out
 
 
@@ -193,6 +195,14 @@ func test_group_nodes_are_containers_not_items() -> void:
 	var m: Dictionary = await _measure(_fixture(ramped_enemies(), [0.35, 0.55, 0.75], 225, grouped))
 	assert_eq(int(m.tickets), 225 + 30, "every ticket inside the group counts")
 	assert_eq(int(m.checkpoints), 3 + 2, "checkpoints inside a group count, the group doesn't")
+
+
+func test_enemies_too_close_after_a_checkpoint_fail_below_d5() -> void:
+	var enemies := ramped_enemies()
+	enemies.append([0.56, 1])  # right after the checkpoint at 0.55
+	var m: Dictionary = await _measure(_fixture(enemies, [0.35, 0.55, 0.75], 225))
+	assert_true("difficulty.safe_spot" in _rules(Diff.check(m, 1.0, ROW_1), "error"), "an enemy 0.4 screens after a checkpoint")
+	assert_true(not "difficulty.safe_spot" in _rules(Diff.check(m, 5.0, ROW_1), "error"), "allowed from D5")
 
 
 func test_vertical_climb_and_dead_end_raise_the_direction() -> void:

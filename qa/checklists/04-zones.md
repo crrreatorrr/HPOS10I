@@ -102,6 +102,56 @@ Run `godot --headless --path . -s res://tools/qa/level_lint.gd` for the full per
   - Backtracking is never more than 3 screens without a visible reason.
 - [ ] ZN-I13 [manual] Every act has a fast HIGH route and a safer LOW route. In later acts the high route is harder to stay on and the low route longer.
 
+## J. New enemy behaviours, T2–T4 (docs/LEVELS.md "Enemy tiers")
+
+For every behaviour: the enemy extends `Enemy` with the right `tier`. Its speed, attack interval and telegraph come from `Difficulty.speed_mult/interval_mult/telegraph(…, Difficulty.local(LevelRoot.progress_at(x)))`, so the same scene is livelier in a finale (probe it at progress 0.5 and 0.95). Every attack is telegraphed (visual + sfx) at least 0.35 s before its first damaging frame.
+
+- [ ] ZN-J1 [auto] **Chaser (T2).**
+  - Patrols; notices Sproto only within its sight range ahead.
+  - Flashes its eye as a telegraph (≥ 0.35 s), then rushes.
+  - Jump over or roll through destroys it; touching it while not attacking hurts.
+  - The rush stops at walls and ledges.
+- [ ] ZN-J2 [auto] **Floater (T2).** Hovers on a sine path; destroyed when Sproto jumps into it at its height; never leaves its path bounds.
+- [ ] ZN-J3 [auto] **Pellet pill (T2).**
+  - Telegraphs, then fires a slow pellet along the ground or in an arc.
+  - The pellet hurts and can be jumped; it is destroyed on terrain and despawns off-screen. No pellet leaks: node count stays flat over 5 minutes.
+  - The pill can be hit between shots.
+- [ ] ZN-J4 [auto] **Armored pill (T3).**
+  - Its front shield hurts Sproto unless he hits from above or behind, or rolls into it at ground speed ≥ 4.5.
+  - A roll below 4.5 into the front bounces off and hurts (or the documented result), with no double hit.
+  - A spin dash at full charge breaks it from the front.
+  - Test all four approaches at both facings.
+- [ ] ZN-J5 [auto] **Spike pill (T3).**
+  - Its spikes pop out on a timer, telegraphed ≥ 0.35 s. While they are out every touch hurts; while retracted it is destroyed normally.
+  - The timer scales with `interval_mult`.
+- [ ] ZN-J6 [auto] **Diver (T3).** Hovers, telegraphs, then swoops at where Sproto *was* at the telegraph (not homing). Moving after the telegraph always avoids it. Destroyable during the swoop.
+- [ ] ZN-J7 [auto] **Splitter (T4).**
+  - The first hit splits it into exactly two mini pills: no more, and never recursive. They spawn clear of terrain and of Sproto's hitbox, with a short spawn grace so they don't hurt on frame 1.
+  - Chained bounces destroy them; the score is documented (e.g. +100 each).
+  - Destroying a mini never splits again.
+- [ ] ZN-J8 [auto] **Orbit shield (T4).**
+  - Two capsule shields orbit it, and the gap is wide enough for Sproto's ball (≥ 28 px at the closest point) at every D.
+  - Hitting a shield bounces or hurts as documented; going through the gap destroys the core.
+  - The orbit speed scales with `speed_mult`, never so fast the gap is shorter than about 6 frames.
+- [ ] ZN-J9 [auto] **Sniper (T4).**
+  - An aimed 3-shot burst after a long telegraph (≥ 0.6 s base, never under 0.35 s).
+  - Shots aim at Sproto's position at telegraph end, and breaking line of sight (terrain between) cancels or blocks them.
+  - No shot from off-screen.
+- [ ] ZN-J10 [auto] **Dropper (T4).** Hangs from the ceiling and drops only when Sproto passes under within its trigger width, with a telegraph (shake ≥ 0.35 s). It doesn't drop on a respawn underneath. It is destroyed on landing or by an attack.
+- [ ] ZN-J11 [auto] **Fair spawns.** Below D5, no enemy within 2 screens after a spring, a loop exit or a checkpoint (lint `difficulty.safe_spot`).
+  - Enemies never spawn on top of Sproto at a respawn: none within 1 screen of the respawn checkpoint is active in the first 1 s.
+  - Projectiles never come from off-screen.
+- [ ] ZN-J12 [manual] Each behaviour reads at a glance (silhouette and colour by tier), and its telegraph is visible against every zone background.
+
+## K. Zone looks: originality guardrails (docs/DESIGN.md "Zones")
+
+- [ ] ZN-K1 [auto] (img) **Zone 1 terrain is a diamond checker, not a square one.** On `assets/terrain/z1_retro_rush_hills/fill.png` (and the level's fill tiles), the strongest 2D autocorrelation peaks sit on the diagonals, at (±p, ±p), not on the axes at (p, 0) and (0, p). Report the peak positions.
+- [ ] ZN-K2 [manual] **Zone 1:** sunny tropical hills, palm trees, waterfalls and loops of our own design. No brown-and-tan square checker, and no existing game's landmarks (signature rock arches, totem poles, specific logo-like rings, recognisable layouts).
+- [ ] ZN-K3 [manual + scan] **Zone 2:** an original magic-school castle. No houses, crests or house-coloured scarves, no lightning-bolt marks, no names from existing wizard stories. `originality_scan.sh` covers names in files, prompts and node names.
+- [ ] ZN-K4 [manual] **Zone 3:** a mansion of our own design. No replica of a real building, no seals, flags, portraits, real people or real signage.
+- [ ] ZN-K5 [manual] **Zone 4:** Zone 1 ideas in synthwave neon. No real brand logos or signage, and glow doesn't hide hazards (Z4-4).
+- [ ] ZN-K6 [auto] Every zone's `prompts.md` rows use only the zone's own words. `originality_scan.sh` (prompt and reference columns included) finds 0 hits before the zone merges.
+
 ## D. Zone 1 – Retro Rush Hills (`z1_retro_rush_hills`)
 
 - [ ] Z1-1 [manual] Bright checkered dirt, palm trees, loops, waterfalls; original art, no recognisable copies of existing games' levels.
