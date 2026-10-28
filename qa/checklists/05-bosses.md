@@ -25,7 +25,7 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 
 ## C. Telegraphs and fairness
 
-- [ ] BOS-C1 [auto] Every attack is preceded by a telegraph (visual + sfx `boss_telegraph`) of at least `Difficulty.telegraph(base, D)` and never under 0.35 s before the first damaging frame (log telegraph and attack frames). D is the zone's Act 2 value (BOS-H1).
+- [ ] BOS-C1 [auto] Every attack is preceded by a telegraph (visual + sfx `boss_telegraph`) of at least `Difficulty.telegraph(base, d)` and never under 0.35 s before the first damaging frame (log telegraph and attack frames). d is the boss's own value from `Difficulty.boss(zone_id)` (BOS-H1, BOS-H4).
 - [ ] BOS-C2 [manual] Every attack is avoidable with normal inputs; there is always a safe spot.
 - [ ] BOS-C3 [manual] Fight length 1–3 minutes for a first-time player.
 - [ ] BOS-C4 [manual] Phases read clearly (colour, speed or pattern change).
@@ -52,16 +52,53 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 - [ ] BOS-F4 [manual] The Executive: a generic businessman, no real person's likeness, no real company logo or brand.
 - [ ] BOS-F5 [auto] The Executive's final hit plays in slow motion: `Engine.time_scale` < 1 for at most about 2 s, then exactly 1.0, also if the game is paused or the player dies during it; the next scene starts at 1.0.
 
-## H. Difficulty scaling (docs/LEVELS.md, `core/difficulty.gd`)
+## H. Boss difficulty (docs/LEVELS.md "Bosses", `Difficulty.boss(zone_id)`, main a866341)
 
-- [ ] BOS-H1 [auto] Each arena runs at its zone's Act 2 D: Rug Pull 2, Library Demon 4, Broccoli Head 6, The Executive 8. `Difficulty.for_stage(zone, acts + 1)` matches, and the boss reads `Difficulty.current()` (not a constant).
-- [ ] BOS-H2 [auto] The boss scales speed by `Difficulty.speed_mult()`, attack intervals by `interval_mult()` and telegraphs by `telegraph()`. Probe the same boss scene at D 2 and D 8 (set `SceneRouter.zone_id`/`stage`, or call with an explicit D):
-  - movement speed ratio `speed_mult(8)/speed_mult(2)` = 1.42/1.06 ≈ 1.34;
-  - interval ratio 0.65/0.95 ≈ 0.68;
-  - telegraphs never under 0.35 s.
-- [ ] BOS-H3 [auto] Later bosses start harder. Record each boss's mean attack interval and its fastest move speed in phase 1. Each is at least as hard as the previous boss's (shorter interval or faster). The base aggression rises with D on top of the multipliers.
-- [ ] BOS-H4 [auto] Phase speed-ups after hits 4 and 6 multiply with the D scaling. They never push a telegraph under 0.35 s or an attack interval under the telegraph plus 0.25 s of recovery.
-- [ ] BOS-H5 [manual] Still fair at D 8: the 8 hits stay reachable, there is always a safe spot, and the fight lasts 1–3 minutes for a first-time player.
+Expected values. Multipliers are at the boss's own d; the telegraph is `Difficulty.telegraph(base, d)`, floored at 0.35 s.
+
+| Boss | d | Weak window | Attacks per cycle | Telegraph | Escalation after hits 4 and 6 | Desperation (hits 7–8) | Ticket refills |
+|---|---|---|---|---|---|---|---|
+| Rug Pull (Z1) | 2.5 | 2.0 s | 1 | 0.8 → 0.752 s | ×1.15 | no | 3 |
+| Library Demon (Z2) | 4.5 | 1.7 s | 2 | 0.7 → 0.602 s | ×1.15 | no | 2 |
+| Broccoli Head (Z3) | 8 | 1.1 s | 3 | 0.5 → 0.36 s | ×1.25 | yes | 1 |
+| The Executive (Z4) | 10 | 0.9 s | 4 | 0.45 → 0.35 s (floor) | ×1.3 | yes | 1 |
+
+Speed and interval multipliers:
+
+| Boss | `speed_mult` | `interval_mult` |
+|---|---|---|
+| Rug Pull | 1.09 | 0.925 |
+| Library Demon | 1.21 | 0.825 |
+| Broccoli Head | 1.42 | 0.65 |
+| The Executive | 1.54 | 0.55 |
+
+Measure every item with a probe that logs, per physics frame: boss state, attack start and end, telegraph start, damaging hitboxes active, weak point hittable, hits, and tickets spawned. Use the documented debug hook to start the fight at hit N.
+
+- [ ] BOS-H0 [auto] `tests/qa/test_boss_difficulty.gd` checks the table itself (runs now):
+  - d rises boss by boss, the weak window shrinks, attacks per cycle never drop, and refills never rise;
+  - every `telegraph(base, d)` is at least 0.35 s;
+  - desperation only for Z3/Z4;
+  - the arena stage's `for_stage` equals the boss d;
+  - once `bosses/` has scripts, they read `Difficulty.boss(`.
+- [ ] BOS-H1 [auto] The arena stage's D is `Difficulty.for_stage(zone, acts + 1)` = the boss's d (2.5 / 4.5 / 8 / 10). The boss reads `Difficulty.boss(zone_id)` and the multipliers at that d, never hard-coded numbers (grep `bosses/`).
+- [ ] BOS-H2 [auto] **Weak-point window.** Per opening, the weak point (`boss_weak_point` area enabled and hittable) stays open `weak_window` seconds ±1 frame. Check every opening of every phase. Escalation must not shorten it below the table unless LEVELS.md says so.
+- [ ] BOS-H3 [auto] **Attacks per cycle.** Between two openings, the boss starts exactly `attacks_per_cycle` attacks in phases 1–2. In desperation, combined attacks may overlap but are still counted and listed in the report.
+- [ ] BOS-H4 [auto] **Telegraph floor.** In phase 1, every attack's telegraph starts at least `Difficulty.telegraph(base, d)` before its first damaging frame (table above). In every phase, including after escalation and in desperation, it is never under 0.35 s. Report the shortest telegraph per boss and phase.
+- [ ] BOS-H5 [auto] **Escalation.** Mean move speed (and attack rate) after hit 4 is ×`escalation` of phase 1 (±5 %), and after hit 6 ×`escalation`² (Executive ×1.69). Hits 4 and 6 also emit `phase_changed`.
+- [ ] BOS-H6 [auto] **Desperation.** Broccoli Head and The Executive enter an extra phase at hit 7: `phase_changed` fires, it is the fastest phase, and the documented combined attacks appear. The Rug Pull and Library Demon have no desperation phase.
+- [ ] BOS-H7 [auto] **Ticket refills.** Over a whole fight the arena hands out exactly `ticket_refills` small ticket bursts (3 / 2 / 1 / 1), each reachable without taking damage. No other ticket source exists in the arena.
+- [ ] BOS-H8 [auto] **Fair after a respawn.** After a death in the arena the player respawns at the checkpoint right outside the gate (04 ZN-I16). For the first 1.0 s after control returns: no damaging hitbox is active, no projectile spawns, and no attack starts. The boss doesn't start a chain while the player is still invulnerable from the respawn.
+- [ ] BOS-H9 [auto] **Fairness proof for Z3 and Z4.** For each phase (1, 2, desperation) of Broccoli Head and The Executive, a scripted route proves the phase can be cleared with no damage:
+  - an input timeline `tests/qa/inputs/bosses/<boss>_phase<N>.json`, or a deterministic bot policy;
+  - started at that phase through the debug hook;
+  - lands the phase's hits with 0 `hurt` events.
+  The full chain of routes (hits 1–8) also wins from a fresh fight, taking at most 1 hit.
+- [ ] BOS-H10 [auto] **"Very difficult" evidence (Z3, Z4).** Run 5 bot runs per boss: `runner` with jump-every 45/90/150 and `fuzz` seeds 1 and 2, 3 minutes each. Record hits landed and damage taken.
+  - Expected: the simple bots land few hits (median ≤ 2 of 8) and run out of tickets and lives, while the scripted expert route from BOS-H9 still wins.
+  - Z1 and Z2 for contrast: the runner lands at least 4 hits.
+  - Report the table, so "very difficult" is backed by numbers, not taste.
+- [ ] BOS-H11 [auto] Later bosses start harder. Phase-1 mean attack interval and fastest move speed rise boss by boss (Z1 < Z2 < Z3 < Z4), and the weak window shrinks (2.0 > 1.7 > 1.1 > 0.9 s).
+- [ ] BOS-H12 [manual] Very difficult but fair at Z3/Z4: every attack is readable, there is always a safe spot or answer, nothing is unavoidable at top speed, and a first-time player can learn it within a few attempts. The director plays both.
 
 ## G. Originality
 

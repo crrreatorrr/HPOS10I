@@ -67,7 +67,7 @@ runs_file, allow_unfinished = sys.argv[1], sys.argv[2] == "1"
 acts = {}
 for line in open(runs_file):
     zone, stage, d, path, jump, out = line.split()
-    act = acts.setdefault((zone, int(stage)), {"d": int(d), "path": path, "times": [], "stuck": []})
+    act = acts.setdefault((zone, int(stage)), {"d": float(d), "path": path, "times": [], "stuck": []})
     try:
         data = json.load(open(out))
     except (OSError, ValueError):
@@ -86,14 +86,14 @@ print("difficulty_bot: median clear time per act (runner policy)")
 for (zone, stage), act in ordered:
     if act["times"]:
         act["median"] = statistics.median(act["times"])
-        print("  D%d %s act %d: median %.1f s over %d/%d runs %s" % (
+        print("  D%g %s act %d: median %.1f s over %d/%d runs %s" % (
             act["d"], zone, stage, act["median"], len(act["times"]),
             len(act["times"]) + len(act["stuck"]), sorted(round(t, 1) for t in act["times"])))
     else:
         act["median"] = None
         level = "WARN" if allow_unfinished else "FAIL"
         failures += 0 if allow_unfinished else 1
-        print("  %s D%d %s act %d: the bot never finished (%s)" % (level, act["d"], zone, stage, "; ".join(act["stuck"])))
+        print("  %s D%g %s act %d: the bot never finished (%s)" % (level, act["d"], zone, stage, "; ".join(act["stuck"])))
 
 curve = [(k, a) for k, a in ordered if a["d"] >= 1 and a["median"] is not None]
 if len(curve) < 2:
@@ -104,7 +104,7 @@ else:
             continue
         if cur["median"] <= prev["median"]:
             failures += 1
-            print("  FAIL %s act %d (D%d, %.1f s) clears no slower than %s act %d (D%d, %.1f s)" % (
+            print("  FAIL %s act %d (D%g, %.1f s) clears no slower than %s act %d (D%g, %.1f s)" % (
                 key[0], key[1], cur["d"], cur["median"], prev_key[0], prev_key[1], prev["d"], prev["median"]))
 print("difficulty_bot: %d failure(s)" % failures)
 sys.exit(1 if failures else 0)
