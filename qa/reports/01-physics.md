@@ -1,9 +1,13 @@
-# QA report 01: physics @ 3aa4be3, re-checked @ 9f3303c
+# QA report 01: physics @ 3aa4be3, re-checked @ 9f3303c and @ 94dcac3
 
-> **Final verdict (re-check @ 9f3303c): FIX FIRST.** BUG-01-01 to 01-04 are fixed and BUG-01-05 is WONTFIX.
-> The force-roll added for BUG-01-03 creates a softlock in low dead ends (**BUG-01-06, blocker**).
-> Two majors on small loops predate the fixes and were missed in the first pass: **BUG-01-07** (a radius-48 loop never exits) and **BUG-01-08** (a ground-angle spike throws Sproto off).
-> One new minor: BUG-01-09. See "Re-check @ 9f3303c" at the end.
+> **Final verdict (re-check #2 @ 94dcac3): FIX FIRST.**
+> - BUG-01-01 to 01-04 and 01-06 to 01-09 are fixed; BUG-01-05 is WONTFIX.
+> - The BUG-01-08 fix introduced a regression: Sproto loses 2–5 px/frame and can stall at every sharp crest of two 45° slopes (**BUG-01-10, blocker**). The fix should be small.
+> - One pre-existing softlock remains: a sharp V valley with 50–60° sides (**BUG-01-11, major**). Levels can avoid it with fillets of 48 px or more.
+> - Everything else checked is clean.
+> - The test suite runs in about 5 s (146 tests).
+>
+> See "Re-check #2 @ 94dcac3" at the end.
 
 - Date: 2026-10-28
 - Branch: `physics` @ `3aa4be3` (Merge main into physics), base `main` @ `560175a`
@@ -409,7 +413,7 @@ Every other item was re-run (full suite, bot, smoke) and is unchanged from the f
 - **Severity:** blocker. There is no way out short of restarting: he can't turn, jump or spin dash. It can be reached by rolling into any space lower than 38 px that ends in a wall, for example a roll tunnel closed by a breakable wall that he was too slow to break. It was introduced by the BUG-01-03 fix.
 - **Owner:** physics agent (`player/player.gd`, `_roll_input` force-roll)
 - **Checklist:** PHY-G5
-- **Repro:** `qa/repros/physics/BUG-01-06_force_roll_dead_end.gd`. Clip: copy `qa/repros/physics/clips/` to `res://tests/qa_clips/`, then
+- **Repro:** `qa/repros/physics/BUG-01-06_force_roll_dead_end.gd` (fixed @ 94dcac3; now `tests/qa/test_physics_fixes.gd :: test_bug_01_06_low_dead_end_can_be_left`). Clip: copy `qa/repros/physics/clips/` to `res://tests/qa_clips/`, then
   ```bash
   PROJECT_DIR=<copy> tools/lead/record_clip.sh dead_end 600 \
       --scene=res://tests/qa_clips/dead_end.tscn --inputs=res://tests/qa_clips/inputs/dead_end.json --overlay
@@ -429,7 +433,7 @@ Every other item was re-run (full suite, bot, smoke) and is unchanged from the f
 - **Severity:** major. Holding forward, he goes round and round and never exits (2 of 9 runs). He can escape only by giving up and walking back out. It also happens at 3aa4be3 (3 of 9).
 - **Owner:** physics agent (`terrain/loop.gd`, top switcher placement)
 - **Checklist:** PHY-F2, T-1
-- **Repro:** `qa/repros/physics/BUG-01-07_small_loop_endless.gd` (radius 48, speeds 8/10/12, start x -400/-403/-407)
+- **Repro:** `qa/repros/physics/BUG-01-07_small_loop_endless.gd` (fixed @ 94dcac3; now `tests/qa/test_physics_fixes.gd :: test_bug_01_07_radius_48_always_exits`) (radius 48, speeds 8/10/12, start x -400/-403/-407)
 - **Expected:** every run exits on the far side on path A.
 - **Actual:** the top switcher is placed at y = -2r + 28 and is 64 px tall, so for r = 48 its bottom edge is at y -36. The standing hitbox crossing the loop's bottom just reaches it. Running right, he comes down the left side on path B, and the top switcher (moving right → A) sets path A again at the bottom. He climbs the lower-right quarter again. Trace (speed 10): path B at f49 (x -13), path A by f54 climbing again, repeating every ~19 frames for the whole run.
 - **Notes:** keep the top switcher's bottom edge above the floor-level crossing (at least about 40 px above the floor for the standing hitbox), or raise the minimum radius.
@@ -447,7 +451,7 @@ Every other item was re-run (full suite, bot, smoke) and is unchanged from the f
 
 - **Owner:** physics agent (`terrain/curve_terrain.gd` collision build, or the angle handling in `player/player.gd`)
 - **Checklist:** PHY-F2, T-1
-- **Repro:** `qa/repros/physics/BUG-01-08_loop_angle_spike.gd` (radius 64, entry 10 px/f from x -400: deterministic)
+- **Repro:** `qa/repros/physics/BUG-01-08_loop_angle_spike.gd` (fixed @ 94dcac3; now `tests/qa/test_physics_fixes.gd :: test_bug_01_08_small_loop_entry_has_no_angle_spike`) (radius 64, entry 10 px/f from x -400: deterministic)
 - **Expected:** the ground angle changes smoothly at the loop entry, and the loop completes.
 - **Actual:** at f40 the B floor ray hits the inner arc at (18.864, -2.844), within 0.0002 px of an arc vertex (17.14°), and returns a normal giving 124.9° instead of about 17°. Godot builds the concave ring polygon as convex pieces, and a ray grazing a vertex reports the normal of an internal edge. The angle jumps 6 → 125° in one frame (mode right wall), so velocity points up and backwards. He flies across the loop, attaches to the far side moving the wrong way, loses speed and falls: the loop is not completed.
 - **Notes:** options:
@@ -460,7 +464,7 @@ Every other item was re-run (full suite, bot, smoke) and is unchanged from the f
 - **Severity:** minor. It needs narrow solid terrain overhead and a centred upward launch while standing; in a ball (jump) C/D sit at ±7 and catch 16 px columns.
 - **Owner:** physics agent (`player/player.gd`, ceiling checks use C/D only)
 - **Checklist:** PHY-E6
-- **Repro:** `qa/repros/physics/BUG-01-09_narrow_ceiling.gd` (16 px column hanging to y -100, `launch(0, -10)` from directly below)
+- **Repro:** `qa/repros/physics/BUG-01-09_narrow_ceiling.gd` (fixed @ 94dcac3; now `tests/qa/test_physics_fixes.gd :: test_bug_01_09_spring_under_a_narrow_column`) (16 px column hanging to y -100, `launch(0, -10)` from directly below)
 - **Expected:** the head stops at y -100.
 - **Actual:** the C/D rays at x ± 9 miss the column. At frame 6 the head is at -102.6 and the centre goes on into the column.
 - **Notes:** this is the ceiling counterpart of BUG-01-02; give the ceiling and jump-clearance `cast_pair` calls the same centre fallback ray.
@@ -475,3 +479,120 @@ Every other item was re-run (full suite, bot, smoke) and is unchanged from the f
   - repros for BUG-01-06 to 01-09 and a dead-end clip scene in `qa/repros/physics/`;
   - `qa/reports/evidence/01-physics/BUG-01-06_force_roll_dead_end.png`.
 - **Promoted repros:** the promoted BUG-01-01 to 01-04 repros were removed from `qa/repros/physics/`; the BUG-01-01 to 01-03 clip scenes stay.
+
+## Re-check #2 @ 94dcac3
+
+- Branch: `physics` @ `94dcac3` ("Fix QA bugs 01-06 to 01-09"). It includes `main` and the QA re-check guards; no QA file was changed by the merge.
+- Review copy: `git archive 94dcac3`, plus `build/.gdignore`. For trajectory comparisons the same probes also ran on the 9f3303c copy.
+
+### Verdict @ 94dcac3: FIX FIRST
+
+All four re-check bugs are fixed, and nearly everything I aimed at the changed code holds:
+- force-roll with every input, in both open and dead-end tunnels;
+- the new head-height wall ray at tunnel mouths, with top-only platforms, other-path terrain, step-ups and short walls;
+- loops of every radius from 48 to 256;
+- fuzz and soak runs.
+
+Two problems remain:
+- **BUG-01-10 (regression):** the new angle re-measure misfires at sharp crests of two 45° slopes. Sproto loses 2–5 px/frame and can stall on the peak at normal running speeds. Every other shape I compared is identical, frame for frame, to 9f3303c.
+- **BUG-01-11 (pre-existing):** sharp V valleys with 50–60° sides trap Sproto. It was present at all three commits and is newly found.
+
+Open bugs: **1 blocker (BUG-01-10), 1 major (BUG-01-11), 0 minor**; BUG-01-05 WONTFIX.
+
+### Status of the re-check #1 bugs
+
+| Bug | Status | Evidence |
+|---|---|---|
+| BUG-01-06 force-roll dead end | FIXED | `tests/qa/test_physics_fixes.gd :: test_bug_01_06_low_dead_end_can_be_left`: holding back backs out; with no input it turns back off the wall and creeps out of the entrance; down + jump spin dashes out. |
+| BUG-01-07 radius-48 loop never exits | FIXED | `test_bug_01_07_radius_48_always_exits` (9/9 runs exit) |
+| BUG-01-08 angle spike on small loops | FIXED | `test_bug_01_08_small_loop_entry_has_no_angle_spike` (radius 64 and 80, 3 phases); the deterministic repro passes |
+| BUG-01-09 spring into a narrow column | FIXED | `test_bug_01_09_spring_under_a_narrow_column` |
+| BUG-01-05 22° slope creep | WONTFIX | unchanged |
+
+### Regression hunt in what changed
+
+| Area | Result | Evidence |
+|---|---|---|
+| Force-roll in open low tunnels: no input, forward, back, spin dash | PASS | `test_force_roll_open_tunnel_every_input`. The head never enters the ceiling: forward and no input come out of the far end, back comes out of the entrance, and a spin dash leaves at speed. |
+| Walkers at tunnel mouths (32 / 36 / 37 / 37.5 / 38 / 39 / 40 / 48 px) | PASS | `test_walkers_stop_at_low_tunnel_mouths_only`: 37 px or less blocks, 37.5 px or more enters (a 37.5 px mouth leaves the head 0.5 px into the ceiling, negligible). At 6/12/16 px/f he stops at the mouth, nothing ends up inside terrain, and he can still jump there. |
+| Head-height ray vs top-only platform and other-path terrain at head height | PASS | `test_head_height_ray_ignores_top_only_and_other_path` (top-only and path B do not block a path-A walker; path A does) |
+| Step-ups and short walls | PASS | probe: 6/10 px steps still climbed; 12/20/60 px walls stop at the push radius as before. A wall hanging down to 20 px above the floor now blocks (head ray), as intended. |
+| Angle re-measure: sharp corners and ramp tops | PASS except BUG-01-10 | Frame-by-frame trajectories match 9f3303c on a sharp 60° ramp up, cliff launches off a 30° ramp, flat → wall, a 40 px block, 45° ramps with 16/48 px fillets, the sandbox hills curve, the quarter pipe, and loops of radius 80/112, at 4–14 px/f. Crests and valleys of 30/30, 60/60, 45/30 and 22.5/22.5 also match 9f3303c. Only the **45/45 crest differs: BUG-01-10.** |
+| Top-only platforms and path layers | PASS | all earlier guards still pass, plus the head-ray checks above |
+| Loops of every radius | PASS | sweep of radii 48/56/64/80/96/112/160/256 × 8/10/12/16 px/f × 3 phases × both directions: 0 failures. At radius 48, 6 of 24 runs show a grounded angle step above 40°; that is the A/B sensor swap on a tight curve plus the per-frame turn, and every run completes. |
+| Fuzz / soak | PASS | seeds 1–3 × 36 000 frames and seed 11 × 108 000 (30 min): 0 errors, 0 NaN, only contract states; nodes 155 at the end, orphans 0, memory 24.9 → 29.9 MB, flat. The runner crosses the whole sandbox. |
+| Smoke, originality, scope | PASS | 7/7; 0 hits in files and in commits `9f3303c..94dcac3`; diff only in `player/`, `terrain/`, `tests/physics/` |
+
+### Test suite runtime
+
+| Run | Tests | Wall-clock (headless, `--fixed-fps 60`, this Mac) |
+|---|---|---|
+| Full suite on 94dcac3 | 146 passed, 0 failed (with the 7 new QA guards) | **4.96 s** |
+| `physics/test_loop.gd` | | 2.17 s (slowest file) |
+| `qa/test_physics_fixes.gd` | | 1.39 s |
+| `qa/test_physics_regression.gd` | | 1.30 s |
+| `physics/test_ground.gd` | | 0.43 s |
+| every other file | | about 0.25 s each (mostly Godot start-up) |
+
+This is far under both the 8-minute flag and the 20-minute CI limit; even a 5× slower CI runner stays under 30 s. Nothing needs tagging or trimming now. The runner's per-test limit of 7 200 physics frames is the real constraint, so big sweeps must be split across test methods, as the loop sweep was.
+
+### New bugs
+
+#### BUG-01-10: Sharp 45° crests rob 2–5 px/frame and can stall Sproto (regression)
+
+- **Severity:** blocker. It hits the genre's standard slope angle at normal running speeds (4–10 px/f); at 4–6 px/f he stalls on the peak. It is a regression introduced by the BUG-01-08 fix in this step, and it shapes the feel of every tile-built hill or roof. It should be a small fix.
+- **Owner:** physics agent (`player/player.gd` grounded re-check, `player/sensors.gd :: surface_angle`)
+- **Checklist:** PHY-D7, PHY-B9 (transitions without speed loss)
+- **Repro:** `qa/repros/physics/BUG-01-10_crest_45_stall.gd`. Polygon (100,0) → (250,-150) → (400,0) on a flat floor; run over it at 4/6/10 px/f in both directions. It passes at 9f3303c and fails at 94dcac3.
+- **Expected:** as at 9f3303c, at most about 0.1 px/f lost in a frame at the crest, and he runs over it.
+- **Actual:** at the crest the floor reading flips between 45° and 315°. That is more than `SUSPICIOUS_ANGLE_STEP` (45°), so the angle is re-measured. `surface_angle()` returns 314.999563° instead of 315°, which is just on the wall side of the floor / left-wall boundary (`mode_for_angle`: floor at ≥ 315). Sproto spends a frame in left-wall mode and loses speed in one frame:
+
+  | Direction | Entry speed (px/f) | Speed after (px/f) | Result |
+  |---|---|---|---|
+  | right | 4 | lost 2.77 | stalls on the peak |
+  | right | 6 | 4.26 → 1.66 | stalls on the peak (ends at x 277 vs 475 at 9f3303c) |
+  | right | 10 | 8.06 → 2.88 | ends at x 667 vs 924 |
+  | left | 10 | lost 2.14 | — |
+
+  14 px/f is unaffected. 30/30, 60/60, 45/30 and 22.5/22.5 crests are unaffected.
+- **Notes:** options:
+  - when the re-measured angle agrees with the reported one within a degree or so, keep the reported angle (real corners);
+  - round re-measured angles (for example to 0.01°) before choosing the mode;
+  - only re-measure when the reported normal faces along the ray.
+
+#### BUG-01-11: Sharp V valleys with 50–60° sides trap Sproto (softlock, pre-existing)
+
+- **Severity:** major. It is a softlock, but only in a geometry no level uses yet, and level design can avoid it until it is fixed. Same result at 3aa4be3, 9f3303c and 94dcac3; found in this pass.
+- **Owner:** physics agent (`player/player.gd`: wall check in wall modes, slip lock, jump clearance)
+- **Checklist:** PHY-D4, PHY-E (stuck in terrain shapes)
+- **Repro:** `qa/repros/physics/BUG-01-11_v_valley_trap.gd`. A V of two 60° slopes, 150 px deep, no fillet; run in at 6 px/f, then hold right and jump six times.
+- **Expected:** Sproto gets out, or runs through.
+- **Actual:**
+  - He comes to rest at the bottom in a wall mode at speed 0 (x 195.8, mode left wall, `idle`).
+  - The opposite side stops him as a wall every frame, and the slip rule re-locks control every 30 frames.
+  - Jump is refused: the clearance ray in wall mode hits the opposite side.
+  - Holding left does nothing, and a spin dash doesn't move him.
+
+  Probe results by side angle and fillet:
+
+  | Sides | Fillet | Result |
+  |---|---|---|
+  | 50°, 55°, 60° | none | stuck |
+  | 55°, 60° | 8 px | stuck |
+  | 55°, 60° | 16 px | sloshes at the bottom |
+  | 55°, 60° | 48 px | runs through |
+  | 45° | none | runs through |
+  | 70° | none | runs through |
+
+- **Notes:** until fixed, levels must not have V valleys with sides steeper than 45° unless they have a fillet of 48 px or more (CurveTerrain's default). Possible fixes:
+  - let the jump-clearance test ignore surfaces that are part of the floor the player stands in;
+  - stop treating the opposite slope as a wall when the player is wedged;
+  - make slip detach when blocked.
+
+### Notes for the lead (re-check #2)
+
+- The head-height wall ray only acts on exactly flat ground (under 1°). Walking into a low mouth from a slope still lets the head clip the ceiling, as before; a rule for the level agent is to put low tunnel mouths on flat ground.
+- **Changes on branch `qa`:**
+  - 7 new guards in `tests/qa/test_physics_fixes.gd`. All 16 checks there pass on 94dcac3 and skip on main (main: 73 passed).
+  - Repros for BUG-01-10 and 01-11 in `qa/repros/physics/`.
+  - The promoted BUG-01-06 to 01-09 repros were removed.
