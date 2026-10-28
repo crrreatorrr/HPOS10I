@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://levels/enemies/pellet.gd" id="1_pellet"]
+
+[node name="Pellet" type="Area2D"]
+collision_layer = 128
+collision_mask = 16
+script = ExtResource("1_pellet")
