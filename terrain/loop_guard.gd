@@ -29,11 +29,10 @@ extends Area2D
 ## lap either way) never change path here, and a too-slow climb that falls
 ## back keeps the path it has (it already lets him back out).
 
-## Sproto's half-width or half-height, whichever is larger, plus a margin: he
-## is moved to a new path only once his centre is this far past the bottom
-## centre, so no part of him overlaps the quarter on the other side. Also how
-## far past a foot's outer end the foot rule reaches.
-const SIDE_MARGIN := 20.0
+## How far past a foot's outer end the foot rule reaches (px).
+const FOOT_REACH := 20.0
+## Gap kept between Sproto and the bottom centre when he changes path (px).
+const SIDE_GAP := 1.0
 ## Slower than this (px/frame) counts as standing still.
 const MIN_SPEED := 0.01
 
@@ -130,7 +129,7 @@ func _check(player: Player, state: Dictionary) -> void:
 			state.open = true
 		if state.open:
 			_open_way(player, local, direction)
-	elif absf(local.x) >= outer_radius and absf(local.x) <= outer_radius + foot_width + SIDE_MARGIN:
+	elif absf(local.x) >= outer_radius and absf(local.x) <= outer_radius + foot_width + FOOT_REACH:
 		# On a foot's outside: heading for the loop on the path that makes this
 		# foot solid (right foot A, left foot B)?
 		var side := 1 if local.x > 0.0 else -1
@@ -140,13 +139,25 @@ func _check(player: Player, state: Dictionary) -> void:
 
 
 ## Moving right: path B, so the lower-right quarter lets him out; moving left:
-## path A. Only past the bottom centre (see SIDE_MARGIN).
+## path A. Only once all of him is past the bottom centre, so the quarter that
+## becomes solid (it starts there) never overlaps him. That is close enough to
+## the centre for the smallest loop, where a push up the steep quarter stalls
+## about 18 px out.
 func _open_way(player: Player, local: Vector2, direction: int) -> void:
-	if local.x * direction < SIDE_MARGIN:
+	if local.x * direction < _half_width(player) + SIDE_GAP:
 		return
 	var path := Player.PATH_B if direction > 0 else Player.PATH_A
 	if player.collision_path != path:
 		player.set_collision_path(path)
+
+
+## Sproto's horizontal reach from his centre: his width (or the wall sensors)
+## upright, his height on a wall.
+static func _half_width(player: Player) -> float:
+	var radii := player.get_radii()
+	if player.grounded and (player.collision_mode == Player.RIGHT_WALL or player.collision_mode == Player.LEFT_WALL):
+		return radii.y
+	return maxf(radii.x, Tuning.physics.push_radius)
 
 
 func _update_shape() -> void:
@@ -155,7 +166,7 @@ func _update_shape() -> void:
 	if _shape == null:
 		_shape = CollisionShape2D.new()
 		add_child(_shape, false, Node.INTERNAL_MODE_BACK)
-	var reach := outer_radius + foot_width + SIDE_MARGIN
+	var reach := outer_radius + foot_width + FOOT_REACH
 	var rect := RectangleShape2D.new()
 	rect.size = Vector2(reach * 2.0, outer_radius * 2.0)
 	_shape.shape = rect
@@ -170,6 +181,6 @@ func _draw() -> void:
 	draw_arc(Vector2(0, -radius), radius, 0.0, PI, 32, colour, 1.0)
 	draw_line(Vector2(0, -radius), Vector2(0, 0), colour, 1.0)
 	for side in [-1.0, 1.0]:
-		var foot := Rect2(Vector2(minf(side * outer_radius, side * (outer_radius + foot_width + SIDE_MARGIN)), -radius),
-				Vector2(foot_width + SIDE_MARGIN, radius))
+		var foot := Rect2(Vector2(minf(side * outer_radius, side * (outer_radius + foot_width + FOOT_REACH)), -radius),
+				Vector2(foot_width + FOOT_REACH, radius))
 		draw_rect(foot, Color(1.0, 0.6, 0.2, 0.12))

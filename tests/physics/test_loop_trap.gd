@@ -248,3 +248,35 @@ func test_turning_back_after_running_off_the_top() -> void:
 				direction, combo[1], p.global_position, p.collision_path])
 		world.queue_free()
 		await physics_frames(1)
+
+
+## BUG-02-03: standing inside a small ring and holding a direction. In a
+## radius-48 ring the push up the steep quarter stalls about 18 px from the
+## bottom centre, so the way out must open that close in. Every radius, from
+## the bottom centre and from either side, on either path, holding either way.
+func test_standing_inside_and_holding_either_way() -> void:
+	for hold in [&"move_left", &"move_right"]:
+		var world := W.new_world(self)
+		var lane := 0
+		for radius in [48.0, 64.0, 80.0, 112.0, 200.0]:
+			for spot in [0.0, -0.3, 0.3]:
+				for path in [Player.PATH_A, Player.PATH_B]:
+					var y := lane * LANE_GAP
+					W.add_floor(world, -3000.0, 3000.0, y)
+					var loop: TerrainLoop = W.add_loop(world, Vector2(0.0, y))
+					loop.radius = radius
+					var x: float = spot * radius
+					_lanes.append({loop = loop, x = x, y = y, path = path,
+							player = W.spawn_player(world, Vector2(x, y)),
+							name = "radius %d from %.0f path %d" % [radius, x, path]})
+					lane += 1
+		await physics_frames(2)
+		for entry in _lanes:
+			var player: Player = entry.player
+			player.respawn_at(Vector2(entry.x, entry.y - 2.0 * Tuning.physics.height_radius))
+			player.set_collision_path(entry.path)
+		await physics_frames(90)  # lands and settles at the bottom
+		await _hold_until_out(hold, "standing inside, holding %s" % hold)
+		_lanes.clear()
+		world.queue_free()
+		await physics_frames(1)
