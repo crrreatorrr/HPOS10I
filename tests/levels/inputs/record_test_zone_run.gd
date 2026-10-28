@@ -1,7 +1,8 @@
 extends SceneTree
 ## Records tests/levels/inputs/test_zone_run.json: a clean, human-like run of
-## the test zone, as a Dev input timeline (frames are physics ticks since
-## boot, so `--inputs=` replays it frame for frame). Dev tool:
+## the test zone, as a Dev input timeline. Frames count from the first physics
+## tick on which the test zone is the current scene (core/dev.gd: Dev's
+## timeline frame 0), so `--inputs=` replays it frame for frame. Dev tool:
 ##
 ##   godot --headless --fixed-fps 60 --path . -s res://tests/levels/inputs/record_test_zone_run.gd \
 ##       -- --scene=res://levels/test_zone/test_zone.tscn
@@ -41,6 +42,8 @@ const MOVES := [
 ]
 
 var _frame := 0
+## Tick on which the act became the current scene: timeline frame 0 (Dev).
+var _origin := -1
 var _next := 0
 var _queue: Array = []
 var _events: Array = []
@@ -63,6 +66,10 @@ func _initialize() -> void:
 func _tick() -> void:
 	var f := _frame
 	_frame += 1
+	if _origin < 0:
+		if current_scene == null or current_scene.scene_file_path != SCENE:
+			return
+		_origin = f
 	while not _queue.is_empty() and _queue[0][0] <= f:
 		var event: Array = _queue.pop_front()
 		_send(f, event[1], event[2])
@@ -87,8 +94,10 @@ func _tick() -> void:
 		_finish()
 
 
+## Sends an action now and records it at its timeline frame (ticks since the
+## act became the current scene).
 func _send(f: int, action: StringName, pressed: bool) -> void:
-	_events.append([f, String(action), pressed])
+	_events.append([f - _origin, String(action), pressed])
 	var event := InputEventAction.new()
 	event.action = action
 	event.pressed = pressed
@@ -102,15 +111,15 @@ func _finish() -> void:
 		printerr("record: the run did not reach the goal")
 		quit(1)
 		return
-	_events.append([_frame, "move_right", false])
+	_events.append([_frame - _origin, "move_right", false])
 	var lines := PackedStringArray()
 	for event in _events:
 		lines.append("    " + JSON.stringify(event))
-	var meta := {tool = "record_test_zone_run.gd", scene = SCENE, goal_frame = _done_frame,
-			note = "frames are physics ticks since boot (Dev timeline format); replay with --scene and --inputs"}
+	var meta := {tool = "record_test_zone_run.gd", scene = SCENE, goal_frame = _done_frame - _origin,
+			note = "Dev timeline: frame 0 is the first tick the scene is current; replay with --scene and --inputs"}
 	var text := "{\n  \"meta\": %s,\n  \"events\": [\n%s\n  ]\n}\n" % [JSON.stringify(meta), ",\n".join(lines)]
 	var file := FileAccess.open(OUT, FileAccess.WRITE)
 	file.store_string(text)
 	file.close()
-	print("record: goal at frame %d, %d events -> %s" % [_done_frame, _events.size(), OUT])
+	print("record: goal at timeline frame %d, %d events -> %s" % [_done_frame - _origin, _events.size(), OUT])
 	quit(0)
