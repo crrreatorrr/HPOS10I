@@ -5,6 +5,7 @@ extends TestCase
 
 ## Copied from docs/CONTRACTS.md (Audio section) on purpose: if either list
 ## changes, this test makes someone look at both.
+const H := preload("res://tests/ui/ui_test_helpers.gd")
 const CONTRACT_SFX := [
 	"jump", "roll", "spindash_charge", "spindash_release", "skid",
 	"ticket", "ticket_loss", "hurt", "death", "spring", "booster", "break_wall",
@@ -21,6 +22,8 @@ var audio: Node
 
 
 func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
 	audio = tree.root.get_node("Audio")
 	_stop_all()
 

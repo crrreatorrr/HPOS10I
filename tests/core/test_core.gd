@@ -180,6 +180,33 @@ func test_timeline_does_not_double_press_on_its_first_frame() -> void:
 	Input.action_release(&"move_down")
 
 
+## A window losing focus releases every held input; held timeline actions
+## must be pressed again before the game reads input that same tick.
+func test_timeline_restores_held_actions_within_the_tick() -> void:
+	var dev := tree.root.get_node("Dev")
+	var seen: Array[bool] = []
+	var reader := _PhysicsProbe.new()
+	reader.callback = func() -> void: seen.append(Input.is_action_pressed(&"move_down"))
+	add_node(reader)  # after Dev in the tree, so it reads after Dev each tick
+	dev._timeline = [[dev._frame + 1, "move_down", true, 0]]
+	dev.set_physics_process(true)
+	await physics_frames(4)
+	assert_true(Input.is_action_pressed(&"move_down"), "held")
+	seen.clear()
+	Input.action_release(&"move_down")  # what a focus-out does to held keys
+	await physics_frames(3)
+	assert_eq(seen, [true, true, true], "never released for a tick")
+	dev._held.clear()
+	dev._timeline.clear()
+	Input.action_release(&"move_down")
+
+
+class _PhysicsProbe extends Node:
+	var callback: Callable
+	func _physics_process(_delta: float) -> void:
+		callback.call()
+
+
 class _InputProbe extends Node:
 	var callback: Callable
 	func _input(event: InputEvent) -> void:
