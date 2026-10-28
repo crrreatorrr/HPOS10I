@@ -120,7 +120,7 @@ check prints `SKIP <reason>` and passes while its target does not exist.
 godot --headless --fixed-fps 60 --path P -s res://tools/qa/playtest_bot.gd -- \
     --zone=test_zone --frames=7200 --out=/private/tmp/tz.json --record=/private/tmp/tz_inputs.json
 godot --headless --fixed-fps 60 --path P -s res://tools/qa/playtest_bot.gd -- \
-    --scene=res://tests/physics/sandbox.tscn --policy=fuzz --seed=3 --frames=36000
+    --scene=res://playground/physics_playground.tscn --policy=fuzz --seed=3 --frames=36000
 ```
 
 | Argument | Meaning |

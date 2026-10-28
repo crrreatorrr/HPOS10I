@@ -1,12 +1,12 @@
 [gd_scene load_steps=10 format=3]
 
-[ext_resource type="Script" path="res://tests/physics/sandbox.gd" id="1_sandbox"]
+[ext_resource type="Script" path="res://playground/physics_playground.gd" id="1_sandbox"]
 [ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="2_curve"]
 [ext_resource type="PackedScene" path="res://terrain/loop.tscn" id="3_loop"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="4_player"]
-[ext_resource type="Script" path="res://tests/physics/sandbox_camera.gd" id="5_camera"]
-[ext_resource type="Script" path="res://tests/physics/dummy_enemy.gd" id="6_dummy"]
-[ext_resource type="Script" path="res://tests/physics/sandbox_ticket.gd" id="7_ticket"]
+[ext_resource type="Script" path="res://playground/playground_camera.gd" id="5_camera"]
+[ext_resource type="Script" path="res://playground/dummy_enemy.gd" id="6_dummy"]
+[ext_resource type="Script" path="res://playground/playground_ticket.gd" id="7_ticket"]
 
 [sub_resource type="Curve2D" id="Curve2D_hills"]
 _data = {

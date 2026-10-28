@@ -1,8 +1,11 @@
 extends Node2D
 ## Boot scene. Honors Dev command-line args, then goes to the title screen
-## once the UI exists. Until then (or with --dev) it shows a dev menu of
-## every stage and sandbox that is already built.
+## once the UI exists. Until then (or with --dev) it shows a menu of every
+## playground, stage and sandbox that is already built.
 
+## Playable demo scenes that ship in the web build.
+const PLAYGROUND_DIR := "res://playground"
+## Dev-only sandboxes (tests/ never ships).
 const SANDBOX_DIR := "res://tests"
 
 var _entries: Array[Dictionary] = []
@@ -48,6 +51,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _collect_entries() -> void:
+	for path in _find_scenes(PLAYGROUND_DIR, ""):
+		_entries.append({
+			label = path.get_file().get_basename().capitalize(),
+			start = SceneRouter.open_scene.bind(path),
+		})
 	for zone in ZoneRegistry.all_zones(true):
 		var stage_count: int = zone.acts.size() + 1
 		for stage in range(1, stage_count + 1):
@@ -61,23 +69,24 @@ func _collect_entries() -> void:
 				label = ("%s %s" % [zone.name, stage_name]).strip_edges(),
 				start = SceneRouter.start_zone.bind(zone.id, stage),
 			})
-	for path in _find_sandboxes(SANDBOX_DIR):
+	for path in _find_scenes(SANDBOX_DIR, "sandbox"):
 		_entries.append({
 			label = "Sandbox: %s" % path.trim_prefix(SANDBOX_DIR + "/"),
 			start = SceneRouter.open_scene.bind(path),
 		})
 
 
-func _find_sandboxes(dir_path: String) -> PackedStringArray:
+## Scenes under dir_path whose file name contains name_filter ("" = all).
+func _find_scenes(dir_path: String, name_filter: String) -> PackedStringArray:
 	var found := PackedStringArray()
 	var dir := DirAccess.open(dir_path)
 	if dir == null:
 		return found
 	for sub in dir.get_directories():
-		found.append_array(_find_sandboxes(dir_path.path_join(sub)))
+		found.append_array(_find_scenes(dir_path.path_join(sub), name_filter))
 	for file in dir.get_files():
 		var name := file.trim_suffix(".remap")
-		if name.ends_with(".tscn") and name.contains("sandbox"):
+		if name.ends_with(".tscn") and name.contains(name_filter):
 			found.append(dir_path.path_join(name))
 	return found
 
@@ -93,7 +102,7 @@ func _build_menu() -> void:
 
 
 func _refresh() -> void:
-	var lines := PackedStringArray(["HPOS10I  -  dev menu", ""])
+	var lines := PackedStringArray(["HPOS10I  -  early build", ""])
 	if _entries.is_empty():
 		lines.append("Nothing playable yet.")
 	for i in _entries.size():

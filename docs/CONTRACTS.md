@@ -10,7 +10,7 @@ Each agent works on its own branch and only touches its own folders.
 | Owner | Branch | Folders |
 |---|---|---|
 | Lead | `main` | `project.godot`, `export_presets.cfg`, `.github/`, `core/`, `docs/`, `README.md`, `icon.svg`, `tools/lead/`, `tests/core/`, `tests/inputs/`, `tests/test_case.gd`, `tests/run_tests.gd` |
-| Physics agent | `physics` | `player/`, `camera/`, `terrain/`, `tests/physics/` |
+| Physics agent | `physics` | `player/`, `camera/`, `terrain/`, `playground/`, `tests/physics/` |
 | Level agent | `levels` | `levels/`, `tests/levels/` |
 | Boss agent | `bosses` | `bosses/`, `tests/bosses/` |
 | Art agent | `art` | `assets/`, `tools/art/`, `prompts.md` |
@@ -36,6 +36,9 @@ and list the request in your final report.
   frame; never cache values. Never hard-code a value that belongs there.
 - **Missing pieces never crash.** Check `ResourceLoader.exists()` before
   loading another agent's scene or asset, and fall back to a placeholder.
+- **What ships:** `playground/` holds playable demo scenes that ship in the
+  web build and show up in the boot menu. `tests/`, `tools/`, `qa/` and
+  `docs/` never ship (CI's web check fails the build if they do).
 - **Placeholders:** until art is approved, draw simple shapes (`Polygon2D`,
   `_draw()`, `ColorRect`). Keep them readable: player white, enemies red,
   hazards orange, springs yellow, tickets gold.

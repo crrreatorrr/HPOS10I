@@ -7,7 +7,7 @@ extends Node
 ##
 ## Record a clip with Movie Maker:
 ##   godot --path . --write-movie /tmp/clip.avi --quit-after 600 -- \
-##     --scene=res://tests/physics/sandbox.tscn --inputs=res://tests/inputs/run_right.json
+##     --scene=res://playground/physics_playground.tscn --inputs=res://tests/inputs/run_right.json
 ##
 ## Input timeline format (frames are physics ticks since boot, 60 per second):
 ##   {"events": [[0, "move_right", true], [90, "jump", true], [96, "jump", false]]}

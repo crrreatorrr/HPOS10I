@@ -6,7 +6,7 @@
 #   tools/lead/record_clip.sh <name> <frames> [user args passed after --]
 # Example:
 #   tools/lead/record_clip.sh physics_tour 900 \
-#     --scene=res://tests/physics/sandbox.tscn \
+#     --scene=res://playground/physics_playground.tscn \
 #     --inputs=res://tests/physics/inputs/tour.json --overlay
 #
 # PROJECT_DIR overrides the project (e.g. an agent worktree).
