@@ -34,3 +34,29 @@ real brand's ticket or wrapper design.
 - When Sproto is hit, the tickets he carries scatter in a fan, bounce, and
   can be grabbed back before they fade.
 - In code and assets they are called `ticket` / `tickets`.
+
+## Pill robots (standard enemies)
+
+Small robots built from two-tone medicine capsules. They're the game's
+basic enemies.
+
+- **Body:**
+  - A rounded capsule split across the middle into two colours. The
+    basic version is mint green and white.
+  - A thick dark outline, a soft shadow on one side, and a white
+    dashed shine on the coloured half.
+- **Robot parts:**
+  - A dark visor slit with one or two glowing eye dots.
+  - A small antenna.
+  - Bolts or rivets on the seam band.
+  - Mechanical limbs suited to how each one moves.
+- **Variants:**
+  - **Walker:** a capsule lying sideways on two small wheels or stubby
+    robot legs. It patrols.
+  - **Hopper:** a capsule standing upright on a coiled spring foot. It
+    bounces.
+  - Later zones can recolour them and add zone props.
+- **Defeat:** the capsule pops open into two halves and a puff.
+- **Off-limits:** printed text, logos or imprint codes on the pills, and
+  any real medicine brand's colours or shape. Keep them cartoonish and
+  clearly not real medicine.
