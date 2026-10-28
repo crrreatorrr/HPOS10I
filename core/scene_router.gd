@@ -55,10 +55,13 @@ func next_stage() -> void:
 		_change_to(_title_or_main())
 
 
-## Reloads the current stage after a death, keeping the checkpoint.
+## Call once after the player dies: takes a life (not in sandboxes), then
+## reloads the stage from the checkpoint, or goes to game over.
 func respawn() -> void:
 	if not _claim("respawn"):
 		return
+	if _free_scene == "":
+		GameState.lose_life()
 	if GameState.lives <= 0:
 		if ResourceLoader.exists(GAME_OVER_SCENE):
 			_change_to(GAME_OVER_SCENE)

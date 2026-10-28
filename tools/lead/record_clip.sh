@@ -26,7 +26,7 @@ shift 2
 
 mkdir -p "$out_dir"
 log="$out_dir/$name.log"
-godot --path "$project_dir" --write-movie "$out_dir/$name.avi" --quit-after "$frames" -- "$@" >"$log" 2>&1
+godot --path "$project_dir" --always-on-top --write-movie "$out_dir/$name.avi" --quit-after "$frames" -- "$@" >"$log" 2>&1
 # A typo'd --scene silently records the dev menu, so treat any error as fatal.
 if grep -E "ERROR|SCRIPT ERROR" "$log"; then
 	echo "record_clip: Godot reported errors (full log: $log)" >&2

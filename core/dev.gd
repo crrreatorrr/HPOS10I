@@ -16,6 +16,9 @@ var args := {}
 
 var _timeline: Array = []
 var _frame := 0
+## Actions the timeline is holding down. Re-pressed every frame because the
+## OS releases all input when the window loses focus mid-recording.
+var _held := {}
 var _boot_taken := false
 
 
@@ -35,8 +38,15 @@ func _physics_process(_delta: float) -> void:
 	while not _timeline.is_empty() and _timeline[0][0] <= _frame:
 		var event: Array = _timeline.pop_front()
 		send_action(event[1], event[2])
+		if event[2]:
+			_held[event[1]] = true
+		else:
+			_held.erase(event[1])
+	for action in _held:
+		if not Input.is_action_pressed(action):
+			send_action(action, true)
 	_frame += 1
-	if _timeline.is_empty():
+	if _timeline.is_empty() and _held.is_empty():
 		set_physics_process(false)
 
 
