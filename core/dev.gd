@@ -37,15 +37,19 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	# Actions sent this frame aren't applied to Input until the event queue
+	# flushes, so they must not be re-pressed below (that doubled them).
+	var sent_now := {}
 	while not _timeline.is_empty() and _timeline[0][0] <= _frame:
 		var event: Array = _timeline.pop_front()
 		send_action(event[1], event[2])
+		sent_now[event[1]] = true
 		if event[2]:
 			_held[event[1]] = true
 		else:
 			_held.erase(event[1])
 	for action in _held:
-		if not Input.is_action_pressed(action):
+		if not sent_now.has(action) and not Input.is_action_pressed(action):
 			send_action(action, true)
 	_frame += 1
 	if _timeline.is_empty() and _held.is_empty():
