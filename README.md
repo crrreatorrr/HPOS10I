@@ -11,7 +11,9 @@ built in Godot 4 with classic 16-bit physics.
 
 ## Play
 
-- **In your browser:** https://crrreatorrr.github.io/HPOS10I/ (desktop or mobile)
+- **In your browser:** https://crrreatorrr.github.io/HPOS10I/
+  - Early build: click the game, then press **1** for the Physics Playground.
+  - Every push to `main` redeploys automatically.
 - **From source:** install [Godot 4.7.2](https://godotengine.org/download), then
   open `project.godot` and press **F5**, or run:
 
@@ -23,11 +25,11 @@ built in Godot 4 with classic 16-bit physics.
 
 | Action | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Move | Arrow keys / WASD | D-pad / left stick | On-screen pad |
-| Jump | Z, X, C, Space or K | A / B / X / Y | Jump button |
+| Move | Arrow keys / WASD | D-pad / left stick | On-screen pad (coming) |
+| Jump | Z, X, C, Space or K | A / B / X / Y | Jump button (coming) |
 | Roll | Down while running | Down | Pad down |
 | Spin dash | Hold Down, tap Jump, release Down | Same | Same |
-| Pause | Enter, Esc or P | Start | Pause button |
+| Pause | Enter, Esc or P | Start | Pause button (coming) |
 | Debug overlay | F1 | | |
 
 ## Zones
