@@ -24,7 +24,6 @@ class Hit:
 	var angle: float
 	## True when the surface is a one-way (top-only) platform.
 	var top_only: bool
-	var label: String
 
 
 ## Every cast this frame: {label, from, to, hit (bool), point}.
@@ -82,7 +81,6 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 	hit.normal = result.normal
 	hit.distance = from.distance_to(hit.position)
 	hit.angle = angle_from_normal(hit.normal)
-	hit.label = label
 	var layer := PhysicsServer2D.body_get_collision_layer(result.rid)
 	hit.top_only = (layer & BIT_TOP_ONLY) != 0 and (layer & (BIT_SOLID | BIT_PATH_A | BIT_PATH_B)) == 0
 	record.hit = true
