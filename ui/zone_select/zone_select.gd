@@ -5,7 +5,8 @@ extends Control
 ## greyed out and skipped by navigation. Choosing an act calls
 ## SceneRouter.start_zone(); BACK (Pause, Esc or the button) returns to the
 ## title. Arrows / WASD / D-pad / stick move (wrapping), Enter, Space or any
-## jump button chooses; mouse and touch click. Music: `zone_select`.
+## jump button chooses; mouse and touch click. Music: `zone_select`. Keys
+## and pads only count while it is the current scene.
 
 const INPUT_GRACE := 0.25
 const NAME_WIDTH := 132.0
@@ -45,7 +46,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _busy or _clock < INPUT_GRACE:
+	if _busy or _clock < INPUT_GRACE or get_tree().current_scene != self:
 		return
 	if event.is_action_pressed(&"ui_cancel") \
 			or (event.is_action_pressed(&"pause") and not event.is_action(&"ui_accept")):

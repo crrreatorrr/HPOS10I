@@ -11,6 +11,11 @@ const Z1 := "z1_retro_rush_hills"
 var _finished := 0
 
 
+
+func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
+
 func after_each() -> void:
 	H.set_touch_mode(false)
 

@@ -3,7 +3,8 @@ extends Control
 ## Title screen (boot goes here; `-- --dev` still shows the boot menu).
 ## The logo, Sproto, a blinking "press jump or tap" prompt and the one-line
 ## disclaimer from docs/CONTRACTS.md. Jump, accept, Start, a tap or a click
-## goes to the zone select (once). Music: `title`.
+## goes to the zone select (once). Music: `title`. Input only counts while it
+## is the current scene, so a stray copy never acts.
 
 const DISCLAIMER := "A free, non-commercial fan parody. All characters and art are original."
 const PLAYER_SCENE := "res://player/player.tscn"
@@ -34,7 +35,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _leaving or _clock < INPUT_GRACE:
+	if _leaving or _clock < INPUT_GRACE or get_tree().current_scene != self:
 		return
 	var go: bool = event.is_action_pressed(&"jump") or event.is_action_pressed(&"ui_accept") \
 			or event.is_action_pressed(&"pause") \

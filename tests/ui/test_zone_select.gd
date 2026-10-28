@@ -7,15 +7,18 @@ const H := preload("res://tests/ui/ui_test_helpers.gd")
 const SCENE := "res://ui/zone_select/zone_select.tscn"
 
 
+
+func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
+
 func after_each() -> void:
-	var scene := tree.current_scene
-	if scene != null:
-		tree.current_scene = null
-		scene.queue_free()
+	H.clear_scene(tree)
 
 
 func _open() -> ZoneSelect:
 	var select: ZoneSelect = add_scene(SCENE)
+	tree.current_scene = select
 	return select
 
 
@@ -90,11 +93,13 @@ func test_choosing_an_act_starts_it_exactly_once() -> void:
 			expected = [entry[0], entry[1]]
 	var starts := [0]
 	SceneRouter.stage_started.connect(func(_z: String, _s: int) -> void: starts[0] += 1)
+	var chosen := false
 	for i in 20:  # mash a jump key (Z: jump but not ui_accept)
 		H.send_key(KEY_Z, true)
 		H.send_key(KEY_Z, false)
+		chosen = chosen or (is_instance_valid(select) and select.is_busy())
 		await tree.process_frame
-	assert_true(select.is_busy(), "chosen")
+	assert_true(chosen, "chosen")
 	assert_eq(starts[0], 1, "start_zone ran once")
 	assert_eq([SceneRouter.zone_id, SceneRouter.stage], expected, "the focused act started")
 	await physics_frames(3)
@@ -116,8 +121,10 @@ func test_pause_goes_back_but_enter_chooses() -> void:
 	H.send_key(KEY_ENTER, true)  # pause AND accept: the focused act takes it
 	assert_true(not select.is_busy() or SceneRouter.zone_id != "", "Enter never means back")
 	H.send_key(KEY_ENTER, false)
-	await physics_frames(2)
 	assert_true(select.is_busy() and SceneRouter.zone_id != "", "Enter chose the focused act")
+	await physics_frames(2)
+	H.clear_scene(tree)
+	await physics_frames(1)
 	var other := _open()
 	await _game_seconds(other, ZoneSelect.INPUT_GRACE + 0.05)
 	H.send_key(KEY_P, true)

@@ -3,8 +3,14 @@ extends TestCase
 ## darkened mirrored back face past edge-on, the edge strip, one turn a
 ## second, and the placeholder gem while the art is missing.
 
+const H := preload("res://tests/ui/ui_test_helpers.gd")
 const SCENE := "res://ui/emerald/emerald_icon.tscn"
 
+
+
+func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
 
 func test_width_is_whole_even_pixels_and_never_zero() -> void:
 	for size in [EmeraldIcon.BIG_SIZE, EmeraldIcon.SMALL_SIZE]:

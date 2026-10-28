@@ -10,6 +10,8 @@ var _saved_args := {}
 
 
 func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
 	_saved_args = Dev.args.duplicate()
 
 

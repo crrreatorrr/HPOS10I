@@ -4,8 +4,28 @@ extends RefCounted
 const FAKE_LEVEL_PATH := "res://tests/ui/fake_level.tscn"
 
 
+## Frees whatever earlier tests left under the root (scenes that a scene
+## change made current, a level's respawn landing on the title, ...). The
+## runner doesn't reset them, and a leftover menu or level would draw over
+## this test's UI and catch its taps and clicks. Autoloads stay.
+static func clear_scene(tree: SceneTree) -> void:
+	tree.current_scene = null
+	for child in tree.root.get_children():
+		if not ProjectSettings.has_setting("autoload/" + child.name) and not child.is_queued_for_deletion():
+			child.queue_free()
+
+
+## Frees only the current scene (a stand-in or a scene change's result).
+static func drop_current_scene(tree: SceneTree) -> void:
+	var scene := tree.current_scene
+	tree.current_scene = null
+	if scene != null and is_instance_valid(scene) and not scene.is_queued_for_deletion():
+		scene.queue_free()
+
+
 ## Makes SceneRouter.in_gameplay() true: a stand-in "level" as current scene.
 static func enter_gameplay(test: TestCase) -> Node:
+	drop_current_scene(test.tree)
 	var level := Node2D.new()
 	level.name = "FakeLevel"
 	level.scene_file_path = FAKE_LEVEL_PATH
@@ -16,6 +36,7 @@ static func enter_gameplay(test: TestCase) -> Node:
 
 ## A menu scene as current scene (in_gameplay() is false).
 static func enter_menu(test: TestCase) -> Node:
+	drop_current_scene(test.tree)
 	var menu := Node2D.new()
 	menu.name = "FakeMenu"
 	menu.scene_file_path = SceneRouter.MAIN_SCENE

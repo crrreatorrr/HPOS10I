@@ -23,6 +23,8 @@ var _saved_free_scene := ""
 
 
 func before_each() -> void:
+	H.clear_scene(tree)
+	await tree.process_frame
 	menu = H.pause_menu(tree)
 	_saved_free_scene = SceneRouter.get(&"_free_scene")
 
