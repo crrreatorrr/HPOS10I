@@ -23,6 +23,11 @@ extends RefCounted
 ##   step.height       warn   vertical riser of 10.5-24 px between flat floors (steps must be <= 10 px)
 ##   corner.fillet     warn   floor meets a slope of 60 deg or more with a fillet under 48 px
 ##                            (also sharp V valleys)
+##   momentum.runup    warn   an up-slope of 22 deg or more (rising to the right) with less
+##                            than 64 px of flat or downhill run-up before its foot: from a
+##                            standstill Sproto can't climb 26.6 deg (docs/LEVELS.md rule 4)
+##   momentum.checkpoint warn a checkpoint or PlayerStart within 160 px before such a foot
+##                            ("never put a steep hill right after a checkpoint")
 
 const SOLID := 1
 const PATH_A := 2
@@ -145,6 +150,7 @@ static func lint(root: Node) -> Array[Dictionary]:
 	var columns := _scan(space, bounds, loops)
 	_check_tunnels(out, columns)
 	_check_floors(out, columns)
+	_check_momentum(out, columns, spots)
 	return out
 
 
@@ -415,6 +421,49 @@ static func _clear(column: Dictionary, y0: float, y1: float) -> bool:
 		if f.y >= y0 and f.y <= y1:
 			return false
 	return true
+
+
+const CLIMB_ANGLE := 22.0
+const MIN_RUNUP := 64.0
+const CHECKPOINT_REACH := 160.0
+
+
+## Up-slope feet (rising to the right, the usual travel direction) and the
+## flat or downhill run-up before each.
+static func _check_momentum(out: Array[Dictionary], columns: Array, spots: Array) -> void:
+	var reported := {}
+	for i in range(1, columns.size()):
+		var c: Dictionary = columns[i]
+		var prev: Dictionary = columns[i - 1]
+		for f in c.floors:
+			if f.angle < CLIMB_ANGLE or f.angle > 80.0:
+				continue
+			var before := _near(prev, f.y, 4.0)
+			if before.is_empty() or before.angle >= 8.0:
+				continue  # not a foot (already on the slope, or no floor before)
+			# Walk back over flat or downhill floor (angle <= 8 deg).
+			var runup := 0.0
+			var y: float = before.y
+			var j := i - 1
+			while j >= 0 and runup < MIN_RUNUP:
+				var g := _near(columns[j], y, 4.0)
+				if g.is_empty() or g.angle > 8.0:
+					break
+				runup += SCAN_STEP
+				y = g.y
+				j -= 1
+			var key := Vector2i(int(c.x / 64.0), int(f.y / 64.0))
+			if reported.has(key):
+				continue
+			reported[key] = true
+			if runup < MIN_RUNUP:
+				_add(out, "warn", "momentum.runup", Vector2(c.x, f.y),
+						"%.0f deg up-slope with only %.0f px of run-up (needs %.0f)" % [f.angle, runup, MIN_RUNUP])
+			for spot in spots:
+				var at: Vector2 = spot[1]
+				if c.x - at.x > 0.0 and c.x - at.x <= CHECKPOINT_REACH and absf(at.y - f.y) < 64.0:
+					_add(out, "warn", "momentum.checkpoint", at,
+							"%s is %.0f px before a %.0f deg up-slope (a respawn can't climb it)" % [spot[0], c.x - at.x, f.angle])
 
 
 static func _ray(space: PhysicsDirectSpaceState2D, from: Vector2, to: Vector2, mask: int) -> Dictionary:

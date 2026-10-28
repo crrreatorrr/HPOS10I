@@ -145,7 +145,7 @@ For every behaviour: the enemy extends `Enemy` with the right `tier`. Its speed,
 
 ## K. Zone looks: originality guardrails (docs/DESIGN.md "Zones")
 
-- [ ] ZN-K1 [auto] (img) **Zone 1 terrain is a diamond checker, not a square one.** On `assets/terrain/z1_retro_rush_hills/fill.png` (and the level's fill tiles), the strongest 2D autocorrelation peaks sit on the diagonals, at (±p, ±p), not on the axes at (p, 0) and (0, p). Report the peak positions.
+- [ ] ZN-K1 [auto] (img) **Zone 1 terrain is a diamond checker, not a square one.** Run `python3 tools/qa/checker_check.py <frame.png> x0 y0 x1 y1` on a crop of fill (a game frame, or `fill.png`). It finds the axis period p. In a diamond checker the half-diagonal shift (p/2, p/2) is strongly negative (the other colour) and (p/2, 0) is neutral. A square checker shows the opposite.
 - [ ] ZN-K2 [manual] **Zone 1:** sunny tropical hills, palm trees, waterfalls and loops of our own design. No brown-and-tan square checker, and no existing game's landmarks (signature rock arches, totem poles, specific logo-like rings, recognisable layouts).
 - [ ] ZN-K3 [manual + scan] **Zone 2:** an original magic-school castle. No houses, crests or house-coloured scarves, no lightning-bolt marks, no names from existing wizard stories. `originality_scan.sh` covers names in files, prompts and node names.
 - [ ] ZN-K4 [manual] **Zone 3:** a mansion of our own design. No replica of a real building, no seals, flags, portraits, real people or real signage.
