@@ -1,8 +1,11 @@
 class_name TouchControls
 extends CanvasLayer
 ## On-screen controls for phones and tablets. The Display autoload adds this
-## once, globally, on touch devices; `-- --touch` forces it on desktop (the
-## pause menu adds it then, and the mouse acts as one finger for testing).
+## once, globally; it shows itself only while Display.is_touch (touch devices,
+## or `-- --touch`) and SceneRouter.in_gameplay(). Display.touch_mode_changed
+## hides it on the first key or gamepad press and shows it again on the next
+## touch (touch laptops). On a desktop with `--touch` the mouse acts as one
+## finger, for testing.
 ##
 ## Left: a D-pad (left/right run, down rolls/crouches/spin dashes, up looks).
 ## Right: one big JUMP button. Top-right: a small pause button.
@@ -12,8 +15,8 @@ extends CanvasLayer
 ## (left <-> right switches without lifting) until it moves well away.
 ## The node presses the normal input actions with InputEventActions, exactly
 ## like a keyboard would, and releases them when the finger lifts, is
-## cancelled or leaves the button, when the game pauses or leaves gameplay,
-## and when the app loses focus. Shown only while SceneRouter.in_gameplay().
+## cancelled or leaves the button, when the game pauses, leaves gameplay or
+## leaves touch mode, and when the app loses focus.
 
 enum Zone { NONE, PAD, JUMP, PAUSE }
 
@@ -74,9 +77,15 @@ var _mouse_as_finger := false
 @onready var _canvas: Control = $Canvas
 
 
-## True when the controls are wanted: a touch device, or `-- --touch`.
+## True when the player is using touch (a touch device, the last input was
+## a touch, or `-- --touch`).
 static func is_enabled() -> bool:
-	return Display.is_touch or Dev.args.has("touch")
+	return Display.is_touch
+
+
+## Shown and listening: touch mode, during gameplay.
+static func is_active() -> bool:
+	return Display.is_touch and SceneRouter.in_gameplay()
 
 
 func _ready() -> void:
@@ -84,15 +93,12 @@ func _ready() -> void:
 	# Desktop with --touch: let the mouse play the part of one finger.
 	_mouse_as_finger = not DisplayServer.is_touchscreen_available()
 	_canvas.draw.connect(_draw_controls)
-	visible = SceneRouter.in_gameplay()
+	Display.touch_mode_changed.connect(_on_touch_mode_changed)
+	visible = is_active()
 
 
 func _process(_delta: float) -> void:
-	var active := SceneRouter.in_gameplay()
-	if active != visible:
-		visible = active
-		if not active:
-			release_all()
+	_update_visibility()
 	var paused := get_tree().paused
 	if paused != _was_paused:
 		_was_paused = paused
@@ -111,7 +117,12 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	if not SceneRouter.in_gameplay():
 		return
-	if _mouse_as_finger:
+	if not Display.is_touch:
+		# A real touch while in keyboard mode counts at once: Display switches
+		# to touch mode on this same event.
+		if not (event is InputEventScreenTouch or event is InputEventScreenDrag):
+			return
+	elif _mouse_as_finger:
 		event = _mouse_to_touch(event)
 	if event is InputEventScreenTouch:
 		if event.pressed:
@@ -125,6 +136,18 @@ func _input(event: InputEvent) -> void:
 		finger.zone = _zone_after_slide(finger.zone, event.position)
 		_fingers[event.index] = finger
 		_sync()
+
+
+func _update_visibility() -> void:
+	var active := is_active()
+	if active != visible:
+		visible = active
+		if not active:
+			release_all()
+
+
+func _on_touch_mode_changed(_is_touch: bool) -> void:
+	_update_visibility()
 
 
 ## Releases everything this node holds and forgets every finger.

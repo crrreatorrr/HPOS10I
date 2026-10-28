@@ -58,3 +58,8 @@ static func reset_pause(tree: SceneTree) -> void:
 	var menu := pause_menu(tree)
 	if menu != null and menu.is_open():
 		menu.call(&"_close")
+
+
+## Switches Display's touch mode (emits touch_mode_changed like real input).
+static func set_touch_mode(touch: bool) -> void:
+	Display.call(&"_set_touch_mode", touch)

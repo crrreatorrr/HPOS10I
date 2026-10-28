@@ -1,11 +1,10 @@
 class_name InputHints
 extends RefCounted
-## Key names for on-screen hints. Keys are bound by physical position, so the
-## printed name must come from the player's keyboard layout (QWERTY WASD is
-## ZQSD on AZERTY): never hard-code key letters in the UI.
+## Key lists for on-screen hints, built on InputLabels (core/), which names
+## each physical key as printed on the player's keyboard (QWERTY WASD is ZQSD
+## on AZERTY): never hard-code key letters in the UI. This adds the hint
+## formatting: Esc left out, letters first, "ARROWS / WASD" for movement.
 
-## Lead-owned helper with the same job; used as soon as it lands on main.
-const LEAD_LABELS := "res://core/input_labels.gd"
 ## Esc is bound to pause but browsers keep it for leaving fullscreen, so
 ## hints never offer it.
 const HIDDEN_KEYS: Array[Key] = [KEY_ESCAPE]
@@ -15,19 +14,7 @@ const ARROWS: Array[Key] = [KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT]
 ## The label printed on the key at this physical position, e.g. "W" ("Z" on
 ## AZERTY), "SPACE", "ENTER".
 static func key_label(physical: Key) -> String:
-	# LEAD-REQUEST: core/input_labels.gd (InputLabels.for_physical) is not on
-	# main yet; this falls back to the DisplayServer layout lookup until it is.
-	var lead := _lead_labels()
-	if lead != null:
-		return str(lead.call(&"for_physical", physical)).to_upper()
-	var logical := physical
-	# Desktop platforms know the layout; elsewhere (web, headless) the key's
-	# own (US) name is the best guess.
-	if _knows_layout():
-		var label := DisplayServer.keyboard_get_label_from_physical(physical)
-		if label != KEY_NONE:
-			logical = label
-	return OS.get_keycode_string(logical).to_upper()
+	return InputLabels.for_physical(physical).to_upper()
 
 
 ## Physical keys bound to an action, in InputMap order (hidden keys left out).
@@ -74,20 +61,3 @@ static func move_keys() -> String:
 		return "ARROWS / " + letters
 	return "ARROWS" if has_arrows else letters
 
-
-static func _lead_labels() -> GDScript:
-	if not ResourceLoader.exists(LEAD_LABELS):
-		return null
-	var script := load(LEAD_LABELS) as GDScript
-	if script == null:
-		return null
-	for method in script.get_script_method_list():
-		if method.name == "for_physical":
-			return script
-	return null
-
-
-## keyboard_get_label_from_physical() works on the desktop display servers;
-## the web and headless ones report an error instead.
-static func _knows_layout() -> bool:
-	return DisplayServer.get_name() in ["Windows", "macOS", "X11", "Wayland"]

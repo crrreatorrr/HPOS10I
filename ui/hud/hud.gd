@@ -6,8 +6,8 @@ extends CanvasLayer
 ## Data comes only from GameState: its tickets/score/lives signals, and
 ## GameState.level_time for the clock (it has no signal; read every frame).
 ## At 0 tickets the TICKETS counter flashes red: the next hit costs a life.
-## On touch devices the lives box moves under the counters so the on-screen
-## pad does not cover it.
+## In touch mode the lives box moves under the counters so the on-screen pad
+## does not cover it (and back when the player switches to keys/gamepad).
 
 ## Seconds per on/off cycle of the 0-ticket warning flash.
 const FLASH_PERIOD := 0.5
@@ -25,6 +25,7 @@ const TOUCH_LIVES_POSITION := Vector2(3, 44)
 @onready var _lives_value: Label = %LivesValue
 @onready var _lives_box: Control = %Lives
 
+var _desktop_lives_position := Vector2.ZERO
 var _shown_seconds := -1
 var _flash_clock := 0.0
 
@@ -32,8 +33,9 @@ var _flash_clock := 0.0
 func _ready() -> void:
 	_ticket_icon.texture = PixelArt.ticket()
 	(%Head as TextureRect).texture = PixelArt.sproto_head()
-	if TouchControls.is_enabled():
-		_lives_box.position = TOUCH_LIVES_POSITION
+	_desktop_lives_position = _lives_box.position
+	_place_lives_box(TouchControls.is_enabled())
+	Display.touch_mode_changed.connect(_place_lives_box)
 	GameState.tickets_changed.connect(_on_tickets_changed)
 	GameState.score_changed.connect(_on_score_changed)
 	GameState.lives_changed.connect(_on_lives_changed)
@@ -66,6 +68,10 @@ static func format_lives(lives: int) -> String:
 ## True while the TICKETS counter is drawn in the warning colour.
 func is_warning_lit() -> bool:
 	return _tickets_label.modulate == WARNING_COLOR
+
+
+func _place_lives_box(touch: bool) -> void:
+	_lives_box.position = TOUCH_LIVES_POSITION if touch else _desktop_lives_position
 
 
 func _update_time() -> void:

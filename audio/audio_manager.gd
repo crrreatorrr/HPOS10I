@@ -39,7 +39,7 @@ const MUSIC_BUS := &"Music"
 const MUSIC_DB := -4.0
 const PAUSED_MUSIC_DB := -14.0
 ## How long quitting waits for the mixer after stopping every player.
-const EXIT_DRAIN_MS := 60
+const EXIT_DRAIN_MS := 150
 
 var _music: AudioStreamPlayer
 var _current_music := &""

@@ -24,7 +24,6 @@ signal closed
 
 ## Released on pause and on resume so nothing stays held across the menu.
 const GAME_ACTIONS: Array[StringName] = [&"move_left", &"move_right", &"move_up", &"move_down", &"jump"]
-const TOUCH_CONTROLS_SCENE := "res://ui/touch_controls/touch_controls.tscn"
 const DEVICE_COLUMNS := {"keyboard": 1, "gamepad": 2, "touch": 3}
 const HEADER_ACTIVE := Color(1, 0.86, 0.34)
 const HEADER_IDLE := Color(0.62, 0.66, 0.82)
@@ -59,7 +58,6 @@ func _ready() -> void:
 		button.mouse_entered.connect(_on_button_hovered.bind(button))
 		button.focus_entered.connect(_on_button_focused)
 	_refresh_key_hints()
-	_add_forced_touch_controls()
 
 
 func is_open() -> bool:
@@ -263,15 +261,3 @@ func _refresh_device_columns() -> void:
 	for column in range(1, _grid.columns):
 		var header := _grid_cell(0, column)
 		header.add_theme_color_override(&"font_color", HEADER_ACTIVE if column == active else HEADER_IDLE)
-
-
-## `-- --touch` on a desktop: show the touch controls too, for testing.
-func _add_forced_touch_controls() -> void:
-	# LEAD-REQUEST: let Display treat Dev.args "touch" as a touch device and add
-	# the touch controls itself; this fallback can go then.
-	if not Dev.args.has("touch") or Display.is_touch or get_parent() == null:
-		return
-	if not get_tree().get_nodes_in_group(&"touch_controls").is_empty():
-		return
-	if ResourceLoader.exists(TOUCH_CONTROLS_SCENE):
-		get_parent().add_child.call_deferred(load(TOUCH_CONTROLS_SCENE).instantiate())

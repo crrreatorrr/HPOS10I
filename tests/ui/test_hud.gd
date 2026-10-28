@@ -3,6 +3,7 @@ extends TestCase
 ## and lives, flashes the tickets counter red at 0, and moves the lives box
 ## out of the touch pad's way.
 
+const H := preload("res://tests/ui/ui_test_helpers.gd")
 const SCENE := "res://ui/hud/hud.tscn"
 
 var _saved_args := {}
@@ -14,6 +15,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	Dev.args = _saved_args
+	H.set_touch_mode(false)
 
 
 func _hud() -> GameHud:
@@ -111,12 +113,17 @@ func test_zero_tickets_flash_red() -> void:
 
 
 func test_lives_box_moves_for_touch_controls() -> void:
-	var desktop := _hud()
-	var bottom := (desktop.get_node("%Lives") as Control).position
+	var hud := _hud()
+	var lives := hud.get_node("%Lives") as Control
+	var bottom := lives.position
 	assert_true(bottom.y > 200, "lives bottom-left on desktop")
-	Dev.args["touch"] = true
-	var touch := _hud()
-	assert_eq((touch.get_node("%Lives") as Control).position, GameHud.TOUCH_LIVES_POSITION, "moved for the touch pad")
+	H.set_touch_mode(true)
+	assert_eq(lives.position, GameHud.TOUCH_LIVES_POSITION, "moved out of the touch pad's way")
+	var fresh := _hud()
+	assert_eq((fresh.get_node("%Lives") as Control).position, GameHud.TOUCH_LIVES_POSITION,
+			"a HUD made in touch mode starts there")
+	H.set_touch_mode(false)
+	assert_eq(lives.position, bottom, "back bottom-left with keys/gamepad")
 
 
 func test_icons_are_drawn() -> void:

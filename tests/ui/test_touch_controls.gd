@@ -1,7 +1,7 @@
 extends TestCase
 ## Touch controls: press and release the normal input actions, multi-touch,
 ## finger slides, cancel / focus loss / leaving a button release, hidden in
-## menus, the pause button, and thumb-sized hit areas.
+## menus and outside touch mode, the pause button, and thumb-sized hit areas.
 
 const H := preload("res://tests/ui/ui_test_helpers.gd")
 const SCENE := "res://ui/touch_controls/touch_controls.tscn"
@@ -14,7 +14,12 @@ var controls: TouchControls
 
 
 func before_each() -> void:
+	H.set_touch_mode(true)
 	H.enter_gameplay(self)
+	# Display's own (global) instance would press actions too; test a fresh
+	# one alone.
+	for other in tree.get_nodes_in_group(&"touch_controls"):
+		other.process_mode = Node.PROCESS_MODE_DISABLED
 	controls = add_scene(SCENE)
 	await physics_frames(1)
 
@@ -22,6 +27,9 @@ func before_each() -> void:
 func after_each() -> void:
 	H.reset_pause(tree)
 	tree.current_scene = null
+	for other in tree.get_nodes_in_group(&"touch_controls"):
+		other.process_mode = Node.PROCESS_MODE_ALWAYS
+	H.set_touch_mode(false)
 
 
 func touch(index: int, pos: Vector2, pressed := true, canceled := false) -> void:
@@ -138,6 +146,32 @@ func test_hidden_and_inert_outside_gameplay() -> void:
 	H.enter_gameplay(self)
 	await physics_frames(2)
 	assert_true(controls.visible, "shown again in gameplay")
+
+
+func test_hidden_outside_touch_mode() -> void:
+	assert_true(controls.visible, "shown in touch mode during gameplay")
+	touch(0, pad(Vector2(30, 0)))
+	assert_eq(held(), ["move_right"], "pad held")
+	H.send_key(KEY_X, true)  # a key press switches Display out of touch mode
+	H.send_key(KEY_X, false)
+	assert_true(not Display.is_touch, "keyboard mode")
+	assert_true(not controls.visible, "hidden on the first key press")
+	assert_eq(held(), [], "and released what touch held")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = pad(Vector2(30, 0))
+	tree.root.push_input(click, true)
+	Input.flush_buffered_events()
+	assert_eq(held(), [], "the mouse does nothing outside touch mode")
+	click = click.duplicate()
+	click.pressed = false
+	tree.root.push_input(click, true)
+	touch(1, TouchControls.JUMP_CENTER)
+	assert_true(Display.is_touch, "a touch switches back")
+	assert_true(controls.visible, "shown again")
+	assert_eq(held(), ["jump"], "and that first touch already counts")
+	touch(1, TouchControls.JUMP_CENTER, false)
 
 
 func test_pause_button_pauses_and_resumes() -> void:
