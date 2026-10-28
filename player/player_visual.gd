@@ -1,7 +1,8 @@
 extends Node2D
 ## Sproto's look. Uses the art agent's SpriteFrames when they exist, otherwise
 ## draws a placeholder in code after docs/DESIGN.md: a round head split blue /
-## yellow with soft upward tufts, big round eyes, a red clown nose and grin, a
+## yellow with 2-3 soft upward spikes growing only from the blue back half
+## (the yellow face half stays smooth), big round eyes, a red clown nose and grin, a
 ## small blue body with yellow accents, a red collar with a golden-ticket
 ## badge, and short arms and legs; or, in the ball states, a blue ball with a
 ## yellow half and a red nose dot. Rotates with the ground angle, mirrors with
@@ -20,8 +21,18 @@ const ROTATION_SMOOTHING := 30.0
 const HEAD_RADIUS := 8.5
 const HEAD_HEIGHT := 23.0
 
+## Head spikes as [base, tip] from the head centre (facing right): all on the
+## blue back half (x < 0), pointing up, at most a slight outward lean.
+const SPIKES := [
+	[Vector2(-2.6, -7.0), Vector2(-2.4, -13.5)],
+	[Vector2(-5.2, -5.4), Vector2(-6.0, -12.0)],
+	[Vector2(-7.0, -3.0), Vector2(-8.0, -9.4)],
+]
+const SPIKE_HALF_WIDTH := 2.2
+
 const OUTLINE := Color(0.1, 0.11, 0.2)
 const BLUE := Color(0.22, 0.52, 1.0)
+const BLUE_SHADE := Color(0.12, 0.34, 0.78)
 const YELLOW := Color(1.0, 0.84, 0.2)
 const RED := Color(0.93, 0.18, 0.2)
 const GOLD := Color(1.0, 0.78, 0.16)
@@ -226,20 +237,12 @@ func _draw_sproto() -> void:
 	draw_rect(Rect2(collar + Vector2(1.0, -0.5), Vector2(3.0, 2.2)), GOLD_DARK)
 	draw_rect(Rect2(collar + Vector2(1.5, 0.0), Vector2(2.0, 1.2)), GOLD)
 
-	# Soft upward tufts (rounded, not spikes): blue at the back, yellow in front.
-	var tufts := [[Vector2(-4.0, -7.0), Vector2(-5.5, -11.5), BLUE],
-			[Vector2(0.0, -8.0), Vector2(0.0, -13.0), BLUE],
-			[Vector2(4.0, -7.0), Vector2(5.0, -11.5), YELLOW]]
-	for tuft in tufts:
-		var base: Vector2 = head + tuft[0]
-		var tip: Vector2 = head + tuft[1]
-		draw_line(base, tip, OUTLINE, 5.0)
-		draw_circle(tip, 2.5, OUTLINE)
-	for tuft in tufts:
-		var base: Vector2 = head + tuft[0]
-		var tip: Vector2 = head + tuft[1]
-		draw_line(base, tip, tuft[2], 3.0)
-		draw_circle(tip, 1.6, tuft[2])
+	# Soft upward spikes, only on the blue back half (the yellow face half has
+	# none). Drawn before the head, which covers their roots.
+	for spike in SPIKES:
+		_draw_spike(head + spike[0], head + spike[1], OUTLINE, 1.0)
+	for spike in SPIKES:
+		_draw_spike(head + spike[0], head + spike[1], BLUE, 0.0)
 
 	# Round head, split down the middle: blue back half, yellow face half.
 	draw_circle(head, HEAD_RADIUS + 1.0, OUTLINE)
@@ -268,6 +271,23 @@ func _draw_sproto() -> void:
 	draw_circle(head + Vector2(8.0, 0.8), 2.6, OUTLINE)
 	draw_circle(head + Vector2(8.0, 0.8), 2.0, RED)
 	draw_circle(head + Vector2(7.5, 0.2), 0.6, Color(1.0, 0.7, 0.7))
+
+
+## One soft spike from `base` to `tip`: a tapered blade with a rounded tip, its
+## back edge shaded darker. `grow` widens it (for the outline pass).
+func _draw_spike(base: Vector2, tip: Vector2, color: Color, grow: float) -> void:
+	var along := (tip - base).normalized()
+	var side := along.orthogonal()
+	var half := SPIKE_HALF_WIDTH + grow
+	var blade := PackedVector2Array([base + side * half, tip + side * (0.9 + grow * 0.5),
+			tip - side * (0.9 + grow * 0.5), base - side * half])
+	draw_colored_polygon(blade, color)
+	draw_circle(tip, 1.1 + grow, color)
+	if grow == 0.0:
+		# Shade the back (head-outward) edge.
+		var back := side if side.x < 0.0 else -side
+		draw_colored_polygon(PackedVector2Array([base + back * half, tip + back * 0.9,
+				tip, base]), BLUE_SHADE)
 
 
 ## Filled half disc: the half on the side of `facing_angle` (radians).
