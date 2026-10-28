@@ -13,6 +13,9 @@ const NAME_WIDTH := 132.0
 const BUTTON_SIZE := Vector2(58, 22)
 const NAME_COLOR := Color(1, 0.86, 0.34)
 const LOCKED_COLOR := Color(0.5, 0.52, 0.62)
+## Bottom hint for keys/gamepad, and for touch (follows Display's touch mode).
+const HINT_KEYS := "JUMP: START     PAUSE: BACK TO TITLE"
+const HINT_TOUCH := "TAP AN ACT TO START     TAP BACK FOR THE TITLE"
 
 ## Rows of act buttons (null where an act can't be played), then [Back].
 var _grid: Array = []
@@ -35,6 +38,8 @@ func _ready() -> void:
 	_back.mouse_entered.connect(_hover.bind(_back))
 	_back.focus_entered.connect(_on_focus)
 	_link_focus()
+	_update_hint(Display.is_touch)
+	Display.touch_mode_changed.connect(_update_hint)
 	(%Count as Label).text = "%s  %d / %d" % [Emeralds.NAME.to_upper(), GameState.emerald_count(), Emeralds.total()]
 	_quiet_focus = true
 	first_button().grab_focus()
@@ -107,6 +112,10 @@ func back() -> void:
 
 func is_busy() -> bool:
 	return _busy
+
+
+func _update_hint(touch: bool) -> void:
+	(%Hint as Label).text = HINT_TOUCH if touch else HINT_KEYS
 
 
 func _build_rows() -> void:
