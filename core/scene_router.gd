@@ -80,6 +80,9 @@ func respawn() -> void:
 
 ## Opens any scene directly (dev menu, sandboxes). Not tied to a zone.
 func open_scene(path: String) -> void:
+	if not ResourceLoader.exists(path):
+		push_error("[SceneRouter] open_scene: no scene at %s" % path)
+		return
 	if not _claim("open_scene"):
 		return
 	zone_id = ""
@@ -138,6 +141,8 @@ func _claim(request: String) -> bool:
 
 
 func _change_to(path: String) -> void:
+	if path in MENU_SCENES:
+		GameState.timer_running = false
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	get_tree().change_scene_to_file.call_deferred(path)

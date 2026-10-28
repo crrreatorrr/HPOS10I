@@ -17,8 +17,12 @@ func _initialize() -> void:
 		"pause": [_key(KEY_ENTER), _key(KEY_ESCAPE), _key(KEY_P), _button(JOY_BUTTON_START)],
 		"debug_overlay": [_key(KEY_F1)],
 	}
+	# A 45-degree stick push is 0.71 on both axes. Horizontal triggers at 0.45
+	# and vertical only at 0.75, so diagonals read as left/right (running
+	# diagonally never crouches or rolls) while a firm down or up still counts.
+	var deadzones := {"move_left": 0.45, "move_right": 0.45, "move_up": 0.75, "move_down": 0.75}
 	for action in actions:
-		ProjectSettings.set_setting("input/" + action, {"deadzone": 0.5, "events": actions[action]})
+		ProjectSettings.set_setting("input/" + action, {"deadzone": deadzones.get(action, 0.5), "events": actions[action]})
 	var err := ProjectSettings.save()
 	print("input map saved: ", error_string(err))
 	quit(0 if err == OK else 1)

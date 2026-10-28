@@ -20,6 +20,9 @@ concurrency:
 
 env:
   GODOT_VERSION: "4.7.2"
+  # From the release's SHA512-SUMS.txt; update together with GODOT_VERSION.
+  GODOT_SHA512_EDITOR: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
+  GODOT_SHA512_TEMPLATES: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"
 
 jobs:
   build:
@@ -35,7 +38,7 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-web
+          key: godot-${{ env.GODOT_VERSION }}-web-verified
 
       - name: Install Godot ${{ env.GODOT_VERSION }}
         if: steps.godot-cache.outputs.cache-hit != 'true'
@@ -44,9 +47,11 @@ jobs:
           templates="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p ~/godot "$templates" /tmp/tpl
           curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          echo "${GODOT_SHA512_EDITOR}  /tmp/godot.zip" | sha512sum -c -
           unzip -q /tmp/godot.zip -d ~/godot
           mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
           curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "${GODOT_SHA512_TEMPLATES}  /tmp/templates.tpz" | sha512sum -c -
           # Keep only the web templates so the cache stays small.
           unzip -q /tmp/templates.tpz 'templates/web_*' 'templates/version.txt' -d /tmp/tpl
           mv /tmp/tpl/templates/* "$templates/"
@@ -86,6 +91,10 @@ jobs:
           marker = '"executable":"index",'
           assert marker in html, "GODOT_CONFIG format changed"
           html = html.replace(marker, marker + '"mainPack":"index.pck?v=%s",' % version, 1)
+          # The loader looks up fileSizes[mainPack] for its progress bar.
+          sizes_key = '"index.pck":'
+          assert sizes_key in html, "fileSizes format changed"
+          html = html.replace(sizes_key, '"index.pck?v=%s":' % version, 1)
           open(path, "w").write(html)
           print("mainPack -> index.pck?v=" + version)
           EOF
