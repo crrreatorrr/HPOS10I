@@ -1,0 +1,12 @@
+{
+  "events": [
+    [30, "move_left", true],
+    [130, "move_left", false],
+    [190, "move_right", true],
+    [220, "move_right", false],
+    [240, "move_left", true],
+    [247, "jump", true],
+    [275, "jump", false],
+    [306, "move_left", false]
+  ]
+}

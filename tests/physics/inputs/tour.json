@@ -1,0 +1,24 @@
+{
+  "events": [
+    [30, "move_right", true],
+    [72, "jump", true],
+    [96, "jump", false],
+    [600, "move_right", false],
+    [600, "move_left", true],
+    [616, "move_left", false],
+    [634, "move_down", true],
+    [637, "jump", true],
+    [639, "jump", false],
+    [641, "jump", true],
+    [643, "jump", false],
+    [645, "jump", true],
+    [647, "jump", false],
+    [649, "jump", true],
+    [651, "jump", false],
+    [653, "jump", true],
+    [655, "jump", false],
+    [657, "jump", true],
+    [659, "jump", false],
+    [664, "move_down", false]
+  ]
+}
