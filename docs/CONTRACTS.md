@@ -156,8 +156,9 @@ the camera. It also adds these when they exist:
 - `res://ui/touch_controls/touch_controls.tscn`
 - parallax layers from `res://assets/backgrounds/<zone_id>/`
 
-On player death (`Player.died`) it stops `GameState.timer_running`, waits
-about 2 s, then calls `SceneRouter.respawn()` once. `respawn()` takes the
+`Player.died` fires about 1 s after `kill()` (the fall-off animation). On
+it, LevelRoot stops `GameState.timer_running`, waits about 1 s more, then
+calls `SceneRouter.respawn()` once (about 2 s from death to respawn). `respawn()` takes the
 life; nothing else calls `GameState.lose_life()`. Scenes opened directly
 (sandboxes) respawn without losing lives.
 After the goal sign or a boss it shows the tally (`res://ui/tally/score_tally.tscn`,
