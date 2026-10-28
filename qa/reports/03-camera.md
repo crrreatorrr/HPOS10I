@@ -148,3 +148,52 @@ Both are minor for a dev playground. Owner: physics (playground).
   - Gameplay stays byte-identical.
   - Pixel snapping keeps Sproto rock-steady.
   - Ship it together with the BUG-03-01 line.
+
+## 03b: whole branch @ 2339845 (camera + textured terrain + effects + spikes)
+
+- **Scope:**
+  - `physics` HEAD 2339845 (705e730, 213c47f, 290c761, 2339845, 65afb20 on top of 4027c9f).
+  - Merged with main 967b981 in a throw-away copy (`git merge-tree`: clean).
+  - QA's latest `tests/qa` and `tools/qa` were added to the copy.
+- **Verdict:** **FIX FIRST**, for BUG-03-01 only.
+  - `camera/game_camera.gd` is unchanged since 4027c9f, so the snap smear is still there.
+  - Everything new in this range is MERGE.
+
+| Check | Result |
+|---|---|
+| Import | clean |
+| Test suite | 196 passed, 0 failed (181 of the agent's own + 15 QA camera probes) |
+| Regression and fix guards | All pass: `test_physics_regression`, `test_physics_fixes`, `test_camera_review`, `test_contracts`, `test_level_rules`. |
+| `scene_smoke.sh` | 8 run, 8 passed |
+| `originality_scan.sh` | 0 hits |
+| Trajectories, effects on/off × textured terrain on/off | **Identical.** Each policy was run in four variants, 5,400 ticks each, with `--trace=1` on the playground: base, effects off, textured, and textured with effects off. Within each policy the traces are byte-identical: fuzz seed 5 (md5 `47822f64…`) and runner jump-every 90 (md5 `8fa7868a…`). Textured runs used a QA material set (checker fill, tufted top, banded side) through `--terrain-root`; effects were switched off with `Effects.enabled = false` through a scratch wrapper of the bot. |
+| Effects leak and long-run check | **Clean.** Three 18,000-tick runs (5 min each: fuzz seeds 7 and 8, runner jump-every 45 with 97 spin dashes, so the afterimage fires) gave no errors and no NaN, 0 orphans, and static memory flat at 31.3 MB. Nodes always return to the baseline of 204; the peak is 266 during fuzz dust bursts. With effects off the peak is 204. |
+| Effects code | Visual only. `Node2D` puffs, sparkles and afterimage add no collision objects. They are spawned with `call_deferred` into the player's parent. `PlayerEffects` reads only public state, at priority 50 (after the player, before the camera). |
+| Textured terrain, seams | **PASS.** The world-space fill lines up across piece joins: the QA checker's magenta tile borders run straight through every join. The lip follows slopes, the bump, the curve run, the quarter pipe and both loop rings. Side bands sit on steep faces. See `qa/reports/evidence/03-camera/textured_playground_tour.png`. |
+| Textured terrain, loop edges | **Minor bug, BUG-03-04.** |
+
+### BUG-03-04: Stray lip-highlight pixels float in the air at loop bases (textured terrain)
+
+- **Severity:** minor (cosmetic)
+- **Owner:** physics (`terrain/terrain_art.gd`, lip strip)
+- **Repro:** Make a material set with a light first row in `top.png`, then run `-- --scene=res://playground/physics_playground.tscn --start=3120 --terrain-root=<dir>`. Look at the join between the loop ring and the floor. The loop at x 2400 shows the same.
+- **Expected:** The lip is drawn only along the walkable surface.
+- **Actual:**
+  - There are short diagonal runs of 1 px highlight pixels in empty space between the ring's outer face and the floor: 24 isolated pixels in one frame at x 3120.
+  - The fallback look (no materials) has 0 such pixels.
+  - Evidence: `qa/reports/evidence/03-camera/textured_loop_base_3120.png` (left textured, right fallback).
+- **Likely cause:** The lip strip is built on short or nearly vertical top-facing edges at the sharp concave join, and its highlight row is drawn where the strip polygon degenerates.
+- **Fix:**
+  - Skip lip segments shorter than about 4 px, or whose neighbours turn by more than about 60°.
+  - Or clip the lip polygon to the piece's own fill polygon.
+
+### Open items for the whole branch
+
+| Bug | Severity | Status |
+|---|---|---|
+| BUG-03-01 snap smear with interpolation on | major | open; a one-line fix |
+| BUG-03-02 autoscroll `clamp_rect` one frame late | minor | backlog |
+| BUG-03-03 blink counts render frames | minor | backlog |
+| BUG-03-04 stray lip pixels at loop bases | minor | backlog |
+| Playground lint (`loop.intrusion`, `loop.runup` at x 3120) | minor | backlog |
+| BUG-01-12, BUG-01-13 | minor | backlog (01-physics) |
