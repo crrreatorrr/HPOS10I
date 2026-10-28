@@ -112,7 +112,20 @@ func test_pause_only_in_gameplay() -> void:
 	_act(&"pause", false)
 	await physics_frames(3)
 	assert_eq(tree.paused, false, "pause does nothing in the boot menu")
-	menu_scene.queue_free()
+	if is_instance_valid(menu_scene):
+		menu_scene.queue_free()
+	# The title screen is a menu too: pause must do nothing there either.
+	if ResourceLoader.exists("res://ui/title/title_screen.tscn"):
+		var title := add_scene("res://ui/title/title_screen.tscn")
+		tree.current_scene = title
+		await physics_frames(3)
+		_act(&"pause", true)
+		_act(&"pause", false)
+		await physics_frames(3)
+		assert_eq(tree.paused, false, "pause does nothing on the title screen")
+		if is_instance_valid(title):
+			title.queue_free()
+		await physics_frames(1)
 	await _open_playground()
 	_act(&"pause", true)
 	_act(&"pause", false)
