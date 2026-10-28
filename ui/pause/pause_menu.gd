@@ -16,7 +16,7 @@ extends CanvasLayer
 ##
 ## Pausing releases every held game input. Resuming waits for two physics
 ## frames without a fresh jump press, so the key that closed the menu never
-## makes Sproto jump. On the web and touch devices, losing focus (tab switch, phone
+## makes Sproto jump. On the web (and mobile), losing focus (tab switch, phone
 ## call) pauses the game.
 
 signal opened
@@ -28,6 +28,11 @@ const DEVICE_COLUMNS := {"keyboard": 1, "gamepad": 2, "touch": 3}
 const HEADER_ACTIVE := Color(1, 0.86, 0.34)
 const HEADER_IDLE := Color(0.62, 0.66, 0.82)
 const QUIET_FRAMES_TO_RESUME := 2
+
+## Losing focus (tab switch, phone call) pauses the game: on the web and
+## mobile only, never on a desktop build, where Movie Maker recordings (even
+## with `--touch`) can lose window focus mid-take.
+var pause_on_focus_loss := OS.has_feature("web") or OS.has_feature("mobile")
 
 var _open := false
 var _resume_pending := false
@@ -132,7 +137,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and (OS.has_feature("web") or Display.is_touch):
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and pause_on_focus_loss:
 		if not _open and SceneRouter.in_gameplay() and not get_tree().paused:
 			open_menu()
 

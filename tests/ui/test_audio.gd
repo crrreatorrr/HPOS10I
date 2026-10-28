@@ -174,3 +174,51 @@ func test_music_ducks_while_paused() -> void:
 	tree.paused = false
 	await tree.process_frame
 	assert_eq(music.volume_db, normal, "back after unpause")
+
+
+func test_gamepad_does_not_unlock_but_shows_the_hint() -> void:
+	var music: AudioStreamPlayer = audio.get(&"_music")
+	var hint: SoundHint = add_scene("res://ui/sound_hint/sound_hint.tscn")
+	audio.set_locked(true)
+	audio.play_music(&"title")
+	assert_true(not hint.visible, "no hint before any input")
+	var button := InputEventJoypadButton.new()
+	button.button_index = JOY_BUTTON_A
+	button.pressed = true
+	tree.root.push_input(button, true)
+	assert_true(audio.is_locked(), "browsers don't count a gamepad press as a gesture")
+	assert_true(not music.playing, "music still waiting")
+	assert_true(audio.needs_unlock_hint() and hint.visible, "the enable-sound hint shows")
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_X
+	key.keycode = KEY_X
+	key.pressed = true
+	tree.root.push_input(key, true)
+	assert_true(not audio.is_locked(), "a key press unlocks")
+	assert_true(music.playing, "the waiting music starts")
+	assert_true(not audio.needs_unlock_hint(), "hint no longer wanted")
+	assert_true(not is_instance_valid(hint) or hint.is_queued_for_deletion(), "hint goes away")
+
+
+func test_gamepad_never_shows_the_hint_once_unlocked() -> void:
+	var hint: SoundHint = add_scene("res://ui/sound_hint/sound_hint.tscn")
+	var button := InputEventJoypadButton.new()
+	button.button_index = JOY_BUTTON_A
+	button.pressed = true
+	tree.root.push_input(button, true)
+	assert_true(not audio.is_locked() and not audio.needs_unlock_hint(), "off the web nothing changes")
+	assert_true(not hint.visible, "no hint")
+
+
+func test_hint_stays_clear_of_the_hud() -> void:
+	var hint: SoundHint = add_scene("res://ui/sound_hint/sound_hint.tscn")
+	var hud: Node = add_scene("res://ui/hud/hud.tscn")
+	await tree.process_frame
+	var label := hint.get_node("Root/Label") as Label
+	var font := label.get_theme_font(&"font")
+	var text_width := font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	assert_true(text_width <= label.size.x, "text fits its box (%s px)" % text_width)
+	var rect := label.get_global_rect()
+	for name in ["Counters", "Lives"]:
+		var other := hud.find_child(name, true, false) as Control
+		assert_true(not rect.intersects(other.get_global_rect()), "clear of the HUD %s" % name)

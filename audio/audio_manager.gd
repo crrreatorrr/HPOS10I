@@ -12,11 +12,16 @@ extends Node
 ## - Music plays on the "Music" bus, looped, and ducks while the game is paused.
 ## - Buses "SFX" and "Music" are created at runtime if the project has no bus
 ##   layout with them.
-## - Web: browsers keep audio locked until the first user gesture. Until the
-##   first key, click, tap or pad press, sound effects are skipped and the
-##   requested music waits; it starts on that first input.
+## - Web: browsers keep audio locked until the first user gesture: a key,
+##   click or tap (gamepad presses don't count for browsers). Until then sound
+##   effects are skipped and the requested music waits; it starts on that
+##   gesture. If a gamepad is used while still locked, a small hint
+##   (ui/sound_hint) asks for a click or a key press.
+
+signal unlock_hint_changed(show: bool)
 
 const SFX_DIR := "res://audio/sfx/"
+const UNLOCK_HINT_SCENE := "res://ui/sound_hint/sound_hint.tscn"
 const MUSIC_DIR := "res://audio/music/"
 
 ## Every name from docs/CONTRACTS.md.
@@ -52,6 +57,8 @@ var _last_started := {}
 ## path -> AudioStream, or null when the file does not exist.
 var _streams := {}
 var _locked := false
+## A gamepad was used while audio was still locked (the hint is showing).
+var _gamepad_while_locked := false
 var _ducked := false
 
 
@@ -75,6 +82,8 @@ func _ready() -> void:
 	for sfx in SFX_NAMES:
 		_stream(SFX_DIR + String(sfx) + ".ogg")
 	set_locked(OS.has_feature("web"))
+	if _locked and ResourceLoader.exists(UNLOCK_HINT_SCENE):
+		add_child(load(UNLOCK_HINT_SCENE).instantiate())
 
 
 func play_sfx(sfx_name: StringName) -> void:
@@ -125,11 +134,20 @@ func is_locked() -> bool:
 	return _locked
 
 
+## True while the "enable sound" hint should show: still locked, and the
+## player is on a gamepad (which browsers don't accept as a gesture).
+func needs_unlock_hint() -> bool:
+	return _locked and _gamepad_while_locked
+
+
 ## While locked (web, before the first user gesture) effects are skipped and
 ## music waits. Unlocking starts the music that should be playing.
 func set_locked(locked: bool) -> void:
 	_locked = locked
 	set_process_input(locked)
+	if not locked and _gamepad_while_locked:
+		_gamepad_while_locked = false
+		unlock_hint_changed.emit(false)
 	if not locked and _current_music != &"" and _music.stream != null and not _music.playing:
 		_music.play()
 
@@ -137,11 +155,17 @@ func set_locked(locked: bool) -> void:
 func _input(event: InputEvent) -> void:
 	if not _locked:
 		return
+	# Only what browsers accept as a user gesture unlocks audio.
 	var gesture := (event is InputEventKey or event is InputEventMouseButton \
-			or event is InputEventScreenTouch or event is InputEventJoypadButton) \
-			and event.is_pressed()
+			or event is InputEventScreenTouch) and event.is_pressed()
 	if gesture:
 		set_locked(false)
+		return
+	var gamepad := (event is InputEventJoypadButton and event.is_pressed()) \
+			or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.5)
+	if gamepad and not _gamepad_while_locked:
+		_gamepad_while_locked = true
+		unlock_hint_changed.emit(true)
 
 
 func _process(_delta: float) -> void:
