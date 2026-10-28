@@ -28,6 +28,8 @@ extends RefCounted
 ##                            standstill Sproto can't climb 26.6 deg (docs/LEVELS.md rule 4)
 ##   momentum.checkpoint warn a checkpoint or PlayerStart within 160 px before such a foot
 ##                            ("never put a steep hill right after a checkpoint")
+##   enemy.diver_post  error  a diver's post less than 120 px above the floor beneath it
+##                            (BUG-Z2-01: closer, a standing Sproto can't outrun it at high D)
 
 const SOLID := 1
 const PATH_A := 2
@@ -151,6 +153,7 @@ static func lint(root: Node) -> Array[Dictionary]:
 	_check_tunnels(out, columns)
 	_check_floors(out, columns)
 	_check_momentum(out, columns, spots)
+	_check_diver_posts(out, root, space)
 	return out
 
 
@@ -464,6 +467,33 @@ static func _check_momentum(out: Array[Dictionary], columns: Array, spots: Array
 				if c.x - at.x > 0.0 and c.x - at.x <= CHECKPOINT_REACH and absf(at.y - f.y) < 64.0:
 					_add(out, "warn", "momentum.checkpoint", at,
 							"%s is %.0f px before a %.0f deg up-slope (a respawn can't climb it)" % [spot[0], c.x - at.x, f.angle])
+
+
+const DIVER_MIN_POST := 120.0
+
+
+## Diver posts (scripts that are or extend levels/enemies/diver.gd) must hang
+## at least 120 px above the floor beneath them (lead decision on BUG-Z2-01).
+static func _check_diver_posts(out: Array[Dictionary], root: Node, space: PhysicsDirectSpaceState2D) -> void:
+	for node in root.find_children("*", "Node2D", true, false):
+		var script := node.get_script() as Script
+		var is_diver := false
+		while script != null:
+			if script.resource_path.ends_with("/diver.gd"):
+				is_diver = true
+				break
+			script = script.get_base_script()
+		if not is_diver:
+			continue
+		var post := (node as Node2D).global_position
+		var hit := _ray(space, post, post + Vector2(0, 2000), FLOOR_MASK)
+		if hit.is_empty():
+			_add(out, "info", "enemy.diver_post", post, "%s has no floor beneath it" % node.name)
+			continue
+		var drop: float = hit.position.y - post.y
+		if drop < DIVER_MIN_POST:
+			_add(out, "error", "enemy.diver_post", post,
+					"%s hangs %.0f px above the floor (needs %.0f)" % [node.name, drop, DIVER_MIN_POST])
 
 
 static func _ray(space: PhysicsDirectSpaceState2D, from: Vector2, to: Vector2, mask: int) -> Dictionary:
