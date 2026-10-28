@@ -248,3 +248,47 @@ func test_v_valleys_spindash_out() -> void:
 		_assert_out_of_v(v, "%d deg V spin dash" % side)
 		world.queue_free()
 		await physics_frames(1)
+
+
+## Rolls or runs into a sharp flat-to-`slope_deg` corner at every speed and
+## sub-step phase; the loss per frame near the corner must stay within the
+## slope factor (plus friction).
+func _sharp_corner_onto_slope(slope_deg: float) -> void:
+	var s := sin(deg_to_rad(slope_deg))
+	for roll in [true, false]:
+		var bound: float = (0.078125 * s + 0.0234375) if roll else (0.125 * s + 0.046875)
+		for speed in [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]:
+			for phase in 8:
+				world = W.new_world(self)
+				W.add_floor(world, -3000.0, 200.0)
+				var rise := 200.0 * tan(deg_to_rad(slope_deg))
+				W.add_polygon(world, PackedVector2Array([Vector2(200, 0), Vector2(400, -rise),
+						Vector2(400, 300), Vector2(200, 300)]))
+				W.add_floor(world, 400.0, 3000.0, -rise)
+				var start := Vector2(130.0 - phase, 0.0)
+				player = W.spawn_player(world, start)
+				await W.settle(self, player, start)
+				player.ground_speed = speed
+				if roll:
+					press(&"move_down")
+					await physics_frames(1)
+					release(&"move_down")
+				var worst := 0.0
+				var last := absf(player.ground_speed)
+				for i in 30:
+					await physics_frames(1)
+					if player.global_position.x > 170.0 and player.global_position.x < 240.0:
+						worst = maxf(worst, last - absf(player.ground_speed))
+					last = absf(player.ground_speed)
+				assert_true(worst <= bound + 0.001, "%s deg %s at %s px/f, phase %d: lost %.3f in a frame" % [
+						slope_deg, "roll" if roll else "run", speed, phase, worst])
+				world.queue_free()
+				await physics_frames(1)
+
+
+func test_sharp_corner_onto_45_degrees_keeps_speed() -> void:
+	await _sharp_corner_onto_slope(45.0)
+
+
+func test_sharp_corner_onto_26_degrees_keeps_speed() -> void:
+	await _sharp_corner_onto_slope(26.6)
