@@ -612,9 +612,10 @@ func _air_step(p: PhysicsConstants, dt: float) -> void:
 		facing = dir
 
 	# 3. Air drag: the classic per-frame formula with truncating division.
+	#    The hurt knockback has no drag, like the classic games.
 	var ysp := _vel.y / fps
 	var xsp := _vel.x / fps
-	if p.air_drag_enabled and ysp < 0.0 and ysp > -p.air_drag_max_up and absf(xsp) >= p.air_drag_min_x:
+	if p.air_drag_enabled and _state != &"hurt" and ysp < 0.0 and ysp > -p.air_drag_max_up and absf(xsp) >= p.air_drag_min_x:
 		xsp -= float(int(xsp / 0.125)) / 256.0
 		_vel.x = xsp * fps
 
