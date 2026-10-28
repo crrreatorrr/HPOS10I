@@ -12,6 +12,8 @@ const RING_SIZE := 16
 const SCATTER_START_ANGLE := 101.25
 const SCATTER_ANGLE_STEP := 22.5
 const RADIUS := 6.0
+## Drawn size of the ticket card (pixels).
+const TICKET_SIZE := Vector2(10.0, 6.0)
 ## Tickets blink during their last frames.
 const BLINK_FRAMES := 64
 
@@ -109,9 +111,25 @@ func _collect() -> void:
 
 
 func _draw() -> void:
-	# Spinning ticket: squash horizontally over time.
-	var squash := maxf(absf(cos(_age * 0.25)), 0.2)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(squash, 1.0))
-	draw_circle(Vector2.ZERO, RADIUS, COLOR_RIM)
-	draw_circle(Vector2.ZERO, RADIUS - 1.5, COLOR_FILL)
-	draw_circle(Vector2(-1.5, -1.5), 1.5, COLOR_SHINE)
+	draw_ticket(self, maxf(absf(cos(_age * 0.25)), 0.2))
+
+
+## Draws a golden ticket centred on `canvas`'s origin: a 10x6 gold card with
+## notched ends, a darker gold border and a small star. `squash` (0..1) scales
+## it horizontally for the spinning flip.
+static func draw_ticket(canvas: CanvasItem, squash: float) -> void:
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2(squash, 1.0))
+	var w := TICKET_SIZE.x / 2.0
+	var h := TICKET_SIZE.y / 2.0
+	var notch := 1.4
+	var outline := PackedVector2Array([Vector2(-w, -h), Vector2(w, -h), Vector2(w, -h + 1.6),
+			Vector2(w - notch, 0.0), Vector2(w, h - 1.6), Vector2(w, h), Vector2(-w, h),
+			Vector2(-w, h - 1.6), Vector2(-w + notch, 0.0), Vector2(-w, -h + 1.6)])
+	canvas.draw_colored_polygon(outline, COLOR_FILL)
+	canvas.draw_polyline(outline + PackedVector2Array([outline[0]]), COLOR_RIM, 1.0)
+	canvas.draw_line(Vector2(-w + 1.5, -h + 1.0), Vector2(w - 2.5, -h + 1.0), COLOR_SHINE, 1.0)
+	var star := PackedVector2Array()
+	for i in 10:
+		var r := 1.8 if i % 2 == 0 else 0.8
+		star.append(Vector2.from_angle(-PI * 0.5 + PI * i / 5.0) * r + Vector2(0.0, 0.4))
+	canvas.draw_colored_polygon(star, COLOR_RIM)

@@ -3,7 +3,7 @@ extends Node2D
 ## is "", "wizard_hat" or "sunglasses". Uses the art agent's frames when they
 ## exist, else a placeholder (purple pointed wizard hat, black sunglasses bar).
 ## Positioned from `anchors.json` "head" points when available, otherwise from
-## a fixed head offset per state. Child of the visual node, so it mirrors and
+## the placeholder's head_point(). Child of the visual node, so it mirrors and
 ## rotates with the body.
 
 const ANCHORS_PATH := "res://assets/sprites/common/sproto/anchors.json"
@@ -76,17 +76,7 @@ func _head_point() -> Vector2:
 		var point = _anchor_for(String(sprite.animation), sprite.frame)
 		if point is Vector2:
 			return sprite.position + point - CELL_CENTER
-	var feet := _player.get_radii().y
-	if _player.is_attacking():
-		return Vector2(2.0, feet - _player.get_radii().y * 2.0 + 5.0)
-	if _player.crouching:
-		return Vector2(6.0, feet - 16.0)
-	var lean := 0.0
-	if _player.state == &"run":
-		lean = clampf(absf(_player.ground_speed) * 0.4, 0.0, 3.0)
-	elif _player.state == &"skid":
-		lean = -3.0
-	return Vector2(6.0 + lean, feet - 24.0)
+	return _visual.head_point()
 
 
 ## Reads a "head" point from anchors.json. Accepts the layouts
@@ -115,17 +105,19 @@ func _draw() -> void:
 		return
 	match accessory:
 		"wizard_hat":
+			# Brim on the crown of the head, between the tufts.
 			var brim := PackedVector2Array()
 			for i in 16:
 				var t := TAU * i / 16.0
-				brim.append(Vector2(cos(t) * 8.0, -5.0 + sin(t) * 2.0))
+				brim.append(Vector2(cos(t) * 9.5, -8.0 + sin(t) * 2.0))
 			draw_colored_polygon(brim, HAT_DARK)
-			var cone := PackedVector2Array([Vector2(-5.0, -5.5), Vector2(5.0, -5.5),
-					Vector2(-1.0, -15.0), Vector2(-6.0, -19.0)])
+			var cone := PackedVector2Array([Vector2(-6.0, -8.5), Vector2(6.0, -8.5),
+					Vector2(-1.0, -19.0), Vector2(-7.0, -23.0)])
 			draw_colored_polygon(cone, HAT)
-			draw_circle(Vector2(0.0, -10.0), 1.2, STAR)
+			draw_circle(Vector2(0.0, -13.0), 1.3, STAR)
 		"sunglasses":
-			draw_rect(Rect2(-1.0, -3.0, 13.0, 1.5), GLASSES)
-			draw_rect(Rect2(0.5, -2.5, 4.5, 3.5), GLASSES)
-			draw_rect(Rect2(6.0, -2.5, 4.5, 3.5), GLASSES)
-			draw_line(Vector2(1.5, -1.8), Vector2(3.0, -1.8), GLINT, 1.0)
+			# Over the two eyes (centres (1, -2) and (5.5, -2) from the head centre).
+			draw_rect(Rect2(-2.5, -3.8, 12.0, 1.4), GLASSES)
+			draw_rect(Rect2(-2.0, -4.6, 6.0, 4.6), GLASSES)
+			draw_rect(Rect2(3.2, -4.4, 4.8, 4.2), GLASSES)
+			draw_line(Vector2(-1.0, -3.6), Vector2(1.0, -3.6), GLINT, 1.0)
