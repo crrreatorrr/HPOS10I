@@ -1,0 +1,58 @@
+extends Node
+## Developer helpers driven by command-line user args (everything after "--"):
+##   --scene=res://path.tscn      open a scene directly
+##   --zone=z1_retro_rush_hills   start a zone (optionally --stage=2)
+##   --inputs=res://path.json     replay a scripted input timeline
+##   --dev                        always show the dev menu at boot
+##
+## Record a clip with Movie Maker:
+##   godot --path . --write-movie /tmp/clip.avi --quit-after 600 -- \
+##     --scene=res://tests/physics/sandbox.tscn --inputs=res://tests/inputs/run_right.json
+##
+## Input timeline format (frames are physics ticks since boot, 60 per second):
+##   {"events": [[0, "move_right", true], [90, "jump", true], [96, "jump", false]]}
+
+var args := {}
+
+var _timeline: Array = []
+var _frame := 0
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	for arg in OS.get_cmdline_user_args():
+		if not arg.begins_with("--"):
+			continue
+		var kv := arg.substr(2).split("=", true, 1)
+		args[kv[0]] = kv[1] if kv.size() > 1 else true
+	if args.has("inputs"):
+		_timeline = load_timeline(args.inputs)
+	set_physics_process(not _timeline.is_empty())
+
+
+func _physics_process(_delta: float) -> void:
+	while not _timeline.is_empty() and _timeline[0][0] <= _frame:
+		var event: Array = _timeline.pop_front()
+		send_action(event[1], event[2])
+	_frame += 1
+	if _timeline.is_empty():
+		set_physics_process(false)
+
+
+## Presses or releases an input action as if a real device did it.
+static func send_action(action: StringName, pressed: bool) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = pressed
+	event.strength = 1.0 if pressed else 0.0
+	Input.parse_input_event(event)
+
+
+static func load_timeline(path: String) -> Array:
+	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if typeof(data) != TYPE_DICTIONARY or not data.has("events"):
+		push_error("[Dev] bad input timeline: %s" % path)
+		return []
+	var events: Array = data.events
+	events.sort_custom(func(a, b): return a[0] < b[0])
+	return events

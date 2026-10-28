@@ -1,0 +1,18 @@
+# Godot 4
+.godot/
+/android/
+export_credentials.cfg
+
+# Build output
+build/
+
+# Agent worktrees (lead only)
+.worktrees/
+
+# Raw AI generations stay out of git; prompts.md logs their Higgsfield job IDs
+assets/**/_raw/
+
+# OS / editor
+.DS_Store
+*.tmp
+__pycache__/

@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="PhysicsConstants" format=3]
+
+[ext_resource type="Script" path="res://core/physics_constants.gd" id="1_consts"]
+
+[resource]
+script = ExtResource("1_consts")
+acceleration = 0.046875
+deceleration = 0.5
+friction = 0.046875
+top_speed = 6.0
+air_acceleration = 0.09375
+gravity = 0.21875
+jump_force = 6.5
+jump_release_speed = 4.0
+air_drag_enabled = true
+air_drag_max_up = 4.0
+air_drag_min_x = 0.125
+max_fall_speed = 16.0
+slope_factor_normal = 0.125
+slope_factor_roll_up = 0.078125
+slope_factor_roll_down = 0.3125
+slip_speed = 2.5
+slip_angle = 35.0
+fall_angle = 69.0
+control_lock_frames = 30
+roll_friction = 0.0234375
+roll_deceleration = 0.125
+roll_min_speed = 1.03125
+unroll_speed = 0.5
+spindash_base_speed = 8.0
+spindash_charge_per_press = 2.0
+spindash_max_charge = 8.0
+hurt_x_speed = 2.0
+hurt_y_speed = -4.0
+hurt_gravity = 0.1875
+invincibility_frames = 120
+death_y_speed = -7.0
+width_radius = 9.0
+height_radius = 19.0
+roll_width_radius = 7.0
+roll_height_radius = 14.0
+push_radius = 10.0
+speed_cap = 16.0
+max_scattered_coins = 32
+coin_recollect_delay_frames = 64
+coin_lifetime_frames = 256
