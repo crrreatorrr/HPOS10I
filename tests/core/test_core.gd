@@ -159,3 +159,27 @@ func test_open_scene_rejects_missing_scenes() -> void:
 	SceneRouter.open_scene("res://does/not/exist.tscn")
 	await tree.process_frame
 	assert_eq(tree.current_scene, before, "no scene change")
+
+
+func test_timeline_does_not_double_press_on_its_first_frame() -> void:
+	var dev := tree.root.get_node("Dev")
+	var presses := [0]
+	var counter := func(event: InputEvent) -> void:
+		if event is InputEventAction and event.action == &"move_down" and event.pressed:
+			presses[0] += 1
+	var probe := _InputProbe.new()
+	probe.callback = counter
+	add_node(probe)
+	dev._timeline = [[dev._frame + 1, "move_down", true, 0]]
+	dev.set_physics_process(true)
+	await physics_frames(4)
+	assert_eq(presses[0], 1, "one press event for one timeline press")
+	dev._held.clear()
+	dev._timeline.clear()
+	Input.action_release(&"move_down")
+
+
+class _InputProbe extends Node:
+	var callback: Callable
+	func _input(event: InputEvent) -> void:
+		callback.call(event)
