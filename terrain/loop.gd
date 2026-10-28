@@ -14,6 +14,8 @@ extends Node2D
 ##     leftwards (upside down), and the exit switcher sets A again
 ##   - running left: the exit switcher sets B, the top switcher sets A while
 ##     crossing rightwards, and the entry switcher restores A
+## The Guard (LoopGuard) opens the way he is going when Sproto turns back in
+## the ring or on a foot, so no entry can trap him (BUG-02-01).
 ## Outside, each side has a hill foot below the equator (same path as that
 ## side's lower quarter): a vertical face from the equator that curves out
 ## onto the floor, so running off the top of the loop takes Sproto down the
@@ -116,3 +118,7 @@ func _layout() -> void:
 	top.path_moving_right = PathSwitcher.Path.A
 	top.path_moving_left = PathSwitcher.Path.B
 	top.grounded_only = true
+	var guard := $Guard as LoopGuard
+	guard.radius = radius
+	guard.outer_radius = outer
+	guard.foot_width = foot
