@@ -35,7 +35,8 @@ func _ready() -> void:
 	_layer.add_child(panel)
 	_label = Label.new()
 	_label.add_theme_font_size_override(&"font_size", 8)
-	_label.add_theme_constant_override(&"line_spacing", -2)
+	# +1: with -2 the pixel font's rows touched.
+	_label.add_theme_constant_override(&"line_spacing", 1)
 	panel.add_child(_label)
 	set_overlay_visible(Dev.args.has("overlay"))
 
