@@ -129,17 +129,25 @@ func _extension() -> float:
 func _draw() -> void:
 	var body := YELLOW if strength == Strength.YELLOW else RED
 	var dark := YELLOW_DARK if strength == Strength.YELLOW else RED_DARK
+	if kind == Kind.DIAGONAL:
+		# A 45-degree wedge, high on the side away from `facing`; its slope
+		# faces the launch direction and the spring stands on it.
+		var base := PackedVector2Array([Vector2(-13 * facing, 0), Vector2(5 * facing, 0),
+				Vector2(-13 * facing, -18)])
+		draw_colored_polygon(base, METAL_DARK)
+		draw_polyline(base + PackedVector2Array([base[0]]), OUTLINE, 1.0)
+	_draw_spring(spring_transform(), body, dark)
+
+
+## Where the spring is drawn: the upright spring (top plate towards -y)
+## rotated so its top plate faces the launch direction.
+func spring_transform() -> Transform2D:
 	match kind:
-		Kind.UP:
-			_draw_spring(Transform2D.IDENTITY, body, dark)
 		Kind.DIAGONAL:
-			# A wedge base with the spring tilted 45 degrees towards `facing`.
-			var base := PackedVector2Array([Vector2(-13, 0), Vector2(13, 0), Vector2(-13 * facing, -14)])
-			draw_colored_polygon(base, METAL_DARK)
-			draw_polyline(base + PackedVector2Array([base[0]]), OUTLINE, 1.0)
-			_draw_spring(Transform2D(-facing * PI * 0.25, Vector2(-3.0 * facing, -6.0)), body, dark)
+			return Transform2D(facing * PI * 0.25, Vector2(-4.0 * facing, -9.0))
 		Kind.SIDE:
-			_draw_spring(Transform2D(facing * PI * 0.5, Vector2(-6.0 * facing, -WIDTH / 2.0)), body, dark)
+			return Transform2D(facing * PI * 0.5, Vector2(-6.0 * facing, -WIDTH / 2.0))
+	return Transform2D.IDENTITY
 
 
 ## An upright spring: base plate, coil and top plate, drawn with `xf`.

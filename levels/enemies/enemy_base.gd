@@ -32,6 +32,8 @@ extends PlayerArea
 ## The origin is the enemy's feet, on the floor.
 
 signal destroyed
+## Emitted with every attack telegraph (the sound plays at the same time).
+signal telegraphed
 
 const SCORE := 100
 const TERRAIN_MASK := Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY
@@ -43,6 +45,8 @@ const MAX_FALL := 16.0
 ## the player, not in a static var: static vars in scripts that reference
 ## Player keep scripts alive at exit and fail the smoke test's leak check.)
 const BOUNCE_META := &"enemy_bounce_frame"
+const TELEGRAPH_SFX := &"enemy_telegraph"
+const TELEGRAPH_SFX_PATH := "res://audio/sfx/enemy_telegraph.ogg"
 
 ## Roster tier, 1-4 (docs/LEVELS.md). QA's lint reads it for each act's tier mix.
 @export_range(1, 4) var tier := 1
@@ -160,6 +164,25 @@ func interval_frames(base_frames: float) -> int:
 ## A telegraph (warning) in frames, scaled for the local difficulty (never under 0.35 s).
 func telegraph_frames(base_seconds: float) -> int:
 	return maxi(1, roundi(Difficulty.telegraph(base_seconds, local_difficulty()) * PhysicsConstants.FPS))
+
+
+## The telegraph sound: `enemy_telegraph` once that file exists, else the
+## contract's `boss_telegraph`.
+# LEAD-REQUEST: add `enemy_telegraph` to the CONTRACTS.md SFX list (and an
+# audio/sfx/enemy_telegraph.ogg); until then T2+ enemies borrow boss_telegraph.
+func play_telegraph() -> void:
+	telegraphed.emit()
+	Audio.play_sfx(TELEGRAPH_SFX if ResourceLoader.exists(TELEGRAPH_SFX_PATH) else &"boss_telegraph")
+
+
+## True when `at` (default: this enemy) is inside the camera's view, grown by
+## `margin`. With no 2D camera (tests, tools) everything counts as on screen.
+func on_screen(margin := 0.0, at := Vector2.INF) -> bool:
+	var viewport := get_viewport()
+	if viewport == null or viewport.get_camera_2d() == null:
+		return true
+	var view := viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
+	return view.grow(margin).has_point(global_position if at == Vector2.INF else at)
 
 
 ## The level root above this enemy (found by group and method, not by class,

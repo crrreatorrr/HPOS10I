@@ -221,3 +221,34 @@ func test_last_two_bosses_are_the_hardest() -> void:
 		assert_true(hard.ticket_refills <= 1, "%s gives almost no tickets" % zone_id)
 		assert_true(Difficulty.telegraph(hard.telegraph, hard.d) >= Difficulty.MIN_TELEGRAPH,
 				"%s still telegraphs every attack" % zone_id)
+
+
+func test_one_emerald_per_zone_act() -> void:
+	assert_eq(Emeralds.total(), 8, "4 zones x 2 acts")
+	assert_true(Emeralds.is_emerald_act("z1_retro_rush_hills", 1), "Z1 act 1 has one")
+	assert_true(Emeralds.is_emerald_act("z4_neon_rush_remix", 2), "Z4 act 2 has one")
+	assert_true(not Emeralds.is_emerald_act("z1_retro_rush_hills", 3), "the boss arena has none")
+	assert_true(not Emeralds.is_emerald_act("test_zone", 1), "the test zone has none")
+	assert_true(not Emeralds.is_emerald_act("", 1), "no zone, none")
+
+
+func test_complete_level_wins_the_act_emerald_once() -> void:
+	var state := tree.root.get_node("GameState")
+	var won := []
+	var on_won := func(zone_id: String, act: int) -> void: won.append(Emeralds.key(zone_id, act))
+	state.emerald_won.connect(on_won)
+	state.start_level("z2_wizard_academy", 2)
+	state.complete_level()
+	assert_true(state.emerald_just_won, "first clear wins it")
+	assert_true(state.has_emerald("z2_wizard_academy", 2), "kept")
+	assert_eq(state.emerald_count(), 1, "count")
+	state.start_level("z2_wizard_academy", 2)
+	state.complete_level()
+	assert_true(not state.emerald_just_won, "a replay doesn't win it again")
+	state.start_level("test_zone", 1)
+	state.complete_level()
+	assert_true(not state.emerald_just_won, "the test zone gives none")
+	assert_eq(won, ["z2_wizard_academy:2"], "one signal")
+	state.emerald_won.disconnect(on_won)
+	state.reset_game()
+	assert_eq(state.emerald_count(), 0, "a new game starts with none")
