@@ -49,6 +49,7 @@ func _build() -> void:
 	b.stump(W, {}, 160)
 	b.stairs_up(3)                            # into the academy (-96)
 	b.hall(384)
+	b.stair_hump(3)
 	b.candles(1, 256, {low_frames = 200})     # a first candle, on its own
 	b.stump(H, {}, 160)
 	b.shifting_flight(5, 128)                 # a first shifting staircase (-224)
@@ -135,6 +136,7 @@ func _build() -> void:
 	b.hall(320)
 	b.enemy(L, Vector2(b.x - 160, b.ground - 150))
 	b.guard(C, 320, 224)
+	b.stair_hump(3)
 	b.guard(SB, 256, 160, 64.0)
 	b.drop(96)                                # -608
 	b.guard(DV, 256, 160, 150.0)
