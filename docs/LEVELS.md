@@ -22,6 +22,9 @@ the lead.
 3. **Fair, never cheap.**
    - Every hazard and attack is telegraphed, for at least 0.35 s and longer
      early on.
+   - Aimed attacks (divers, snipers, anything that targets Sproto) lock
+     their target when the telegraph STARTS. Moving away as soon as the
+     telegraph appears must always avoid them, at every difficulty.
    - No blind drops into pits: show the landing, use arrow signs, or let
      look-down reveal it.
    - Nothing that can't be avoided at top speed: an enemy on a fast route is
