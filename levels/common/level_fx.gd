@@ -6,6 +6,13 @@ extends RefCounted
 ## from physics callbacks.
 
 const PHYSICS_EFFECTS := "res://player/effects.gd"
+const TELEGRAPH_SFX_PATH := "res://audio/sfx/enemy_telegraph.ogg"
+
+
+## The telegraph sound for enemies and hazards (CONTRACTS.md SFX
+## `enemy_telegraph`; the contract's `boss_telegraph` until that file exists).
+static func play_telegraph() -> void:
+	Audio.play_sfx(&"enemy_telegraph" if ResourceLoader.exists(TELEGRAPH_SFX_PATH) else &"boss_telegraph")
 
 
 ## Golden sparkle where a ticket was picked up: the shared

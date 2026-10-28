@@ -1,5 +1,5 @@
 {
-  "meta": {"goal_frame":1518,"note":"frames are physics ticks from the first tick the act is the current scene (Dev timeline format); replay with --scene and --inputs","scene":"res://levels/test_zone/test_zone.tscn","tool":"record_test_zone_run.gd"},
+  "meta": {"goal_frame":1518,"note":"Dev timeline: frame 0 is the first tick the scene is current; replay with --scene and --inputs","scene":"res://levels/test_zone/test_zone.tscn","tool":"record_test_zone_run.gd"},
   "events": [
     [1,"move_right",true],
     [95,"jump",true],
