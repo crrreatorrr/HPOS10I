@@ -9,8 +9,13 @@ extends Node
 ##   godot --path . --write-movie /tmp/clip.avi --quit-after 600 -- \
 ##     --scene=res://playground/physics_playground.tscn --inputs=res://tests/inputs/run_right.json
 ##
-## Input timeline format (frames are physics ticks since boot, 60 per second):
+## Input timeline format (60 frames per second):
 ##   {"events": [[0, "move_right", true], [90, "jump", true], [96, "jump", false]]}
+## Frame 0 is the first physics tick on which the --scene / --zone target is
+## the current scene (or the first tick after boot when there is no target),
+## so a plain launch, the QA bot and the recorders all replay alike. Recorders
+## count frames from the same moment. While a timeline runs, completing a
+## level prints its timeline frame.
 
 var args := {}
 
@@ -20,6 +25,12 @@ var _frame := 0
 ## OS releases all input when the window loses focus mid-recording.
 var _held := {}
 var _boot_taken := false
+## Scene the timeline clock waits for ("" = start at once).
+var _clock_scene := ""
+var _clock_started := false
+## Ticks spent waiting for _clock_scene (warns once if it never shows up).
+var _clock_wait := 0
+const CLOCK_WAIT_WARN := 600
 
 
 func _ready() -> void:
@@ -33,10 +44,22 @@ func _ready() -> void:
 		_timeline = load_timeline(args.inputs)
 	elif args.has("inputs"):
 		push_error("[Dev] --inputs needs a path, e.g. --inputs=res://tests/inputs/run_right.json")
+	if not _timeline.is_empty():
+		_clock_scene = timeline_scene(args)
+		GameState.level_completed.connect(func() -> void:
+				print("[Dev] level completed at timeline frame %d" % _frame))
 	set_physics_process(not _timeline.is_empty())
 
 
 func _physics_process(_delta: float) -> void:
+	if not _clock_started:
+		var scene := get_tree().current_scene
+		if _clock_scene != "" and (scene == null or scene.scene_file_path != _clock_scene):
+			_clock_wait += 1
+			if _clock_wait == CLOCK_WAIT_WARN:
+				push_warning("[Dev] input timeline still waiting for %s" % _clock_scene)
+			return
+		_clock_started = true
 	# Actions sent this frame aren't applied to Input until the event queue
 	# flushes, so they must not be re-pressed below (that doubled them).
 	var sent_now := {}
@@ -68,6 +91,16 @@ func take_boot_target() -> Dictionary:
 	if args.get("zone") is String:
 		return {zone = args.zone, stage = int(args.get("stage", "1"))}
 	return {}
+
+
+## The scene an input timeline's frame 0 waits for: the --scene target, or
+## the --zone/--stage act's scene; "" when there is neither.
+static func timeline_scene(dev_args: Dictionary) -> String:
+	if dev_args.get("scene") is String:
+		return dev_args.scene
+	if dev_args.get("zone") is String:
+		return ZoneRegistry.stage_path(dev_args.zone, int(dev_args.get("stage", "1")))
+	return ""
 
 
 ## Presses or releases an input action as if a real device did it.

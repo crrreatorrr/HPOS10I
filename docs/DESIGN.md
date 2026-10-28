@@ -74,6 +74,21 @@ real brand's ticket or wrapper design.
   can be grabbed back before they fade.
 - In code and assets they are called `ticket` / `tickets`.
 
+## Act-clear emeralds (director, 2026-10-28)
+
+Clearing an act wins that act's emerald: one per act of the four zones, 8
+in all; the test zone and boss arenas give none. It shows as a flat icon
+spinning around its vertical axis, made from the director's own image (a
+psychedelic grinning portrait with a "10"), kept as it is.
+
+- The director chose the display name and the image knowingly, as a scoped
+  exception to the originality guardrails. The name lives only in
+  `core/emeralds.gd` (allowlisted there). Everywhere else, show it through
+  `Emeralds.NAME` and call it "the emerald".
+- Shown big on the act-clear tally the first time it's won, and as 16 px
+  slots on the zone select.
+- In code and assets it is called `emerald` / `emeralds`.
+
 ## Pill robots (standard enemies)
 
 Small robots built from two-tone medicine capsules. They're the game's
