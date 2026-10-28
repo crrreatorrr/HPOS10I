@@ -9,8 +9,7 @@ const PLAYGROUND_DIR := "res://playground"
 const SANDBOX_DIR := "res://tests"
 
 var _entries: Array[Dictionary] = []
-var _index := 0
-var _label: Label
+var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -30,24 +29,28 @@ func _ready() -> void:
 	_build_menu()
 
 
+## Buttons already handle the arrow keys, Enter/Space, mouse and touch.
+## This adds the game's own keys: WASD, every jump key and number shortcuts.
 func _unhandled_input(event: InputEvent) -> void:
-	if _entries.is_empty():
+	if _buttons.is_empty():
 		return
-	if event.is_action_pressed("ui_down") or event.is_action_pressed("move_down"):
-		_index = (_index + 1) % _entries.size()
-	elif event.is_action_pressed("ui_up") or event.is_action_pressed("move_up"):
-		_index = (_index - 1 + _entries.size()) % _entries.size()
-	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("jump"):
-		_entries[_index].start.call()
-		return
-	elif event is InputEventKey and event.pressed and not event.echo:
-		var digit: int = event.keycode - KEY_1
-		if digit >= 0 and digit < mini(9, _entries.size()):
-			_entries[digit].start.call()
-			return
+	var focused := maxi(0, _buttons.find(get_viewport().gui_get_focus_owner()))
+	if event.is_action_pressed("move_down"):
+		_buttons[(focused + 1) % _buttons.size()].grab_focus()
+	elif event.is_action_pressed("move_up"):
+		_buttons[(focused - 1 + _buttons.size()) % _buttons.size()].grab_focus()
+	elif event.is_action_pressed("jump"):
+		_start(focused)
+	elif event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode >= KEY_1 and event.keycode < KEY_1 + mini(9, _buttons.size()):
+		_start(event.keycode - KEY_1)
 	else:
 		return
-	_refresh()
+	get_viewport().set_input_as_handled()
+
+
+func _start(index: int) -> void:
+	_entries[index].start.call()
 
 
 func _collect_entries() -> void:
@@ -95,21 +98,32 @@ func _find_scenes(dir_path: String, name_filter: String) -> PackedStringArray:
 func _build_menu() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	_label = Label.new()
-	_label.position = Vector2(16, 12)
-	_label.add_theme_font_size_override("font_size", 10)
-	layer.add_child(_label)
-	_refresh()
-
-
-func _refresh() -> void:
-	var lines := PackedStringArray(["HPOS10I  -  early build", ""])
+	var box := VBoxContainer.new()
+	box.position = Vector2(16, 12)
+	box.add_theme_constant_override("separation", 3)
+	layer.add_child(box)
+	box.add_child(_make_label("HPOS10I  -  early build", 12))
 	if _entries.is_empty():
-		lines.append("Nothing playable yet.")
+		box.add_child(_make_label("Nothing playable yet.", 10))
 	for i in _entries.size():
-		var cursor := ">" if i == _index else " "
-		var key := str(i + 1) if i < 9 else " "
-		lines.append("%s %s  %s" % [cursor, key, _entries[i].label])
-	lines.append("")
-	lines.append("Up/Down + Jump, or number keys")
-	_label.text = "\n".join(lines)
+		var button := Button.new()
+		button.text = "%d  %s" % [i + 1, _entries[i].label] if i < 9 else _entries[i].label
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.add_theme_font_size_override("font_size", 10)
+		# Big enough to hit with a thumb once scaled up on a phone.
+		button.custom_minimum_size = Vector2(220, 20)
+		button.pressed.connect(_start.bind(i))
+		box.add_child(button)
+		_buttons.append(button)
+	var hint := "Tap an entry to play" if Display.is_touch \
+			else "Arrows/WASD + Jump or Enter, click, or number keys"
+	box.add_child(_make_label(hint, 9))
+	if not _buttons.is_empty():
+		_buttons[0].grab_focus.call_deferred()
+
+
+func _make_label(text: String, size: int) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", size)
+	return label

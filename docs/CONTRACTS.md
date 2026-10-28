@@ -152,9 +152,10 @@ Boss arenas use it too (read-only for the boss agent). Expected children:
 the camera. It also adds these when they exist:
 
 - `res://ui/hud/hud.tscn`
-- `res://ui/pause/pause_menu.tscn`
-- `res://ui/touch_controls/touch_controls.tscn`
 - parallax layers from `res://assets/backgrounds/<zone_id>/`
+
+The touch controls and pause menu are global: the `Display` autoload
+(core/display.gd) adds them once, above every scene. Levels don't add them.
 
 `Player.died` fires about 1 s after `kill()` (the fall-off animation). On
 it, LevelRoot stops `GameState.timer_running`, waits about 1 s more, then
@@ -247,8 +248,8 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 | `ui/title/title_screen.tscn` | Boot goes here once it exists |
 | `ui/zone_select/zone_select.tscn` | Uses `ZoneRegistry` + `SceneRouter.start_zone()` |
 | `ui/hud/hud.tscn` | `CanvasLayer`; listens to `GameState` signals |
-| `ui/pause/pause_menu.tscn` | `process_mode = ALWAYS`; toggles `get_tree().paused` on `pause` |
-| `ui/touch_controls/touch_controls.tscn` | Shown only when `DisplayServer.is_touchscreen_available()` |
+| `ui/pause/pause_menu.tscn` | Added globally by `Display`. `process_mode = ALWAYS`; toggles `get_tree().paused` on `pause`, only while `SceneRouter.in_gameplay()` |
+| `ui/touch_controls/touch_controls.tscn` | Added globally by `Display` only on touch devices (`Display.is_touch`). It presses the normal input actions |
 | `ui/tally/score_tally.tscn` | Emits `finished` |
 | `ui/game_over/game_over.tscn`, `ui/ending/ending.tscn` | |
 

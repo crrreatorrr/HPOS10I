@@ -12,6 +12,8 @@ const ZONE_SELECT_SCENE := "res://ui/zone_select/zone_select.tscn"
 const GAME_OVER_SCENE := "res://ui/game_over/game_over.tscn"
 const ENDING_SCENE := "res://ui/ending/ending.tscn"
 
+const MENU_SCENES := [MAIN_SCENE, TITLE_SCENE, ZONE_SELECT_SCENE, GAME_OVER_SCENE, ENDING_SCENE]
+
 signal stage_started(zone_id: String, stage: int)
 
 var zone_id := ""
@@ -85,6 +87,15 @@ func open_scene(path: String) -> void:
 	_free_scene = path
 	GameState.start_level("", 1)
 	_change_to(path)
+
+
+## True while a level, boss arena or playground is running (not in menus).
+## The pause menu and touch controls use this.
+func in_gameplay() -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	return not scene.scene_file_path in MENU_SCENES
 
 
 func current_zone() -> Dictionary:
