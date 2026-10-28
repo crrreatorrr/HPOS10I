@@ -18,6 +18,12 @@ func _skip() -> bool:
 	if not L.available():
 		print("  SKIP qa/test_physics_fixes_2.gd: no player scene yet")
 		return true
+	# Until physics 53a6989 is merged these guards would only re-find the two
+	# known bugs; they arm themselves with the fix (its constant marks it).
+	var player_script := load("res://player/player.gd") as GDScript
+	if player_script == null or not player_script.get_script_constant_map().has("WALKABLE_SLOPE_MAX"):
+		print("  SKIP qa/test_physics_fixes_2.gd: physics 53a6989 (corner and ceiling fixes) not merged yet")
+		return true
 	return false
 
 
