@@ -45,8 +45,8 @@ func test_jump_apex_height() -> void:
 	for i in 80:
 		top = minf(top, W.feet_y(player))
 		await physics_frames(1)
-	# Continuous apex v^2 / 2g = 6.5^2 / (2 * 0.21875) = 96.57 px (bottom of the hitbox).
-	assert_near(start_feet - top, 96.6, 1.5, "apex height")
+	# The Guide's discrete arc: 30 frames of 6.5 - 0.21875 k = 99.84 px.
+	assert_near(start_feet - top, 99.84375, 0.01, "apex height")
 	assert_true(player.grounded, "landed again")
 	assert_near(W.feet_y(player), start_feet, 0.01, "back on the floor")
 

@@ -40,6 +40,14 @@ const BLACK := Color(0.04, 0.04, 0.07)
 
 var _player: Player
 var _sprite: AnimatedSprite2D
+## Frames of the walk cycle and of the rolling ball.
+const WALK_FRAMES := 6
+const ROLL_FRAMES := 8
+
+## Current frame of the walk/run or roll cycle, advanced on physics ticks at
+## the Guide's rate (see frame_ticks()).
+var anim_frame := 0
+var _ticks_left := 0
 var _spin := 0.0
 var _cycle := 0.0
 
@@ -57,12 +65,43 @@ func _ready() -> void:
 			move_child(_sprite, 0)
 
 
+## Ticks each animation frame is shown for, from the community Physics
+## Guide: walking and running max(0, 8 - |gsp|) + 1, rolling
+## max(0, 4 - |gsp|) + 1 (|gsp| truncated to whole pixels), so the feet turn
+## faster the faster he goes, as in the classics. The spin dash spins at the
+## full rate.
+static func frame_ticks(state: StringName, ground_speed: float) -> int:
+	var speed := int(absf(ground_speed))
+	match state:
+		&"run", &"skid":
+			return maxi(0, 8 - speed) + 1
+		&"roll", &"jump":
+			return maxi(0, 4 - speed) + 1
+		&"spindash":
+			return 1
+	return 0
+
+
+func _physics_process(_delta: float) -> void:
+	if _player == null:
+		return
+	var speed := _player.ground_speed if _player.grounded else _player.velocity.x
+	var ticks := frame_ticks(_player.state, speed)
+	if ticks == 0:
+		return
+	if _ticks_left <= 1:
+		anim_frame += 1
+		_ticks_left = ticks
+	else:
+		_ticks_left -= 1
+
+
 func _process(delta: float) -> void:
 	if _player == null:
 		return
-	var speed := absf(_player.ground_speed) if _player.grounded else _player.velocity.length()
-	_spin += (4.0 + speed * 1.6) * delta * TAU * 0.25
-	_cycle += (0.5 + absf(_player.ground_speed)) * delta * 2.2
+	# The placeholder's leg swing and ball spin follow the frame counter.
+	_cycle = TAU * float(anim_frame % WALK_FRAMES) / WALK_FRAMES
+	_spin = TAU * float(anim_frame % ROLL_FRAMES) / ROLL_FRAMES
 
 	scale.x = float(_player.facing)
 	# The sensor angle can step a few degrees when A/B swap on curves; ease the
@@ -126,11 +165,15 @@ func _update_sprite() -> void:
 				anim = &"idle"
 	if not frames.has_animation(anim):
 		return
-	if anim == &"run" and _player.state == &"run":
-		speed_scale *= clampf(absf(_player.ground_speed) / 6.0, 0.4, 2.0)
 	if _sprite.animation != anim:
 		_sprite.play(anim)
-	_sprite.speed_scale = speed_scale
+	# Walk, run and roll frames step at the Guide's rate (frame_ticks());
+	# the other animations keep the rate in the SpriteFrames.
+	if frame_ticks(_player.state, _player.ground_speed) > 0 and _player.pose == &"":
+		_sprite.speed_scale = 0.0
+		_sprite.frame = anim_frame % maxi(frames.get_frame_count(anim), 1)
+	else:
+		_sprite.speed_scale = speed_scale
 	_sprite.position = Vector2(0.0, feet_y() - CELL_FEET_OFFSET)
 
 

@@ -23,6 +23,8 @@ const RANGE_Y := 64.0
 
 var _timer := 0
 var _recoil := 0
+## Where Sproto stood when the telegraph started (aimed costumes throw there).
+var aim := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -40,9 +42,11 @@ func _enemy_physics(_delta: float) -> void:
 	if target == null:
 		_timer = 0
 		return
-	facing = 1 if target.global_position.x > global_position.x else -1
+	if not is_telegraphing():
+		facing = 1 if target.global_position.x > global_position.x else -1
 	_timer += 1
 	if _timer == interval_frames(fire_interval) - telegraph_frames(TELEGRAPH):
+		aim = target.global_position  # aimed attacks lock their target at telegraph start
 		play_telegraph()
 	if _timer >= interval_frames(fire_interval):
 		_timer = 0

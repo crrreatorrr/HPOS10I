@@ -45,7 +45,9 @@ const FPS := 60.0
 ## Below this ground speed on a steep slope the player slips.
 @export var slip_speed := 2.5
 ## Slopes steeper than this (degrees from flat) can make the player slip.
-@export var slip_angle := 35.0
+## 45 is the second classic game's angle (the project baseline); the third
+## used about 35.
+@export var slip_angle := 45.0
 ## Slopes steeper than this make a slipping player detach and fall.
 @export var fall_angle := 69.0
 @export var control_lock_frames := 30

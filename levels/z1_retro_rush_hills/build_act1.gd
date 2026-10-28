@@ -51,7 +51,7 @@ func _build() -> void:
 	b.hill(48, 128, false, H)
 	b.spring_gate()
 	b.flat(576, 160, 64)
-	b.hill(48, 96, false, W)
+	b.hill(48, 96, false, W, {}, 160, 0.0, 130)
 	b.hill(32, 64, false, H)
 	b.waterfall(b.x + 64, -260, 48, 260)
 	b.quarter_pipe(64, 384)                   # onto the upper hills
@@ -65,7 +65,7 @@ func _build() -> void:
 	b.hill(32, 96, true, H)
 	b.loop(true, 384)                         # second loop, on the upper hills
 	b.flat(640, 64, 64)
-	b.hill(48, 96, false, W)
+	b.hill(48, 96, false, W, {}, 160, 0.0, 130)
 	b.descent(64)                             # a slope, not a drop: no hard landing on the next hill
 	b.flat(256, 32, 40)
 	b.hill(48, 128, false, H)
