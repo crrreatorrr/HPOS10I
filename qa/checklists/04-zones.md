@@ -39,6 +39,54 @@ Every act gets section A and B; then the zone-specific section.
 - [ ] ZN-C4 [auto] Platform moving into the player from the side pushes the player out, does not trap.
 - [ ] ZN-C5 [auto] Pause and respawn: moving solids pause, and reset or continue consistently after a respawn.
 
+## I. Difficulty curve (docs/LEVELS.md, `core/difficulty.gd`)
+
+The rows of `Difficulty.TARGETS` are the contract: D 0 is the test zone, D 1–8 run from Z1 Act 1 to Z4 Act 2.
+`tests/qa/qa_difficulty.gd` documents how each number is measured.
+Run `godot --headless --path . -s res://tools/qa/level_lint.gd` for the full per-act report; the auto items below run in `tests/qa/test_level_difficulty.gd`.
+
+- [ ] ZN-I1 [auto] `Difficulty.for_stage(zone, act)` gives the D in the LEVELS.md table for every built act (`level_lint.gd -- --list-acts`).
+- [ ] ZN-I2 [auto] Length is within ±25 % of the row's `screens`. Length = walkable width in 424 px screens.
+- [ ] ZN-I3 [auto] Enemy density (Enemy nodes per screen) is within ±25 % of `enemies_per_screen`.
+- [ ] ZN-I4 [auto] Every enemy extends `Enemy` and sets `tier` (1–4).
+  - No enemy is above the row's highest tier (error).
+  - Each tier's share is within 25 points of the row's mix (warning).
+- [ ] ZN-I5 [auto] The checkpoint count matches `checkpoints`: 1 off is a warning, 2 or more is an error.
+  - No gap between start, checkpoints and goal is longer than 1.75× the even spacing (and 3 screens).
+- [ ] ZN-I6 [auto] Ticket density is within ±25 % of `tickets_per_screen`.
+- [ ] ZN-I7 [auto] Direction score is at least the row's R level: 1 below is a warning, 2 or more below is an error. It is built from:
+  - routes per third;
+  - vertical screens;
+  - leftward-travel screens (goal left of the start, plus `Leftward*`/`Reverse*` nodes);
+  - dead ends (walls over 96 px with no spring);
+  - doors and switches;
+  - forced sections (autoscroll, reverse runs).
+
+  If an act is R4/R5 by design but scores lower, the levels agent names the feature nodes so the lint can see them (e.g. `LeftwardRun`, `Door`, `Switch`, `Autoscroll…`), rather than QA lowering the bar.
+- [ ] ZN-I8 [auto] Act to act (sorted by D), no act is easier than the one before. These are errors:
+  - lower enemy density (more than 10 %);
+  - a lower tier ceiling;
+  - a lower direction score.
+
+  More tickets per screen is a warning.
+- [ ] ZN-I9 [auto] `tools/qa/difficulty_bot.sh` (slow, not in CI):
+  - The runner bot finishes every act in at least one of 5 variants.
+  - Once two or more acts exist, its median clear time rises with D.
+  - Report the medians next to `par_seconds`.
+- [ ] ZN-I10 [auto] Enemies scale with D. Probe one enemy of each tier in a D1 and a D8 act:
+  - speed ratio = `Difficulty.speed_mult(8) / speed_mult(1)` (1.42);
+  - attack interval ratio 0.65;
+  - telegraphs = `Difficulty.telegraph(base, D)`, never below 0.35 s.
+
+  No per-zone speed constants in `levels/enemies/` (grep).
+- [ ] ZN-I11 [manual] Teach → test → twist: the act's new idea appears first where it is safe (no pit or enemy nearby).
+- [ ] ZN-I12 [manual] Fairness:
+  - No blind drops into pits.
+  - An enemy on a fast route is visible at least 1 s ahead at that speed, or can be rolled through.
+  - Before D5, no enemy within 2 screens after a spring landing, a loop exit or a checkpoint.
+  - Backtracking is never more than 3 screens without a visible reason.
+- [ ] ZN-I13 [manual] Every act has a fast HIGH route and a safer LOW route. In later acts the high route is harder to stay on and the low route longer.
+
 ## D. Zone 1 – Retro Rush Hills (`z1_retro_rush_hills`)
 
 - [ ] Z1-1 [manual] Bright checkered dirt, palm trees, loops, waterfalls; original art, no recognisable copies of existing games' levels.
@@ -48,7 +96,7 @@ Every act gets section A and B; then the zone-specific section.
 
 ## E. Zone 2 – Wizard Academy (`z2_wizard_academy`)
 
-- [ ] Z2-1 [manual] Magic-school castle, candle-lit halls; enchanted books and living armor enemies; original names and designs.
+- [ ] Z2-1 [manual] Magic-school castle, candle-lit halls; pill-robot enemies in zone costume (spellbook pill = Floater/Diver, knight pill = Armored pill, docs/LEVELS.md); original names and designs.
 - [ ] Z2-2 [auto] Shifting staircases: rideable, crush rule (C3) holds, never leave the player inside a step.
 - [ ] Z2-3 [auto] Moving bookshelves: push the player out or crush, never trap without death.
 - [ ] Z2-4 [auto] Flying-broom section: `GameCamera.start_autoscroll()` starts, player `clamp_rect` is set; the player cannot get ahead of or behind the screen; caught by the left edge against a wall = death.
@@ -60,7 +108,7 @@ Every act gets section A and B; then the zone-specific section.
 
 - [ ] Z3-1 [manual] Grand white mansion and lawn, rooftops, ballrooms, underground bunker.
 - [ ] Z3-2 [manual] No real people, real seals, flags, logos, signage or recognisable real buildings' insignia.
-- [ ] Z3-3 [manual] Security drones and paperwork robots: original designs, readable as enemies.
+- [ ] Z3-3 [manual] Drone pills (Floater/Diver with a searchlight) and clerk pills (Pellet pill throwing paper): original designs, readable as enemies.
 - [ ] Z3-4 [auto] Rooftop gaps: falling below `Bounds` kills; no ledges that look solid but are not.
 - [ ] Z3-5 [manual] Sunglasses drawn on every frame of every animation.
 
