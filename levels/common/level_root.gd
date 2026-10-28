@@ -355,9 +355,11 @@ func _add_camera() -> void:
 	if camera.has_method(&"set_level_bounds"):
 		camera.call(&"set_level_bounds", _bounds)
 	if player != null:
+		# GameCamera snaps to Sproto itself on its first frame; this places the fallback.
 		camera.global_position = player.global_position
 		camera.reset_smoothing()
 	camera.make_current()
+	camera.reset_physics_interpolation()
 
 
 func _add_ui() -> void:

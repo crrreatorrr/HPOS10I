@@ -85,6 +85,7 @@ func _follow() -> void:
 			return
 		global_position = _target.global_position
 		reset_smoothing()
+		reset_physics_interpolation()
 	var ahead := 0.0
 	if _target is Player:
 		var p := _target as Player

@@ -8,13 +8,17 @@ extends RefCounted
 const PHYSICS_EFFECTS := "res://player/effects.gd"
 
 
-## Golden sparkle where a ticket was picked up. Uses the physics agent's
-## shared sparkle helper (player/effects.gd) when it has one this can call.
+## Golden sparkle where a ticket was picked up: the shared
+## Effects.ticket_sparkle(at, parent) (player/effects.gd, CONTRACTS.md), or a
+## stand-in when that script is missing.
 static func ticket_sparkle(parent: Node, at: Vector2) -> void:
 	if parent == null:
 		return
-	if _shared_sparkle(parent, at):
-		return
+	if ResourceLoader.exists(PHYSICS_EFFECTS):
+		var effects := load(PHYSICS_EFFECTS) as Script
+		if effects != null and effects.has_method(&"ticket_sparkle"):
+			effects.call(&"ticket_sparkle", at, parent)
+			return
 	_add(parent, Sparkle.new(), at)
 
 
@@ -57,27 +61,8 @@ static func _add(parent: Node, node: Node2D, at: Vector2) -> void:
 	node.z_index = 20
 	node.position = at
 	parent.add_child.call_deferred(node)
-
-
-static func _shared_sparkle(parent: Node, at: Vector2) -> bool:
-	if not ResourceLoader.exists(PHYSICS_EFFECTS):
-		return false
-	var script := load(PHYSICS_EFFECTS) as Script
-	if script == null or not script.can_instantiate():
-		return false
-	for method in script.get_script_method_list():
-		if not String(method.name).contains("sparkle") or not (int(method.flags) & METHOD_FLAG_STATIC):
-			continue
-		var args: Array = method.args
-		var required: int = args.size() - method.default_args.size()
-		# (parent: Node, position: Vector2, ...) or (position: Vector2, ...).
-		if required <= 2 and args.size() >= 2 and int(args[0].type) == TYPE_OBJECT and int(args[1].type) == TYPE_VECTOR2:
-			script.callv(method.name, [parent, at])
-			return true
-		if required <= 1 and args.size() >= 1 and int(args[0].type) == TYPE_VECTOR2:
-			script.callv(method.name, [at])
-			return true
-	return false
+	# Start where it was placed: no interpolated sweep from the origin.
+	node.reset_physics_interpolation.call_deferred()
 
 
 ## Four-pointed golden twinkle that grows and fades.

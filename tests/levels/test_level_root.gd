@@ -32,25 +32,27 @@ func test_spawns_at_the_checkpoint_when_one_is_set() -> void:
 	assert_true(level.player.grounded, "standing")
 
 
-func test_camera_limits_are_the_bounds() -> void:
+func test_camera_never_shows_outside_the_bounds() -> void:
 	var level := await W.mini_level(self)
 	var camera := level.camera
 	assert_true(camera != null and camera.is_current(), "a current camera")
+	if ResourceLoader.exists(LevelRoot.CAMERA_SCENE):
+		assert_true(camera.scene_file_path == LevelRoot.CAMERA_SCENE, "the game camera is used")
 	var bounds := level.get_bounds()
-	assert_eq(camera.limit_left, int(bounds.position.x), "left limit")
-	assert_eq(camera.limit_top, int(bounds.position.y), "top limit")
-	assert_eq(camera.limit_right, int(bounds.end.x), "right limit")
-	assert_eq(camera.limit_bottom, int(bounds.end.y), "bottom limit")
-	# Walk to the far end: the view never leaves the bounds.
-	press(&"move_right")
-	for i in 400:
-		await physics_frames(1)
-		var view := camera.get_screen_center_position()
-		var half := camera.get_viewport_rect().size / 2.0
-		if view.x - half.x < bounds.position.x - 0.5 or view.x + half.x > bounds.end.x + 0.5 \
-				or view.y - half.y < bounds.position.y - 0.5 or view.y + half.y > bounds.end.y + 0.5:
-			fail("view %s left the bounds %s at frame %d" % [view, bounds, i])
-			return
+	# Run to the far wall and back: the view never leaves the bounds.
+	for action in [&"move_right", &"move_left"]:
+		press(action)
+		for i in 360:
+			await physics_frames(1)
+			var view := camera.get_screen_center_position()
+			var half := camera.get_viewport_rect().size / 2.0
+			if view.x - half.x < bounds.position.x - 0.5 or view.x + half.x > bounds.end.x + 0.5 \
+					or view.y - half.y < bounds.position.y - 0.5 or view.y + half.y > bounds.end.y + 0.5:
+				fail("view %s left the bounds %s at frame %d" % [view, bounds, i])
+				return
+		release(action)
+	assert_true(absf(camera.get_screen_center_position().x - level.player.global_position.x) < 212.0,
+			"Sproto stays on screen")
 
 
 func test_backdrop_and_hud_stand_ins() -> void:
@@ -66,7 +68,11 @@ func test_backdrop_and_hud_stand_ins() -> void:
 	var expected := [0.1, 0.3, 0.6, 0.9]
 	for i in mini(scales.size(), expected.size()):
 		assert_near(scales[i], expected[i], 1e-5, "contract scroll scale %d" % i)
-	if not ResourceLoader.exists(LevelRoot.HUD_SCENE):
+	if ResourceLoader.exists(LevelRoot.HUD_SCENE):
+		assert_true(level.find_children("*", "CanvasLayer", false, false).any(func(n: Node) -> bool:
+			return n.scene_file_path == LevelRoot.HUD_SCENE), "the HUD is added")
+		assert_true(level.get_node_or_null(^"DebugHud") == null, "no debug HUD next to the real one")
+	else:
 		assert_true(level.get_node_or_null(^"DebugHud") != null, "debug HUD stands in for the HUD")
 
 
