@@ -87,7 +87,7 @@ LEVELS.md rules:
   - Let the entry-side switcher (or the ring's lower-left arc) set path A when Sproto is inside the ring below the centre and moving left.
   - Or only switch paths on the ground (classic "grounded only" switchers), so a mid-air entry stays on path A and can walk out.
 
-### BUG-02-02: Side spring at the start faces a walker 1.3 screens ahead
+### BUG-02-02: Side spring at the start faces a walker 1.3 screens ahead (FIXED in 69f2067)
 
 - **Severity:** minor (advisory)
 - **Owner:** levels (`levels/test_zone/build_test_zone.gd`)
@@ -101,3 +101,15 @@ LEVELS.md rules:
   - A plain group node that holds the items ("Tickets", "Checkpoints") is now a container: its contents count, not the node (the level agent's report).
   - D0 ramp findings are warnings.
   - The fuzz bot has a `--no-pause` option, so the real pause menu can't end fuzz runs through QUIT.
+
+## Re-check: levels @ 69f2067 (on main 41fb2c4): MERGE
+
+- **Scope:** `levels/test_zone/` and `tests/levels/` only.
+- **Checks:** a single fresh import has 0 errors; 348 passed, 0 failed; smoke 25/25; 0 originality hits.
+- **Level lint:** 0 errors. Its 3 warnings are all accepted: the spike-block step ×2 and the report-only D0 `finale_tier`.
+- **Spring test tightened:** the spring-under-ceiling test now allows 0.1 px instead of 8 px, and it passes (physics 53a6989 is on main).
+- **BUG-02-02 FIXED:** the side spring is on the mesa at x 2080. A static check of every checkpoint, spring and loop exit finds no enemy within 2 screens ahead of any of them.
+- **Recorded run (Dev replay through the bot, `--policy=none`):** goal at frame 1519, 0 deaths, score 12,700 (every enemy beaten).
+- **Bot runner:** goal at frames 1599, 1689 and 1605 (jump every 0/150/240), 0 deaths.
+  - With a jump every 90 frames the goal comes at 2395. Sproto spends 6.4 s at x 5630 inside the loop, which is BUG-02-01 again (physics, fix in progress); he gets out on his own.
+- **Still open:** BUG-02-01 (major, physics), which I'll re-check when the physics agent reports.
