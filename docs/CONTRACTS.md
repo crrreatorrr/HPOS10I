@@ -168,6 +168,30 @@ Both call `GameState.add_tickets(1)` and `Audio.play_sfx(&"ticket")`.
 - `terrain/loop.tscn`: a ready-to-place full loop with its path switchers.
   Levels only instance it and set the radius.
 
+## Moving terrain (physics agent: player side; level agent: the objects)
+
+Zones use moving platforms, shifting stairs, bookshelves, conveyors and
+crushers. Each side's responsibilities:
+- **Moving platforms and moving solids:**
+  - Build them as `AnimatableBody2D` (`sync_to_physics = true`) on the
+    usual terrain bits (`Layers.TERRAIN_SOLID` or `Layers.TERRAIN_TOP_ONLY`).
+  - Move them only in `_physics_process`.
+  - Expose `func platform_delta() -> Vector2`: the displacement applied
+    this physics tick.
+  - The player carries that delta while standing on (or pressed against)
+    the body, before its own movement, so standing still on a platform
+    moves you with it. When a platform stops or reverses, the player
+    keeps its own speed; the platform's speed is not added to ground
+    speed.
+- **Conveyors:** terrain that sets the meta `conveyor_speed` (px/frame,
+  + = right) adds it to the player's motion while grounded on it, not to
+  ground speed.
+- **Crushing:** if moving terrain squeezes the player against other
+  terrain (it cannot fit its current hitbox), the player calls `kill()`.
+  Crushers must telegraph before they close.
+- **Interpolation:** anything that teleports (a platform reset, a respawn)
+  calls `reset_physics_interpolation()`.
+
 ## Camera (physics agent: `camera/`)
 
 Scene `res://camera/game_camera.tscn`, `class_name GameCamera` (extends
