@@ -160,15 +160,9 @@ func _build_rows() -> void:
 
 
 ## An unreleased zone (acts built but not tuned yet) is locked like an
-## unbuilt one. Uses ZoneRegistry.is_released() once the lead adds it.
+## unbuilt one.
 static func is_zone_released(zone: Dictionary) -> bool:
-	# LEAD-REQUEST: ZoneRegistry.is_released(zone_id); until then the zone's
-	# optional `released` key (missing = released).
-	var registry: GDScript = load("res://core/zone_registry.gd")
-	for method in registry.get_script_method_list():
-		if method.name == "is_released":
-			return bool(registry.call(&"is_released", zone.id))
-	return bool(zone.get("released", true))
+	return ZoneRegistry.is_released(zone.id)
 
 
 func _slot(zone_id: String, act: int) -> Control:
