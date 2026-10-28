@@ -39,8 +39,4 @@ func _physics_process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	var squash := maxf(absf(cos(_age * 0.08)), 0.2)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(squash, 1.0))
-	draw_circle(Vector2.ZERO, RADIUS, ScatteredTicket.COLOR_RIM)
-	draw_circle(Vector2.ZERO, RADIUS - 1.5, ScatteredTicket.COLOR_FILL)
-	draw_circle(Vector2(-1.5, -1.5), 1.5, ScatteredTicket.COLOR_SHINE)
+	ScatteredTicket.draw_ticket(self, maxf(absf(cos(_age * 0.08)), 0.2))
