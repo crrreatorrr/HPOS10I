@@ -108,3 +108,14 @@ Z1-01 re-check:
 - **Staircase headroom:** 39 px above the highest layout.
 - **Checkpoints:** never on a moving step or shelf.
 - **Autoscroll:** put a checkpoint before every autoscroll start (the section restarts on a respawn).
+
+## Re-check: BUG-Z2-01 fix (levels 7d6ea85) and the focus-blip fix (main e8947e9)
+
+- **BUG-Z2-01: FIXED.** Lead decision: the diver never dives at a target less than `min_dive_drop` (120 px, never lower) below its post.
+  - The QA probe was updated to match. At D 1 and D 10, a post 80 px up (target 61 px below) never dives at a standing Sproto. Posts at 150 and 220 px dive, and running away at the flash avoids them in both directions.
+  - All 5 QA block probes pass on 7d6ea85.
+- **New lint rule `enemy.diver_post` (error):** a diver post less than 120 px above the floor beneath it, so placements can't silently disarm divers. The fixture self-test `tests/qa/test_enemy_placement_rules.gd` flags 100 px and passes 140 px.
+- **Windowed focus blip: FIXED** (Dev re-presses held timeline actions at the start of its tick).
+  - Movie Maker in a window finishes Zone 1 Act 1 at timeline frame 3748 and Act 2 at 4643, matching headless.
+  - The plain windowed launch also finishes Act 1 at 3748.
+- **Note:** the `levels` branch at 7d6ea85 already holds work-in-progress Zone 2 acts. Its `test_z2_acts.gd` fails 3 tests (recorded runs and the bot), as expected until the level agent reports them.

@@ -100,7 +100,12 @@ func _held() -> Array:
 func test_pause_only_in_gameplay() -> void:
 	if _skip():
 		return
-	var menu_scene := add_scene("res://core/main.tscn")
+	# A stand-in menu scene: the real core/main.tscn now goes on to the title
+	# screen with a deferred scene change, which would free this test's nodes.
+	var menu_scene := Node2D.new()
+	menu_scene.name = "QAFakeMenu"
+	menu_scene.scene_file_path = SceneRouter.MAIN_SCENE
+	add_node(menu_scene)
 	tree.current_scene = menu_scene
 	await physics_frames(3)
 	_act(&"pause", true)
