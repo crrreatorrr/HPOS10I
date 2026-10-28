@@ -29,6 +29,8 @@ enum PathLayer { BOTH, A, B }
 const MAX_ARC_CHUNK := 90.0
 ## Visual edges are judged in parts this long (px), so partly covered sides work.
 const EDGE_PART := 8.0
+## How far outside an edge the coverage check looks for a neighbour (px).
+const COVER_PROBE := 2.0
 
 @export var shape := Shape.RAMP:
 	set(value):
@@ -149,6 +151,8 @@ var _visuals_queued := false
 ## Outline polygons from the last rebuild (local space); neighbours read them
 ## to hide lip and side edges that butt against other terrain.
 var polygons: Array[PackedVector2Array] = []
+## Local bounding box of `polygons` (for the neighbour search).
+var _bounds := Rect2()
 
 
 func _ready() -> void:
@@ -223,10 +227,15 @@ func _rebuild() -> void:
 		collision_layer = [Layers.TERRAIN_SOLID, Layers.TERRAIN_PATH_A, Layers.TERRAIN_PATH_B][path_layer]
 
 	polygons.clear()
+	_bounds = Rect2()
 	for polygon in build_polygons():
 		if polygon.size() < 3:
 			continue
 		polygons.append(polygon)
+		var box := Rect2(polygon[0], Vector2.ZERO)
+		for point in polygon:
+			box = box.expand(point)
+		_bounds = box if polygons.size() == 1 else _bounds.merge(box)
 		var collision := CollisionPolygon2D.new()
 		collision.build_mode = CollisionPolygon2D.BUILD_SOLIDS
 		collision.polygon = polygon
@@ -285,7 +294,7 @@ func _rebuild_visuals() -> void:
 		var side_edges: Array[bool] = []
 		for i in outline.size():
 			var middle := (outline[i] + outline[(i + 1) % outline.size()]) / 2.0
-			var open := not _covered(to_world * (middle + normals[i] * 2.0), neighbours)
+			var open := not _covered(to_world * (middle + normals[i] * COVER_PROBE), neighbours)
 			var lip := open and _is_lip_edge(outline, i, normals[i])
 			lip_edges.append(lip)
 			side_edges.append(open and side_texture != null and not lip and TerrainArt.is_side_facing(normals[i]))
@@ -321,14 +330,19 @@ func _rebuild_visuals() -> void:
 		_add_visual(edge)
 
 
-## Other terrain pieces in the same scene, with their world transforms.
+## Other terrain pieces in the same scene that can cover one of this piece's
+## edges (their bounding boxes touch), with their world transforms.
 func _neighbours() -> Array:
 	var found := []
 	if not is_inside_tree():
 		return found
+	var reach := (global_transform * _bounds).grow(COVER_PROBE + 1.0)
 	for node in get_tree().get_nodes_in_group(&"curve_terrain"):
-		if node != self and node is CurveTerrain and not (node as CurveTerrain).polygons.is_empty():
-			found.append([(node as CurveTerrain).global_transform.affine_inverse(), (node as CurveTerrain).polygons])
+		var other := node as CurveTerrain
+		if other == null or other == self or other.polygons.is_empty():
+			continue
+		if reach.intersects(other.global_transform * other._bounds):
+			found.append([other.global_transform.affine_inverse(), other.polygons])
 	return found
 
 
