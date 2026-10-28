@@ -12,6 +12,10 @@ extends Node2D
 ## never under 0.35 s. The hold between shifts scales with interval_mult.
 ## Steps never overlap or pinch each other: they move in step, in their own
 ## columns. Keep 39 px of headroom above the highest layout (the crush rule).
+## With `pillars`, each step is a stone pillar reaching down to the first
+## step's level (sunk into the floor in the lower layout), so nothing can get
+## under a step and be pinned when it comes down; draw it behind the terrain
+## (z_index -1) so the sunk part is hidden.
 ## The origin is the top-left corner of the first step.
 
 signal telegraphed
@@ -41,6 +45,8 @@ const OUTLINE := Color(0.14, 0.11, 0.22)
 @export var telegraph_seconds := 0.5
 ## Extra frames before the first cycle (to stagger several).
 @export var first_delay := 0
+## Steps are pillars down to the first step's level (see above).
+@export var pillars := false
 
 var phase := Phase.HOLD_A
 var _timer := 0
@@ -53,9 +59,9 @@ func _ready() -> void:
 	for i in steps:
 		var step := Step.new()
 		step.name = "Step%d" % (i + 1)
-		step.size = step_size
+		step.size = Vector2(step_size.x, step_size.y + (absf(rise.y) * i if pillars else 0.0))
 		step.position = _step_position(i, 0.0)
-		step.add_box(step_size)
+		step.add_box(step.size)
 		add_child(step)
 		_bodies.append(step)
 	_timer = -first_delay
@@ -145,13 +151,21 @@ class Step:
 
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2(-1.0, -1.0), size + Vector2(2.0, 2.0)), OUTLINE)
-		draw_rect(Rect2(Vector2.ZERO, size), STONE)
+		draw_rect(Rect2(Vector2.ZERO, size), STONE_DARK)
+		# The step's top slab, then a pillar of stone courses below it.
+		draw_rect(Rect2(0.0, 0.0, size.x, minf(16.0, size.y)), STONE)
 		draw_rect(Rect2(0.0, 0.0, size.x, 2.0), STONE_LIGHT)
-		draw_rect(Rect2(0.0, size.y - 3.0, size.x, 3.0), STONE_DARK)
+		var y := 16.0
+		var course := 0
+		while y < size.y:
+			draw_line(Vector2(0.0, y), Vector2(size.x, y), OUTLINE, 1.0)
+			var joint := size.x / 2.0 + (12.0 if course % 2 == 0 else -12.0)
+			draw_line(Vector2(joint, y), Vector2(joint, minf(y + 8.0, size.y)), OUTLINE, 1.0)
+			y += 8.0
+			course += 1
 		var rune := RUNE_GLOW if glow else RUNE
-		var y := size.y / 2.0
-		draw_line(Vector2(6.0, y), Vector2(size.x - 6.0, y), rune, 1.0)
+		draw_line(Vector2(6.0, 8.0), Vector2(size.x - 6.0, 8.0), rune, 1.0)
 		for x in [size.x * 0.25, size.x * 0.5, size.x * 0.75]:
-			draw_rect(Rect2(x - 1.5, y - 1.5, 3.0, 3.0), rune)
+			draw_rect(Rect2(x - 1.5, 6.5, 3.0, 3.0), rune)
 		if glow:
-			draw_rect(Rect2(Vector2(-2.0, -2.0), size + Vector2(4.0, 4.0)), Color(RUNE_GLOW, 0.5), false, 1.0)
+			draw_rect(Rect2(Vector2(-2.0, -2.0), Vector2(size.x + 4.0, minf(size.y, 16.0) + 4.0)), Color(RUNE_GLOW, 0.5), false, 1.0)

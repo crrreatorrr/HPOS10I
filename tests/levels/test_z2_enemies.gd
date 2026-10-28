@@ -2,13 +2,15 @@ extends TestCase
 ## Wizard Academy pill robots (docs/LEVELS.md "Enemy tiers", docs/DESIGN.md
 ## costumes; QA checklist 04-zones section J): the spellbook pill (Floater,
 ## T2), the diving spellbook pill (Diver, T3) and the knight pill (Armored,
-## T3), on the generic diver.gd and armored.gd behaviours.
+## T3), the knight pill (Armored, T3) and the lantern pill (Dropper, T4), on
+## the generic diver.gd, armored.gd and dropper.gd behaviours.
 
 const W := preload("res://tests/levels/level_world.gd")
 const SPELLBOOK := "res://levels/enemies/z2/spellbook_pill.tscn"
 const DIVER := "res://levels/enemies/z2/spellbook_diver.tscn"
 const KNIGHT := "res://levels/enemies/z2/knight_pill.tscn"
-const GENERIC := ["res://levels/enemies/diver.tscn", "res://levels/enemies/armored.tscn"]
+const LANTERN := "res://levels/enemies/z2/lantern_pill.tscn"
+const GENERIC := ["res://levels/enemies/diver.tscn", "res://levels/enemies/armored.tscn", "res://levels/enemies/dropper.tscn"]
 
 const MIN_TELEGRAPH_FRAMES := 21
 const FEET := 19.0
@@ -67,9 +69,10 @@ func _drop_attacking(at: Vector2, fall := 4.0) -> void:
 func test_zone_2_pills_are_on_the_roster() -> void:
 	_set_act("test_zone", 1)
 	var enemies := await _setup([[SPELLBOOK, Vector2(0, -80)], [DIVER, Vector2(200, -150)], [KNIGHT, Vector2(400, 0)],
-			[GENERIC[0], Vector2(600, -150)], [GENERIC[1], Vector2(800, 0)]])
+			[GENERIC[0], Vector2(600, -150)], [GENERIC[1], Vector2(800, 0)], [LANTERN, Vector2(1000, -150)],
+			[GENERIC[2], Vector2(1200, -150)]])
 	var tiers := enemies.map(func(e: Enemy) -> int: return e.tier)
-	assert_eq(tiers, [2, 3, 3, 3, 3], "spellbook T2; diver, knight and the generic diver/armored T3")
+	assert_eq(tiers, [2, 3, 3, 3, 3, 4, 4], "spellbook T2; diver, knight and the generic diver/armored T3; droppers T4")
 	for e in enemies:
 		assert_eq(e.collision_layer, Layers.ENEMIES, "%s on the enemies layer" % e.name)
 	await physics_frames(30)  # every costume draws without errors
@@ -271,11 +274,78 @@ func test_knight_front_breaks_to_a_full_spin_dash() -> void:
 		await physics_frames(1)
 
 
+# --- Lantern pill (Dropper, T4) ----------------------------------------------------
+
+func test_lantern_drops_only_when_sproto_moves_under_it_after_a_telegraph() -> void:
+	_set_act("z4_neon_rush_remix", 2)
+	var lanterns := await _setup([[LANTERN, Vector2(0, -150), {arm_frames = 10}]], Vector2(-300, 0))
+	var lantern := lanterns[0]
+	await physics_frames(20)
+	await _stand(Vector2(60, 0))  # beside it, outside its trigger width
+	await physics_frames(30)
+	assert_true(lantern.get(&"mode") == 0, "ignores Sproto beside it")
+	var clock := [0]
+	var shook_at := [-1]
+	lantern.telegraphed.connect(func() -> void: shook_at[0] = clock[0])
+	var fell_at := -1
+	var y0 := lantern.global_position.y
+	player.respawn_at(Vector2(0, -FEET))
+	for i in 120:
+		await physics_frames(1)
+		clock[0] += 1
+		if _gone(lanterns[0]):
+			break
+		if lantern.call(&"is_telegraphing"):
+			assert_near(lantern.global_position.y, y0, 0.001, "hangs while shaking")
+		elif lantern.call(&"is_falling") and fell_at < 0:
+			fell_at = clock[0]
+		if hurts > 0:
+			break
+	assert_true(shook_at[0] >= 0 and fell_at - shook_at[0] >= MIN_TELEGRAPH_FRAMES,
+			"shakes %d frames before it drops (>= 0.35 s)" % (fell_at - shook_at[0]))
+	assert_eq(hurts, 1, "a standing Sproto under it is hit")
+
+
+func test_lantern_never_drops_on_a_respawn_underneath() -> void:
+	_set_act("test_zone", 1)
+	var lantern := (await _setup([[LANTERN, Vector2(0, -150), {arm_frames = 10}]], Vector2(0, 0)))[0]
+	await physics_frames(200)
+	assert_true(lantern.get(&"mode") == 0, "Sproto spawned under it: it waits")
+	await _stand(Vector2(200, 0))
+	await physics_frames(5)
+	await _stand(Vector2(10, 0))
+	var noticed := await W.wait_for(self, func() -> bool: return lantern.call(&"is_telegraphing"), 5)
+	assert_true(noticed >= 0, "it drops once he comes back under it")
+
+
+func test_lantern_breaks_on_landing_without_score_and_a_jump_destroys_it() -> void:
+	_set_act("test_zone", 1)
+	var lanterns := await _setup([[LANTERN, Vector2(0, -150), {arm_frames = 0}], [LANTERN, Vector2(400, -100), {arm_frames = 100000}]],
+			Vector2(-300, 0))
+	var landed := [false]
+	lanterns[0].connect(&"landed", func() -> void: landed[0] = true)
+	var score := GameState.score
+	await _stand(Vector2(0, 0))
+	await W.wait_for(self, func() -> bool: return lanterns[0].call(&"is_falling"), 60)
+	await _stand(Vector2(-200, 0))
+	await W.wait_for(self, func() -> bool: return _gone(lanterns[0]), 120)
+	assert_true(landed[0] and _gone(lanterns[0]), "breaks when it lands")
+	assert_eq(GameState.score, score, "no score for a landing")
+	# Jumping up into the second while it hangs.
+	await _stand(Vector2(400, 0))
+	press(&"jump")
+	await W.wait_for(self, func() -> bool: return _gone(lanterns[1]) or hurts > 0, 40)
+	release(&"jump")
+	assert_true(_gone(lanterns[1]), "a jump destroys it")
+	assert_eq(GameState.score, score + 100, "+100")
+	assert_eq(hurts, 0, "no hit taken")
+
+
 # --- In-act ramp ----------------------------------------------------------------------
 
 func test_zone_2_pills_are_livelier_in_the_finale() -> void:
 	_set_act("z1_retro_rush_hills", 2)
-	var scenes := [SPELLBOOK, DIVER, KNIGHT]
+	var scenes := [SPELLBOOK, DIVER, KNIGHT, LANTERN]
 	var placed := {}
 	await W.mini_level(self, Vector2(64, -19), 0.0, 2000.0, func(root: Node) -> void:
 		W.place(root, "res://levels/objects/goal_sign.tscn", Vector2(1864, 0))
