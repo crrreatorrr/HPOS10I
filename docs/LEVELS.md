@@ -90,7 +90,7 @@ first draft, with more checkpoints so a death never sends you far back.
 
 | Act | D | Screens | Par time | Enemies/screen | Tier mix | Direction | New idea (teach → test → twist) | Checkpoints | Tickets/screen |
 |---|---|---|---|---|---|---|---|---|---|
-| Test zone | 0 | ~20 | 1:00 | 0.2 | T1 | R1 | Everything, gently | 1 | 6 |
+| Test zone | 0 | ~20 | 1:00 | 0.2 | T1 | R1 | Everything, gently | 2 | 6 |
 | Z1 Act 1 | 1 | 45 | 2:30 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
 | Z1 Act 2 | 2 | 55 | 3:15 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 4 | 4.5 |
 | Z1 Boss (Rug Pull) | 2.5 | arena | – | – | – | – | – | – | – |

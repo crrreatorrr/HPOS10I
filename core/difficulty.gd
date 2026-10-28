@@ -25,7 +25,7 @@ const ZONE_ACTS := {
 ## Checkpoints include the one at the start of the finale and, in the act
 ## before a boss, the one right before the arena.
 const TARGETS := {
-	0: {screens = 20, par_seconds = 60, enemies_per_screen = 0.2, tiers = {1: 100}, direction = 1, checkpoints = 1, tickets_per_screen = 6.0},
+	0: {screens = 20, par_seconds = 60, enemies_per_screen = 0.2, tiers = {1: 100}, direction = 1, checkpoints = 2, tickets_per_screen = 6.0},
 	1: {screens = 45, par_seconds = 150, enemies_per_screen = 0.4, tiers = {1: 100}, direction = 1, checkpoints = 3, tickets_per_screen = 5.0},
 	2: {screens = 55, par_seconds = 195, enemies_per_screen = 0.6, tiers = {1: 75, 2: 25}, direction = 2, checkpoints = 4, tickets_per_screen = 4.5},
 	3: {screens = 55, par_seconds = 210, enemies_per_screen = 0.8, tiers = {1: 45, 2: 40, 3: 15}, direction = 3, checkpoints = 4, tickets_per_screen = 4.0},

@@ -14,7 +14,8 @@ built in Godot 4 with classic 16-bit physics.
 - **In your browser:** https://crrreatorrr.github.io/HPOS10I/
   - Early build: click **Physics Playground** (or press **1**). Phones: hold
     the phone sideways; on-screen touch controls are coming.
-  - Every push to `main` redeploys automatically.
+  - Every push to `main` redeploys automatically once every check passes
+    (tests, originality scan, scene smoke check, web build check).
 - **From source:** install [Godot 4.7.2](https://godotengine.org/download), then
   open `project.godot` and press **F5**, or run:
 
@@ -48,7 +49,7 @@ Each zone has two acts and a boss.
 
 ## For developers
 
-- **Physics tuning:** every movement constant lives in
+- **Physics tuning:** the feel-relevant movement constants live in
   `core/physics_constants.tres`. Values use the classic pixels-per-frame units
   at 60 fps. Edit it in the Inspector while the game runs and it reloads live.
 - **Debug overlay:** press **F1** in game for speeds, ground angle, collision
