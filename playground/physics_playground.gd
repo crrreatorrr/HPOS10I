@@ -7,7 +7,7 @@ extends Node2D
 ## `--start=X` to drop Sproto in at x = X (to try one section), and `--interp`
 ## to turn on physics interpolation (smoother motion on 120 Hz+ displays).
 
-const HINT := "Arrows/WASD run   Z/X/C/Space jump   Down: roll   Down+Jump: spin dash   Up/Down: look   F1: overlay"
+const HINT := "Move: arrows  Jump: Z/X/C  Roll: Down  Spin: Down+Jump  Look: Up/Down  F1: debug"
 const RESPAWN_FRAMES := 120
 ## The camera never shows outside this area.
 const LEVEL_BOUNDS := Rect2(-64, -800, 4556, 864)
@@ -15,7 +15,7 @@ const LEVEL_BOUNDS := Rect2(-64, -800, 4556, 864)
 @onready var player: Player = $Player
 @onready var start: Marker2D = $PlayerStart
 
-var _label: Label
+var _tickets: Label
 var _respawn_in := -1
 var _frame := 0
 
@@ -32,17 +32,29 @@ func _ready() -> void:
 	player.died.connect(func() -> void: _respawn_in = RESPAWN_FRAMES)
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	_label = Label.new()
-	_label.add_theme_font_size_override(&"font_size", 8)
-	_label.add_theme_color_override(&"font_outline_color", Color.BLACK)
-	_label.add_theme_constant_override(&"outline_size", 3)
-	_label.position = Vector2(4, 226)
-	layer.add_child(_label)
+	var hint := _hud_label()
+	hint.text = HINT
+	hint.position = Vector2(4, 226)
+	layer.add_child(hint)
+	# Top-right: the F1 debug panel uses the top-left corner.
+	_tickets = _hud_label()
+	_tickets.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_tickets.position = Vector2(get_viewport_rect().size.x - 84.0, 2)
+	_tickets.size = Vector2(80, 12)
+	layer.add_child(_tickets)
+
+
+func _hud_label() -> Label:
+	var label := Label.new()
+	label.add_theme_font_size_override(&"font_size", 8)
+	label.add_theme_color_override(&"font_outline_color", Color.BLACK)
+	label.add_theme_constant_override(&"outline_size", 3)
+	return label
 
 
 func _physics_process(_delta: float) -> void:
 	_frame += 1
-	_label.text = "%s     Tickets %d" % [HINT, GameState.tickets]
+	_tickets.text = "Tickets %d" % GameState.tickets
 	if _respawn_in > 0:
 		_respawn_in -= 1
 		if _respawn_in == 0:
