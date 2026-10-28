@@ -10,6 +10,7 @@ const CONTRACT_SFX := [
 	"ticket", "ticket_loss", "hurt", "death", "spring", "booster", "break_wall",
 	"enemy_pop", "checkpoint", "goal_sign", "boss_hit", "boss_explode",
 	"boss_telegraph", "enemy_telegraph", "one_up", "menu_move", "menu_select", "pause", "tally_tick",
+	"emerald_get",
 ]
 const CONTRACT_MUSIC := ["title", "zone_select", "z1", "z2", "z3", "z4", "boss", "act_clear", "game_over"]
 const JINGLES := ["act_clear", "game_over"]

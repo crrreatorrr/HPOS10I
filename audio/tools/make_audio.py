@@ -332,6 +332,22 @@ def sfx_enemy_telegraph():
     return cat(a, silence(0.015), b)
 
 
+def sfx_emerald_get():
+    # The act's emerald: a bright upward run that blooms into a shimmering
+    # held chord with high glints (about 0.9 s).
+    run = [81, 85, 88, 92, 93]
+    seq = cat(*[tone(n, 0.045, 0.125, release=0.01) for n in run])
+    d = 0.75
+    bloom = mix(square(vibrato(midi(97), d, 7.0, 0.006), d, 0.25) * 0.45,
+                square(vibrato(midi(100), d, 7.5, 0.006), d, 0.125) * 0.35,
+                triangle(midi(85), d) * 0.5) * expdecay(d, 0.28) * env(d, attack=0.004, release=0.2)
+    glints = np.zeros(int(round(d * SR)))
+    for k, (offset, note) in enumerate([(0.08, 105), (0.22, 109), (0.37, 104), (0.5, 108)]):
+        g = square(midi(note), 0.05, 0.5) * expdecay(0.05, 0.015) * (0.35 - k * 0.05)
+        glints += at(g, offset, d)
+    return cat(seq, mix(bloom, glints))
+
+
 def sfx_one_up():
     # A short original fanfare: up the scale, a skip, and a held top note.
     seq = [(72, 0.09), (76, 0.09), (79, 0.09), (84, 0.09), (81, 0.09), (84, 0.09), (88, 0.42)]
@@ -366,7 +382,7 @@ SFX = {
     "enemy_pop": sfx_enemy_pop, "checkpoint": sfx_checkpoint, "goal_sign": sfx_goal_sign,
     "boss_hit": sfx_boss_hit, "boss_explode": sfx_boss_explode,
     "boss_telegraph": sfx_boss_telegraph, "enemy_telegraph": sfx_enemy_telegraph,
-    "one_up": sfx_one_up,
+    "emerald_get": sfx_emerald_get, "one_up": sfx_one_up,
     "menu_move": sfx_menu_move, "menu_select": sfx_menu_select, "pause": sfx_pause,
     "tally_tick": sfx_tally_tick,
 }

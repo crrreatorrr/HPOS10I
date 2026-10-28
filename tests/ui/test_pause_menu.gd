@@ -243,8 +243,12 @@ func test_restart_uses_scene_router_restart() -> void:
 	assert_eq(GameState.checkpoint_position, Vector2(640, -32), "checkpoint kept")
 	assert_eq(GameState.lives, lives, "no life lost")
 	await physics_frames(3)
-	if tree.current_scene != null and tree.current_scene.scene_file_path == SceneRouter.MAIN_SCENE:
-		tree.current_scene.queue_free()
+	# The router changed scene (to the test zone, or the boot menu if it isn't
+	# built): free it so it doesn't linger under later tests.
+	var scene := tree.current_scene
+	if scene != null and scene.name != "FakeLevel":
+		tree.current_scene = null
+		scene.queue_free()
 		await physics_frames(2)
 
 
