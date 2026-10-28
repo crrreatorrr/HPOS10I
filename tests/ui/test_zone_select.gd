@@ -132,6 +132,22 @@ func test_pause_goes_back_but_enter_chooses() -> void:
 	assert_true(other.is_busy(), "P (pause) goes back")
 
 
+func test_hint_follows_touch_mode() -> void:
+	var select := _open()
+	var hint := select.get_node("%Hint") as Label
+	assert_eq(hint.text, ZoneSelect.HINT_KEYS, "keys/gamepad wording")
+	H.set_touch_mode(true)
+	assert_eq(hint.text, ZoneSelect.HINT_TOUCH, "touch wording once touch mode starts")
+	var width := hint.get_theme_font(&"font").get_string_size(hint.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	assert_true(width <= 420.0, "touch hint fits on one line (%s px)" % width)
+	H.set_touch_mode(false)
+	assert_eq(hint.text, ZoneSelect.HINT_KEYS, "back to keys on the first key press")
+	H.set_touch_mode(true)
+	var fresh := _open()
+	assert_eq((fresh.get_node("%Hint") as Label).text, ZoneSelect.HINT_TOUCH, "opened in touch mode")
+	H.set_touch_mode(false)
+
+
 func _game_seconds(node: Node, seconds: float) -> void:
 	var elapsed := 0.0
 	while elapsed < seconds:
