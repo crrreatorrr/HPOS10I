@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://playground/physics_playground.gd" id="1_sandbox"]
 [ext_resource type="Script" path="res://terrain/curve_terrain.gd" id="2_curve"]
@@ -7,6 +7,8 @@
 [ext_resource type="PackedScene" path="res://camera/game_camera.tscn" id="5_camera"]
 [ext_resource type="Script" path="res://playground/dummy_enemy.gd" id="6_dummy"]
 [ext_resource type="Script" path="res://playground/playground_ticket.gd" id="7_ticket"]
+[ext_resource type="Script" path="res://playground/demo_moving_platform.gd" id="8_platform"]
+[ext_resource type="Script" path="res://playground/demo_conveyor.gd" id="9_conveyor"]
 
 [sub_resource type="Curve2D" id="Curve2D_hills"]
 _data = {
@@ -130,6 +132,30 @@ position = Vector2(4628, -1400)
 script = ExtResource("2_curve")
 shape = 4
 size = Vector2(64, 1464)
+
+[node name="Moving" type="Node2D" parent="Terrain"]
+
+[node name="Elevator" type="AnimatableBody2D" parent="Terrain/Moving"]
+position = Vector2(830, -60)
+script = ExtResource("8_platform")
+size = Vector2(56, 12)
+travel = Vector2(0, -150)
+period_frames = 300
+eased = true
+top_only = true
+
+[node name="Conveyor" type="StaticBody2D" parent="Terrain/Moving"]
+position = Vector2(620, -208)
+script = ExtResource("9_conveyor")
+size = Vector2(180, 8)
+speed = -2.0
+
+[node name="Shuttle" type="AnimatableBody2D" parent="Terrain/Moving"]
+position = Vector2(470, -130)
+script = ExtResource("8_platform")
+travel = Vector2(100, 0)
+period_frames = 200
+top_only = true
 
 [node name="Dummy" type="Area2D" parent="."]
 position = Vector2(48, 0)

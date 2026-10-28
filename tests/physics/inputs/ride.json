@@ -1,0 +1,8 @@
+{
+  "events": [
+    [8, "jump", true],
+    [26, "jump", false],
+    [122, "move_left", true],
+    [160, "move_left", false]
+  ]
+}
