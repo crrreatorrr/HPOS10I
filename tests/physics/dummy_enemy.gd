@@ -1,7 +1,7 @@
 extends Area2D
 ## Static enemy test dummy (layer 6, mask 5). Follows the enemy contract:
 ## an attacking player bounces off it, anyone else gets hurt. It never dies,
-## so hurt and coin scatter can be tested again and again.
+## so hurt and ticket scatter can be tested again and again.
 
 const SIZE := Vector2(24.0, 28.0)
 const BODY := Color(0.86, 0.2, 0.2)

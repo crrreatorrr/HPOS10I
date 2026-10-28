@@ -122,7 +122,7 @@ Reference numbers derived from the constants (use them as expected values):
 
 - [ ] PHY-I1 [auto] Every state in the contract is reachable and `state` only ever holds contract values. `state_changed(old, new)` fires once per change and never with old == new.
 - [ ] PHY-I2 [auto] `hurt(source)`: knockback away from the source (x ±2, y -4), hurt gravity 0.1875, no control until landing, landing zeroes ground speed; `hurt_taken` fires once; sfx `hurt`.
-- [ ] PHY-I3 [auto] Coins on hit: with N coins, min(N, 32) scattered coins spawn, the counter goes to 0, sfx `coin_loss`; they can be recollected after 64 frames, disappear after 256; 0 coins on hit = death.
+- [ ] PHY-I3 [auto] Tickets on hit: with N tickets, min(N, 32) scattered tickets spawn, the counter goes to 0, sfx `ticket_loss`; they can be recollected after 64 frames, disappear after 256; 0 tickets on hit = death.
 - [ ] PHY-I4 [auto] Invincibility: 120 frames after a hit with visible blinking; `hurt()` during them is ignored; `is_invincible()` true only then.
 - [ ] PHY-I5 [auto] `kill()` kills even while invincible; `died` fires exactly once; y speed -7; falls through terrain; inputs ignored.
 - [ ] PHY-I6 [auto] `hurt()` and `kill()` on the same frame: one death, one life lost.

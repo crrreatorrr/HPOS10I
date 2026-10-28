@@ -33,7 +33,7 @@ Image checks marked (img) use Python + Pillow; they will live in
 
 - [ ] ART-D1 [auto] Folder layout `assets/sprites/<zone_id>/<name>/` with a valid zone id (test_contracts); `<name>_sheet.png` and `<name>_frames.tres` names.
 - [ ] ART-D2 [auto] Every `SpriteFrames` has at least one animation and no empty or missing frame textures (test_contracts).
-- [ ] ART-D3 [manual] Enemies, hazards, springs and coins keep their readable colour roles (enemies red, hazards orange, springs yellow, coins gold) against every background.
+- [ ] ART-D3 [manual] Enemies, hazards, springs and tickets keep their readable colour roles (enemies red, hazards orange, springs yellow, tickets gold) against every background.
 
 ## E. Backgrounds and parallax
 

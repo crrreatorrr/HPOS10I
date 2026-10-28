@@ -1,17 +1,17 @@
 extends Node
-## Run-wide state: coins, score, lives, checkpoint and the current zone/act.
+## Run-wide state: tickets, score, lives, checkpoint and the current zone/act.
 ## UI listens to the signals; gameplay calls the methods.
 
-signal coins_changed(value: int)
+signal tickets_changed(value: int)
 signal score_changed(value: int)
 signal lives_changed(value: int)
 signal checkpoint_reached(position: Vector2)
 signal level_completed
 
 const START_LIVES := 3
-const COINS_PER_LIFE := 100
+const TICKETS_PER_LIFE := 100
 
-var coins := 0
+var tickets := 0
 var score := 0
 var lives := START_LIVES
 var zone_id := ""
@@ -21,7 +21,7 @@ var timer_running := false
 var checkpoint_position = null  # Vector2, or null when unset
 var checkpoint_time := 0.0
 
-var _next_coin_life := COINS_PER_LIFE
+var _next_ticket_life := TICKETS_PER_LIFE
 
 
 func _process(delta: float) -> void:
@@ -29,19 +29,19 @@ func _process(delta: float) -> void:
 		level_time += delta
 
 
-func add_coins(amount: int) -> void:
-	coins += amount
-	while coins >= _next_coin_life:
-		_next_coin_life += COINS_PER_LIFE
+func add_tickets(amount: int) -> void:
+	tickets += amount
+	while tickets >= _next_ticket_life:
+		_next_ticket_life += TICKETS_PER_LIFE
 		add_life()
-	coins_changed.emit(coins)
+	tickets_changed.emit(tickets)
 
 
-## Empties the coin counter and returns how many were lost (for scattering).
-func lose_coins() -> int:
-	var lost := coins
-	coins = 0
-	coins_changed.emit(coins)
+## Empties the ticket counter and returns how many were lost (for scattering).
+func lose_tickets() -> int:
+	var lost := tickets
+	tickets = 0
+	tickets_changed.emit(tickets)
 	return lost
 
 
@@ -99,8 +99,8 @@ func reset_game() -> void:
 
 
 func _reset_level_counters() -> void:
-	coins = 0
-	_next_coin_life = COINS_PER_LIFE
+	tickets = 0
+	_next_ticket_life = TICKETS_PER_LIFE
 	level_time = 0.0
 	timer_running = true
-	coins_changed.emit(coins)
+	tickets_changed.emit(tickets)

@@ -1,18 +1,18 @@
-class_name ScatteredCoin
+class_name ScatteredTicket
 extends Area2D
-## A coin knocked loose when Sproto is hurt, with the classic scatter
-## behaviour: a fan of up to 32 coins, gravity, bouncing off floors, a short
+## A ticket knocked loose when Sproto is hurt, with the classic scatter
+## behaviour: a fan of up to 32 tickets, gravity, bouncing off floors, a short
 ## delay before they can be collected again, then blinking out of existence.
 
-const SCENE_PATH := "res://player/scattered_coin.tscn"
+const SCENE_PATH := "res://player/scattered_ticket.tscn"
 
-# Scatter speeds, gravity and bounce come from Tuning.physics (coin_*).
-## The first 16 coins form the outer ring, the rest the inner one.
+# Scatter speeds, gravity and bounce come from Tuning.physics (ticket_*).
+## The first 16 tickets form the outer ring, the rest the inner one.
 const RING_SIZE := 16
 const SCATTER_START_ANGLE := 101.25
 const SCATTER_ANGLE_STEP := 22.5
 const RADIUS := 6.0
-## Coins blink during their last frames.
+## Tickets blink during their last frames.
 const BLINK_FRAMES := 64
 
 const COLOR_FILL := Color(1.0, 0.8, 0.15)
@@ -31,36 +31,36 @@ var _age := 0
 var _query := PhysicsRayQueryParameters2D.new()
 
 
-## Spawns `count` coins around `origin` (global) in the classic two-ring fan.
-## Coins are added deferred, so this is safe inside physics callbacks.
-static func scatter(parent: Node, origin: Vector2, count: int) -> Array[ScatteredCoin]:
-	var coins: Array[ScatteredCoin] = []
+## Spawns `count` tickets around `origin` (global) in the classic two-ring fan.
+## Tickets are added deferred, so this is safe inside physics callbacks.
+static func scatter(parent: Node, origin: Vector2, count: int) -> Array[ScatteredTicket]:
+	var tickets: Array[ScatteredTicket] = []
 	if parent == null or count <= 0:
-		return coins
+		return tickets
 	var p := Tuning.physics
 	var scene: PackedScene = load(SCENE_PATH)
 	var angle := SCATTER_START_ANGLE
-	var speed := p.coin_scatter_speed_first
+	var speed := p.ticket_scatter_speed_first
 	var flip := false
 	for i in count:
 		if i == RING_SIZE:
-			speed = p.coin_scatter_speed_second
+			speed = p.ticket_scatter_speed_second
 			angle = SCATTER_START_ANGLE
-		var coin: ScatteredCoin = scene.instantiate()
+		var ticket: ScatteredTicket = scene.instantiate()
 		var v := Vector2(cos(deg_to_rad(angle)), -sin(deg_to_rad(angle))) * speed
 		if flip:
 			v.x = -v.x
 			angle += SCATTER_ANGLE_STEP
 		flip = not flip
-		coin.velocity = v
-		coin.position = (parent as Node2D).to_local(origin) if parent is Node2D else origin
-		parent.add_child.call_deferred(coin)
-		coins.append(coin)
-	return coins
+		ticket.velocity = v
+		ticket.position = (parent as Node2D).to_local(origin) if parent is Node2D else origin
+		parent.add_child.call_deferred(ticket)
+		tickets.append(ticket)
+	return tickets
 
 
 func _ready() -> void:
-	add_to_group(&"scattered_coin")
+	add_to_group(&"scattered_ticket")
 	collision_layer = 1 << 6  # objects
 	collision_mask = 1 << 4  # player hitbox
 	monitorable = false
@@ -70,11 +70,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	var p := Tuning.physics
 	_age += 1
-	if _age >= p.coin_lifetime_frames:
+	if _age >= p.ticket_lifetime_frames:
 		queue_free()
 		return
 
-	var gravity := PhysicsConstants.accel(p.coin_gravity)
+	var gravity := PhysicsConstants.accel(p.ticket_gravity)
 	var cap := PhysicsConstants.speed(p.speed_cap)
 	var from := global_position
 	global_position += _vel * delta + Vector2(0.0, 0.5 * gravity * delta * delta)
@@ -89,27 +89,27 @@ func _physics_process(delta: float) -> void:
 		var hit := get_world_2d().direct_space_state.intersect_ray(_query)
 		if not hit.is_empty():
 			global_position.y = hit.position.y - RADIUS
-			_vel.y *= p.coin_bounce
+			_vel.y *= p.ticket_bounce
 
-	if _age >= p.coin_recollect_delay_frames:
+	if _age >= p.ticket_recollect_delay_frames:
 		for area in get_overlapping_areas():
 			var player := Player.from_area(area)
-			if player != null and player.can_collect_coins():
+			if player != null and player.can_collect_tickets():
 				_collect()
 				return
 
-	visible = _age < p.coin_lifetime_frames - BLINK_FRAMES or (_age / 4) % 2 == 0
+	visible = _age < p.ticket_lifetime_frames - BLINK_FRAMES or (_age / 4) % 2 == 0
 	queue_redraw()
 
 
 func _collect() -> void:
-	GameState.add_coins(1)
-	Audio.play_sfx(&"coin")
+	GameState.add_tickets(1)
+	Audio.play_sfx(&"ticket")
 	queue_free()
 
 
 func _draw() -> void:
-	# Spinning coin: squash horizontally over time.
+	# Spinning ticket: squash horizontally over time.
 	var squash := maxf(absf(cos(_age * 0.25)), 0.2)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(squash, 1.0))
 	draw_circle(Vector2.ZERO, RADIUS, COLOR_RIM)

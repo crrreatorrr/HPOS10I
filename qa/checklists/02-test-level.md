@@ -19,12 +19,12 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 - [ ] TL-B2 [auto] Scene references each object scene (grep the `.tscn` for the loop, spring, booster, breakable wall, enemy, checkpoint and goal sign `ext_resource` paths).
 - [ ] TL-B3 [auto] Bot (`--zone=test_zone --frames=7200`) reaches the goal x (`level_completed` true) with 0 deaths, or every stuck period it logs is a documented intentional obstacle.
 
-## C. Coins (`levels/objects/coin.tscn`)
+## C. Tickets (`levels/objects/ticket.tscn`)
 
-- [ ] TL-C1 [auto] Collect: +1 coin, sfx `coin`, coin disappears, `GameState.coins_changed` fires.
-- [ ] TL-C2 [auto] Two overlapping coins collected on the same frame count 2, never 1 or 3.
-- [ ] TL-C3 [auto] Coins are not collected while dead; 100 coins gives exactly one life.
-- [ ] TL-C4 [auto] Collecting at 16 px/f does not skip coins in a row (area big enough or swept).
+- [ ] TL-C1 [auto] Collect: +1 ticket, sfx `ticket`, ticket disappears, `GameState.tickets_changed` fires.
+- [ ] TL-C2 [auto] Two overlapping tickets collected on the same frame count 2, never 1 or 3.
+- [ ] TL-C3 [auto] Tickets are not collected while dead; 100 tickets gives exactly one life.
+- [ ] TL-C4 [auto] Collecting at 16 px/f does not skip tickets in a row (area big enough or swept).
 
 ## D. Springs
 
@@ -62,7 +62,7 @@ Tags: **[auto]** script/test/timeline · **[manual]** human judgement.
 ## H. Checkpoint
 
 - [ ] TL-H1 [auto] First touch: `GameState.set_checkpoint()`, sfx `checkpoint`; second touch does nothing.
-- [ ] TL-H2 [auto] Death after the checkpoint: respawn at the checkpoint, timer restored to `checkpoint_time`, coins 0, lives -1.
+- [ ] TL-H2 [auto] Death after the checkpoint: respawn at the checkpoint, timer restored to `checkpoint_time`, tickets 0, lives -1.
 - [ ] TL-H3 [auto] Touching an earlier checkpoint after a later one does not move the respawn back.
 - [ ] TL-H4 [auto] Passing the checkpoint at 16 px/f still triggers it.
 

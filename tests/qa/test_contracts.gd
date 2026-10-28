@@ -99,9 +99,9 @@ const CONTRACT_SCRIPTS := {
 }
 ## Contract scenes that must at least load and instantiate when present.
 const CONTRACT_SCENES := [
-	"res://player/scattered_coin.tscn",
+	"res://player/scattered_ticket.tscn",
 	"res://terrain/loop.tscn",
-	"res://levels/objects/coin.tscn",
+	"res://levels/objects/ticket.tscn",
 	"res://ui/title/title_screen.tscn",
 	"res://ui/zone_select/zone_select.tscn",
 	"res://ui/hud/hud.tscn",

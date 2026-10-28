@@ -13,11 +13,11 @@ var p: Node2D
 
 
 func before_each() -> void:
-	GameState.coins = 0
+	GameState.tickets = 0
 
 
 func after_each() -> void:
-	GameState.coins = 0
+	GameState.tickets = 0
 	tree.paused = false
 	for action in [&"move_down", &"jump"]:
 		Dev.send_action(action, false)
@@ -594,7 +594,7 @@ func test_is_attacking_only_in_ball_states() -> void:
 	p.launch(Vector2(0, -6))
 	assert_true(not p.is_attacking(), "spring")
 	await physics_frames(60)
-	GameState.add_coins(1)
+	GameState.add_tickets(1)
 	p.hurt(p.global_position + Vector2(10, 0))
 	assert_true(not p.is_attacking(), "hurt")
 	p.kill()
@@ -679,14 +679,14 @@ func test_hurt_and_kill_edge_cases() -> void:
 	if _skip():
 		return
 	await _flat()
-	GameState.add_coins(3)
+	GameState.add_tickets(3)
 	p.hurt(p.global_position + Vector2(20, 0))
 	assert_true(p.is_invincible(), "invincible after a hit")
 	p.kill()
 	assert_eq(p.state, &"dead", "kill ignores invincibility")
 	for order in ["hurt_kill", "kill_hurt"]:
 		await _flat()
-		GameState.add_coins(3)
+		GameState.add_tickets(3)
 		var died := [0]
 		p.died.connect(func() -> void: died[0] += 1)
 		if order == "hurt_kill":
@@ -710,7 +710,7 @@ func test_hurt_from_every_state_lands_cleanly() -> void:
 		return
 	for s in ["idle", "run", "skid", "jump", "roll", "spindash", "spring"]:
 		await _flat()
-		GameState.add_coins(5)
+		GameState.add_tickets(5)
 		match s:
 			"run":
 				p.ground_speed = 4.0
@@ -754,7 +754,7 @@ func test_hurt_on_the_loop_ceiling() -> void:
 	L.floor_at(w, -4000, 4000)
 	L.loop(w, Vector2.ZERO)
 	p = await L.spawn(self, w, Vector2(-500, 0))
-	GameState.add_coins(5)
+	GameState.add_tickets(5)
 	p.ground_speed = 9.0
 	press(&"move_right")
 	for i in 300:
@@ -821,7 +821,7 @@ func test_pause_freezes_every_state_and_drops_presses() -> void:
 		return
 	for s in ["idle", "run", "skid", "jump", "roll", "spindash", "spring", "hurt", "dead"]:
 		await _flat()
-		GameState.add_coins(5)
+		GameState.add_tickets(5)
 		match s:
 			"run":
 				p.ground_speed = 4.0

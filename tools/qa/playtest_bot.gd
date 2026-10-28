@@ -427,7 +427,7 @@ func _summary(reason: String) -> Dictionary:
 	var game_state := root.get_node_or_null(^"GameState")
 	if game_state != null:
 		summary.game_state = {
-			coins = game_state.coins, score = game_state.score, lives = game_state.lives,
+			tickets = game_state.tickets, score = game_state.score, lives = game_state.lives,
 			level_time = snappedf(game_state.level_time, 0.01),
 		}
 	if _ever_had_player:

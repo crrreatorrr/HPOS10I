@@ -82,18 +82,18 @@ const FPS := 60.0
 ## Hard cap on any speed component, to keep raycasts from tunnelling.
 @export var speed_cap := 16.0
 
-@export_group("Coins")
-@export var max_scattered_coins := 32
-## Scattered coins can be collected again after this many frames.
-@export var coin_recollect_delay_frames := 64
-## Scattered coins disappear after this many frames.
-@export var coin_lifetime_frames := 256
-## Launch speed of the first 16 scattered coins, then the rest.
-@export var coin_scatter_speed_first := 4.0
-@export var coin_scatter_speed_second := 2.0
-@export var coin_gravity := 0.09375
-## Y speed multiplier when a scattered coin hits the floor.
-@export var coin_bounce := -0.75
+@export_group("Tickets")
+@export var max_scattered_tickets := 32
+## Scattered tickets can be collected again after this many frames.
+@export var ticket_recollect_delay_frames := 64
+## Scattered tickets disappear after this many frames.
+@export var ticket_lifetime_frames := 256
+## Launch speed of the first 16 scattered tickets, then the rest.
+@export var ticket_scatter_speed_first := 4.0
+@export var ticket_scatter_speed_second := 2.0
+@export var ticket_gravity := 0.09375
+## Y speed multiplier when a scattered ticket hits the floor.
+@export var ticket_bounce := -0.75
 
 
 ## Pixels per frame -> pixels per second.

@@ -1,5 +1,5 @@
 extends Area2D
-## Simple placed coin for the physics sandbox (the level agent owns the real
+## Simple placed ticket for the physics sandbox (the level agent owns the real
 ## one). Collected by touching it; comes back after a few seconds so the hurt
 ## test can be repeated.
 
@@ -29,9 +29,9 @@ func _physics_process(_delta: float) -> void:
 		return
 	for area in get_overlapping_areas():
 		var player := Player.from_area(area)
-		if player != null and player.can_collect_coins():
-			GameState.add_coins(1)
-			Audio.play_sfx(&"coin")
+		if player != null and player.can_collect_tickets():
+			GameState.add_tickets(1)
+			Audio.play_sfx(&"ticket")
 			_hidden_frames = RESPAWN_FRAMES
 			visible = false
 			return
@@ -41,6 +41,6 @@ func _physics_process(_delta: float) -> void:
 func _draw() -> void:
 	var squash := maxf(absf(cos(_age * 0.08)), 0.2)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(squash, 1.0))
-	draw_circle(Vector2.ZERO, RADIUS, ScatteredCoin.COLOR_RIM)
-	draw_circle(Vector2.ZERO, RADIUS - 1.5, ScatteredCoin.COLOR_FILL)
-	draw_circle(Vector2(-1.5, -1.5), 1.5, ScatteredCoin.COLOR_SHINE)
+	draw_circle(Vector2.ZERO, RADIUS, ScatteredTicket.COLOR_RIM)
+	draw_circle(Vector2.ZERO, RADIUS - 1.5, ScatteredTicket.COLOR_FILL)
+	draw_circle(Vector2(-1.5, -1.5), 1.5, ScatteredTicket.COLOR_SHINE)

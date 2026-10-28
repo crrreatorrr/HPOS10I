@@ -38,7 +38,7 @@ and list the request in your final report.
   loading another agent's scene or asset, and fall back to a placeholder.
 - **Placeholders:** until art is approved, draw simple shapes (`Polygon2D`,
   `_draw()`, `ColorRect`). Keep them readable: player white, enemies red,
-  hazards orange, springs yellow, coins gold.
+  hazards orange, springs yellow, tickets gold.
 
 ## Collision layers
 
@@ -50,7 +50,7 @@ and list the request in your final report.
 | 4 | `terrain_top_only` | One-way platforms (land from above only) |
 | 5 | `player` | Player hitbox `Area2D` |
 | 6 | `enemies` | Enemy hurtboxes |
-| 7 | `objects` | Coins, springs, boosters, checkpoints, goal sign |
+| 7 | `objects` | Tickets, springs, boosters, checkpoints, goal sign |
 | 8 | `hazards` | Spikes, projectiles, crushers |
 | 9 | `boss` | Boss body and weak point |
 
@@ -84,7 +84,7 @@ signal died
 
 func is_attacking() -> bool     # jump/roll/spindash: touching an enemy destroys it
 func is_invincible() -> bool
-func hurt(source_position: Vector2) -> void   # knockback, scatter coins, or die at 0 coins
+func hurt(source_position: Vector2) -> void   # knockback, scatter tickets, or die at 0 tickets
 func kill() -> void                           # instant death (pits, crush)
 func bounce_off(target_y: float, reverse_x := false) -> void  # rebound off an enemy; bosses pass reverse_x = true
 func launch(velocity_pf: Vector2) -> void     # airborne launch (springs). Not attacking.
@@ -102,15 +102,15 @@ var control_lock: int           # frames left
 var crouching: bool
 var spindash_charge: float
 func get_radii() -> Vector2     # current width/height radius
-func can_collect_coins() -> bool
+func can_collect_tickets() -> bool
 ```
 
 The player reads `SceneRouter.current_zone().accessory` (`""`,
 `"wizard_hat"`, `"sunglasses"`) and draws the accessory overlay.
 
-Scattered coins (`player/scattered_coin.tscn`) belong to the physics agent.
-Placed level coins (`levels/objects/coin.tscn`) belong to the level agent.
-Both call `GameState.add_coins(1)` and `Audio.play_sfx(&"coin")`.
+Scattered tickets (`player/scattered_ticket.tscn`) belong to the physics agent.
+Placed level tickets (`levels/objects/ticket.tscn`) belong to the level agent.
+Both call `GameState.add_tickets(1)` and `Audio.play_sfx(&"ticket")`.
 
 ## Terrain helpers (physics agent: `terrain/`)
 
@@ -217,7 +217,7 @@ Zone ids: `test_zone`, `z1_retro_rush_hills`, `z2_wizard_academy`,
 Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 
 - **SFX:** `jump`, `roll`, `spindash_charge`, `spindash_release`, `skid`,
-  `coin`, `coin_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
+  `ticket`, `ticket_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
   `enemy_pop`, `checkpoint`, `goal_sign`, `boss_hit`, `boss_explode`,
   `boss_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`
 - **Music:** `title`, `zone_select`, `z1`, `z2`, `z3`, `z4`, `boss`,

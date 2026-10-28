@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="4_player"]
 [ext_resource type="Script" path="res://tests/physics/sandbox_camera.gd" id="5_camera"]
 [ext_resource type="Script" path="res://tests/physics/dummy_enemy.gd" id="6_dummy"]
-[ext_resource type="Script" path="res://tests/physics/sandbox_coin.gd" id="7_coin"]
+[ext_resource type="Script" path="res://tests/physics/sandbox_ticket.gd" id="7_ticket"]
 
 [sub_resource type="Curve2D" id="Curve2D_hills"]
 _data = {
@@ -129,23 +129,23 @@ wall_height = 224.0
 position = Vector2(48, 0)
 script = ExtResource("6_dummy")
 
-[node name="Coins" type="Node2D" parent="."]
+[node name="Tickets" type="Node2D" parent="."]
 
-[node name="Coin1" type="Area2D" parent="Coins"]
+[node name="Ticket1" type="Area2D" parent="Tickets"]
 position = Vector2(110, -14)
-script = ExtResource("7_coin")
+script = ExtResource("7_ticket")
 
-[node name="Coin2" type="Area2D" parent="Coins"]
+[node name="Ticket2" type="Area2D" parent="Tickets"]
 position = Vector2(135, -14)
-script = ExtResource("7_coin")
+script = ExtResource("7_ticket")
 
-[node name="Coin3" type="Area2D" parent="Coins"]
+[node name="Ticket3" type="Area2D" parent="Tickets"]
 position = Vector2(160, -14)
-script = ExtResource("7_coin")
+script = ExtResource("7_ticket")
 
-[node name="Coin4" type="Area2D" parent="Coins"]
+[node name="Ticket4" type="Area2D" parent="Tickets"]
 position = Vector2(345, -82)
-script = ExtResource("7_coin")
+script = ExtResource("7_ticket")
 
 [node name="PlayerStart" type="Marker2D" parent="."]
 position = Vector2(240, -19)

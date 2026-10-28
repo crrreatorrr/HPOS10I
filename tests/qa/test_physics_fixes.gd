@@ -6,15 +6,15 @@ extends TestCase
 ##   godot --headless --fixed-fps 60 --path . -s res://tests/run_tests.gd -- --filter=physics_fixes
 
 const L := preload("res://tests/qa/qa_physics_lib.gd")
-const COIN_SCRIPT := "res://player/scattered_coin.gd"
+const TICKET_SCRIPT := "res://player/scattered_ticket.gd"
 
 
 func before_each() -> void:
-	GameState.coins = 0
+	GameState.tickets = 0
 
 
 func after_each() -> void:
-	GameState.coins = 0
+	GameState.tickets = 0
 	for action in [&"move_right", &"move_left", &"move_down", &"jump"]:
 		Dev.send_action(action, false)
 
@@ -223,11 +223,11 @@ func test_bug_01_04_respawn_at_is_exact_from_any_state() -> void:
 # --- Constants now in PhysicsConstants (1c6e698) -------------------------------------
 
 func test_moved_constants_are_read_live() -> void:
-	if _skip() or not ResourceLoader.exists(COIN_SCRIPT):
+	if _skip() or not ResourceLoader.exists(TICKET_SCRIPT):
 		return
 	var tp: Resource = Tuning.physics
 	var saved := {}
-	for key in ["skid_min_speed", "turnaround_speed", "coin_scatter_speed_first"]:
+	for key in ["skid_min_speed", "turnaround_speed", "ticket_scatter_speed_first"]:
 		saved[key] = tp.get(key)
 	var w := L.world(self)
 	L.floor_at(w)
@@ -244,14 +244,14 @@ func test_moved_constants_are_read_live() -> void:
 	await physics_frames(1)
 	var turned: float = p.ground_speed
 	release(&"move_left")
-	tp.set("coin_scatter_speed_first", 5.0)
-	var coins: Array = load(COIN_SCRIPT).call(&"scatter", w, Vector2(0, -100), 1)
-	var coin_speed: float = coins[0].velocity.length()
+	tp.set("ticket_scatter_speed_first", 5.0)
+	var tickets: Array = load(TICKET_SCRIPT).call(&"scatter", w, Vector2(0, -100), 1)
+	var ticket_speed: float = tickets[0].velocity.length()
 	for key in saved:
 		tp.set(key, saved[key])
 	assert_eq(skid, &"skid", "skid_min_speed")
 	assert_near(turned, -1.0, 1e-6, "turnaround_speed")
-	assert_near(coin_speed, 5.0, 1e-6, "coin_scatter_speed_first")
+	assert_near(ticket_speed, 5.0, 1e-6, "ticket_scatter_speed_first")
 
 
 # --- Re-check #2 @ 94dcac3: BUG-01-06..09 and the new head-height wall ray ---------
@@ -585,7 +585,7 @@ func test_v_valley_layers_and_landings() -> void:
 	for how in ["hurt", "spring"]:
 		var w2 := _v_world(60.0, 60.0, 150.0)
 		var q = await L.spawn(self, w2, Vector2(-200, -150))
-		GameState.add_coins(5)
+		GameState.add_tickets(5)
 		q.respawn_at(Vector2(-30, -120))
 		await physics_frames(1)
 		if how == "hurt":

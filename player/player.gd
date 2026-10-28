@@ -174,8 +174,8 @@ func is_invincible() -> bool:
 	return _invincible_frames > 0
 
 
-## Coins can be picked up unless knocked back or dead.
-func can_collect_coins() -> bool:
+## Tickets can be picked up unless knocked back or dead.
+func can_collect_tickets() -> bool:
 	return _state != &"hurt" and _state != &"dead"
 
 
@@ -191,11 +191,11 @@ func hurt(source_position: Vector2) -> void:
 	if _state == &"dead" or _state == &"hurt" or is_invincible():
 		return
 	var p := Tuning.physics
-	var lost := GameState.lose_coins()
+	var lost := GameState.lose_tickets()
 	if lost <= 0:
 		kill()
 		return
-	ScatteredCoin.scatter(get_parent(), global_position, mini(lost, p.max_scattered_coins))
+	ScatteredTicket.scatter(get_parent(), global_position, mini(lost, p.max_scattered_tickets))
 	var away := signf(global_position.x - source_position.x)
 	if away == 0.0:
 		away = -facing
@@ -207,7 +207,7 @@ func hurt(source_position: Vector2) -> void:
 	_invincible_frames = p.invincibility_frames
 	_change_state(&"hurt")
 	Audio.play_sfx(&"hurt")
-	Audio.play_sfx(&"coin_loss")
+	Audio.play_sfx(&"ticket_loss")
 	hurt_taken.emit()
 
 

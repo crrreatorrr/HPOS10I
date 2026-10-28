@@ -33,7 +33,7 @@ func go_zone_select() -> void:
 		_change_to(ZONE_SELECT_SCENE if ResourceLoader.exists(ZONE_SELECT_SCENE) else MAIN_SCENE)
 
 
-## Starts a zone at the given stage (1 = act 1). Resets coins and checkpoint.
+## Starts a zone at the given stage (1 = act 1). Resets tickets and checkpoint.
 func start_zone(new_zone_id: String, new_stage := 1) -> void:
 	if _claim("start_zone"):
 		_start_zone(new_zone_id, new_stage)
