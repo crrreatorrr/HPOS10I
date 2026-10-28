@@ -25,7 +25,15 @@ frames="$2"
 shift 2
 
 mkdir -p "$out_dir"
-godot --path "$project_dir" --write-movie "$out_dir/$name.avi" --quit-after "$frames" -- "$@" >/dev/null
+log="$out_dir/$name.log"
+godot --path "$project_dir" --write-movie "$out_dir/$name.avi" --quit-after "$frames" -- "$@" >"$log" 2>&1
+# A typo'd --scene silently records the dev menu, so treat any error as fatal.
+if grep -E "ERROR|SCRIPT ERROR" "$log"; then
+	echo "record_clip: Godot reported errors (full log: $log)" >&2
+	rm -f "$out_dir/$name.avi"
+	exit 1
+fi
+rm "$log"
 
 ffmpeg -y -loglevel error -i "$out_dir/$name.avi" \
 	-vf "scale=iw*3:ih*3:flags=neighbor" \

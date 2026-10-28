@@ -28,6 +28,11 @@ func _process(delta: float) -> void:
 	var mtime := FileAccess.get_modified_time(PATH)
 	if mtime != _mtime:
 		_mtime = mtime
-		physics = ResourceLoader.load(PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
-		physics_reloaded.emit()
-		print("[Tuning] physics constants reloaded")
+		var reloaded = ResourceLoader.load(PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
+		if reloaded is PhysicsConstants:
+			physics = reloaded
+			physics_reloaded.emit()
+			print("[Tuning] physics constants reloaded")
+		else:
+			# Mid-save or broken file: keep playing with the previous values.
+			push_warning("[Tuning] reload failed, keeping previous constants")
