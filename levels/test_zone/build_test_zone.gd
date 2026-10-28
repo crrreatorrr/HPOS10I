@@ -114,7 +114,9 @@ func _build() -> void:
 
 	var terrain := _group(level, "Terrain")
 	objects = _group(level, "Objects")
-	tickets = _group(objects, "Tickets")
+	# Not "Tickets": QA's difficulty lint counts any node with "ticket" in its
+	# name as one ticket and skips its children.
+	tickets = _group(objects, "Pickups")
 	enemies = _group(level, "Enemies")
 
 	_build_terrain(terrain)

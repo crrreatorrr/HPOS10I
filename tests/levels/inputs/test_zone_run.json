@@ -1,0 +1,31 @@
+{
+  "meta": {"goal_frame":1574,"note":"frames are physics ticks since boot (Dev timeline format); replay with --scene and --inputs","scene":"res://levels/test_zone/test_zone.tscn","tool":"record_test_zone_run.gd"},
+  "events": [
+    [2,"move_right",true],
+    [96,"jump",true],
+    [111,"jump",false],
+    [227,"move_right",false],
+    [227,"move_down",true],
+    [232,"move_down",false],
+    [234,"move_right",true],
+    [245,"jump",true],
+    [254,"jump",false],
+    [577,"move_right",false],
+    [577,"move_down",true],
+    [582,"move_down",false],
+    [584,"move_right",true],
+    [809,"move_right",false],
+    [809,"move_down",true],
+    [814,"move_down",false],
+    [816,"move_right",true],
+    [938,"jump",true],
+    [947,"jump",false],
+    [1383,"move_right",false],
+    [1383,"move_down",true],
+    [1388,"move_down",false],
+    [1390,"move_right",true],
+    [1424,"jump",true],
+    [1433,"jump",false],
+    [1605,"move_right",false]
+  ]
+}
