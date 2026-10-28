@@ -218,3 +218,93 @@ func test_no_unroll_under_a_low_ceiling() -> void:
 	assert_true(player.global_position.x > 269.0, "rolled out of the tunnel")
 	await physics_frames(5)
 	assert_eq(player.state, &"idle", "stood up once there was room")
+
+
+## Rolls Sproto into a 32 px dead end closed by a wall on the side `side`
+## (1 = right, -1 = left) and returns once the ball rests against the wall.
+func _into_low_dead_end(side: int) -> void:
+	world = W.new_world(self)
+	W.add_floor(world)
+	# Tunnel from x 100 to 400 (mirrored for the left), closed at the far end.
+	W.add_rect(world, Rect2(100.0 if side > 0 else -400.0, -332.0, 300.0, 300.0))
+	W.add_rect(world, Rect2(400.0 if side > 0 else -500.0, -400.0, 100.0, 400.0))
+	player = W.spawn_player(world, Vector2.ZERO)
+	await W.settle(self, player, Vector2.ZERO)
+	player.ground_speed = 4.0 * side
+	press(&"move_down")
+	await physics_frames(1)
+	release(&"move_down")
+	for i in 400:
+		await physics_frames(1)
+		if absf(player.global_position.x) > 380.0:
+			break
+	assert_eq(player.state, &"roll", "side %d: rolled into the dead end" % side)
+	assert_true(absf(player.global_position.x) > 380.0, "side %d: at the end wall" % side)
+
+
+func _assert_out_and_standing(side: int, label: String) -> void:
+	assert_true(player.global_position.x * side < 100.0 - 9.0, "%s: out of the tunnel (x %.1f)" % [label, player.global_position.x])
+	assert_true(player.state == &"idle" or player.state == &"run", "%s: standing (%s)" % [label, player.state])
+
+
+func test_force_roll_backs_out_of_a_low_dead_end() -> void:
+	for side in [1, -1]:
+		await _into_low_dead_end(side)
+		var away := &"move_left" if side > 0 else &"move_right"
+		press(away)
+		for i in 900:
+			await physics_frames(1)
+			if player.global_position.x * side < 80.0:
+				break
+		release(away)
+		await physics_frames(30)
+		_assert_out_and_standing(side, "side %d holding away" % side)
+
+
+func test_force_roll_turns_back_off_the_wall_by_itself() -> void:
+	for side in [1, -1]:
+		await _into_low_dead_end(side)
+		for i in 900:
+			await physics_frames(1)
+			if player.global_position.x * side < 80.0:
+				break
+		await physics_frames(30)
+		_assert_out_and_standing(side, "side %d, no input" % side)
+
+
+func test_spindash_from_a_force_roll() -> void:
+	await _into_low_dead_end(1)
+	press(&"move_left")
+	await physics_frames(2)
+	release(&"move_left")
+	press(&"move_down")
+	press(&"jump")
+	await physics_frames(2)
+	release(&"jump")
+	assert_eq(player.state, &"spindash", "down + jump in a force-roll charges a spin dash")
+	release(&"move_down")
+	await physics_frames(1)
+	assert_near(player.ground_speed, -8.0, 1e-6, "released away from the wall")
+
+
+func test_walking_into_a_low_tunnel_is_blocked() -> void:
+	world = W.new_world(self)
+	W.add_floor(world)
+	W.add_rect(world, Rect2(100, -332, 200, 300))  # 32 px tunnel from x 100
+	player = W.spawn_player(world, Vector2.ZERO)
+	await W.settle(self, player, Vector2.ZERO)
+	press(&"move_right")
+	await physics_frames(120)
+	assert_near(player.global_position.x, 100.0 - Tuning.physics.push_radius, 0.01, "stopped at the tunnel mouth")
+	assert_eq(player.ground_speed, 0.0, "blocked like a wall")
+	# Rolling still gets in.
+	release(&"move_right")
+	await physics_frames(5)
+	player.respawn_at(Vector2(0, -19))
+	await physics_frames(2)
+	player.ground_speed = 4.0
+	press(&"move_down")
+	await physics_frames(1)
+	release(&"move_down")
+	await physics_frames(60)
+	assert_true(player.global_position.x > 120.0, "rolled into the tunnel (x %.1f)" % player.global_position.x)

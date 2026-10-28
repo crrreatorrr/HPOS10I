@@ -203,3 +203,22 @@ func test_land_on_narrow_pillars() -> void:
 		assert_near(W.feet_y(player), 0.0, 0.05, "%s px pillar: on top" % width)
 		await physics_frames(30)
 		assert_near(W.feet_y(player), 0.0, 0.05, "%s px pillar: stays on top" % width)
+
+
+func test_spring_under_narrow_column_stops_at_its_bottom() -> void:
+	for width in [8.0, 16.0]:
+		world = W.new_world(self)
+		W.add_floor(world)
+		W.add_rect(world, Rect2(-width / 2.0, -400.0, width, 300.0))  # hangs down to y -100
+		await _spawn()
+		player.launch(Vector2(0.0, -10.0))
+		var stopped := false
+		for i in 60:
+			var before := player.velocity.y
+			await physics_frames(1)
+			var head := player.global_position.y - player.get_radii().y
+			assert_true(head >= -100.01, "%s px column: head %.2f stays below it" % [width, head])
+			if before < -1.0 and player.velocity.y >= 0.0:
+				stopped = true
+				break
+		assert_true(stopped, "%s px column: upward speed stopped by it" % width)

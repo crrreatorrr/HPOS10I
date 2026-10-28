@@ -20,9 +20,14 @@ extends Node2D
 ## outside and onto the floor instead of around the underside of the ring.
 ## The floor underneath is solid on both paths.
 
-@export var radius := 112.0:
+## Smallest loop the top switcher can serve (see _layout).
+const MIN_RADIUS := 48.0
+## How far below the inner top the top switcher reaches.
+const TOP_SWITCHER_REACH := 40.0
+
+@export_range(48.0, 512.0, 1.0, "or_greater") var radius := 112.0:
 	set(value):
-		radius = maxf(value, 48.0)
+		radius = maxf(value, MIN_RADIUS)
 		_layout()
 @export var thickness := 16.0:
 	set(value):
@@ -100,9 +105,14 @@ func _layout() -> void:
 	exit.size = side_size
 	exit.path_moving_right = PathSwitcher.Path.A
 	exit.path_moving_left = PathSwitcher.Path.B
-	# Covers a player running along the inside of the top, not one on the outside.
-	top.position = Vector2(0.0, -radius * 2.0 + 28.0)
-	top.size = Vector2(16.0, 64.0)
+	# Covers the centre of a player running along the inside of the top (19 px
+	# below the surface), never one on the outside (above the ring) and never
+	# one crossing the bottom (its hitbox reaches about 40 px up): the span is
+	# 4 px above the inner top down to 40 px below it, i.e. at least 56 px
+	# above the floor at the minimum radius of 48.
+	var top_span := Vector2(-radius * 2.0 - 4.0, -radius * 2.0 + TOP_SWITCHER_REACH)
+	top.position = Vector2(0.0, (top_span.x + top_span.y) / 2.0)
+	top.size = Vector2(16.0, top_span.y - top_span.x)
 	top.path_moving_right = PathSwitcher.Path.A
 	top.path_moving_left = PathSwitcher.Path.B
 	top.grounded_only = true

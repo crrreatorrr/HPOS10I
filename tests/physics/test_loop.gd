@@ -203,3 +203,85 @@ func test_jump_onto_the_loop_top_and_run_off() -> void:
 		var buried := await _run_down_the_outside(direction)
 		assert_true(not buried, "dir %d: never inside terrain" % direction)
 		_assert_on_the_floor_beside("jump, dir %d" % direction)
+
+
+## Runs the loop at `radius` for every speed, direction and entry phase.
+## Each run must exit on the far side on path A without leaving the ground,
+## and the grounded angle may only step by the motion along the curve plus
+## the A/B swap (and a margin): a polygon-vertex normal spike is ~110 deg.
+func _sweep(radius: float, speeds: Array, phases: Array) -> void:
+	var swap := rad_to_deg(2.0 * asin(Tuning.physics.width_radius / (radius - 19.0)))
+	for speed: float in speeds:
+		for dir: int in [1, -1]:
+			for phase: float in phases:
+				world = W.new_world(self)
+				W.add_floor(world, -5000.0, 5000.0)
+				loop = W.add_loop(world, Vector2.ZERO)
+				loop.radius = radius
+				var start := Vector2(-(radius + 300.0 + phase) * dir, 0.0)
+				player = W.spawn_player(world, start)
+				await W.settle(self, player, start)
+				player.ground_speed = speed * dir
+				var action := &"move_right" if dir > 0 else &"move_left"
+				press(action)
+				var label := "radius %s speed %s dir %d phase %s" % [radius, speed, dir, phase]
+				var last := player.ground_angle
+				var worst := 0.0
+				var airborne := false
+				var done := false
+				for i in 600:
+					await physics_frames(1)
+					if player.grounded:
+						var step := absf(wrapf(player.ground_angle - last, -180.0, 180.0))
+						var motion := rad_to_deg(absf(player.ground_speed) / (radius - 19.0))
+						worst = maxf(worst, step - motion)
+					airborne = airborne or not player.grounded
+					last = player.ground_angle
+					if player.global_position.x * dir > _exit_x():
+						done = true
+						break
+				release(action)
+				assert_true(worst < swap + 8.0, "%s: angle step %.1f deg beyond the motion" % [label, worst])
+				assert_true(done and not airborne, "%s: exited %s, airborne %s" % [label, done, airborne])
+				assert_eq(player.collision_path, Player.PATH_A, "%s: path A after the loop;" % label)
+				world.queue_free()
+				await physics_frames(1)
+
+
+func test_minimum_radius_loop_always_exits() -> void:
+	await _sweep(TerrainLoop.MIN_RADIUS, [8.0, 10.0, 12.0, 16.0], [0.0, 3.0, 7.0])
+
+
+func test_loop_angle_never_spikes_radius_64() -> void:
+	await _sweep(64.0, [8.0, 12.0, 16.0], [0.0, 2.5, 5.0, 7.5])
+
+
+func test_loop_angle_never_spikes_radius_80() -> void:
+	await _sweep(80.0, [8.0, 12.0, 16.0], [0.0, 2.5, 5.0, 7.5])
+
+
+func test_loop_angle_never_spikes_radius_112() -> void:
+	await _sweep(112.0, [8.0, 12.0, 16.0], [0.0, 3.5, 7.0])
+
+
+func test_loop_angle_never_spikes_radius_200() -> void:
+	await _sweep(200.0, [8.0, 12.0, 16.0], [0.0, 5.0])
+
+
+func test_vertex_graze_normal_is_rejected() -> void:
+	# The QA case: entering a radius-64 loop at 10 px/frame from x -400, the B
+	# ray grazed an arc vertex and reported an internal edge's normal (125 deg).
+	world = W.new_world(self)
+	W.add_floor(world, -5000.0, 5000.0)
+	loop = W.add_loop(world, Vector2.ZERO)
+	loop.radius = 64.0
+	player = W.spawn_player(world, Vector2(-400.0, 0.0))
+	await W.settle(self, player, Vector2(-400.0, 0.0))
+	player.ground_speed = 10.0
+	press(&"move_right")
+	var last := player.ground_angle
+	for i in 60:
+		await physics_frames(1)
+		assert_true(absf(wrapf(player.ground_angle - last, -180.0, 180.0)) < 40.0,
+				"frame %d: angle %.1f -> %.1f" % [i, last, player.ground_angle])
+		last = player.ground_angle

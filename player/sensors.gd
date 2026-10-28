@@ -11,6 +11,8 @@ const BIT_SOLID := 1
 const BIT_PATH_A := 2
 const BIT_PATH_B := 4
 const BIT_TOP_ONLY := 8
+## Offset of the two side rays used to re-measure a surface angle.
+const SURFACE_PROBE_OFFSET := 0.5
 
 
 ## One sensor result.
@@ -24,6 +26,11 @@ class Hit:
 	var angle: float
 	## True when the surface is a one-way (top-only) platform.
 	var top_only: bool
+	## The ray that found it (for re-measuring the surface angle).
+	var origin: Vector2
+	var dir: Vector2
+	var length: float
+	var mask: int
 
 
 ## Every cast this frame: {label, from, to, hit (bool), point}.
@@ -81,11 +88,46 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 	hit.normal = result.normal
 	hit.distance = from.distance_to(hit.position)
 	hit.angle = angle_from_normal(hit.normal)
+	hit.origin = from
+	hit.dir = dir
+	hit.length = length
+	hit.mask = mask
 	var layer := PhysicsServer2D.body_get_collision_layer(result.rid)
 	hit.top_only = (layer & BIT_TOP_ONLY) != 0 and (layer & (BIT_SOLID | BIT_PATH_A | BIT_PATH_B)) == 0
+	# A ray that really enters a solid always crosses a surface facing it. A
+	# normal facing along the ray comes from a convex piece the ray only grazes
+	# at a shared vertex (an internal edge of the polygon's decomposition), so
+	# measure the surface instead.
+	if hit.normal.dot(dir) > -0.001:
+		hit.angle = surface_angle(hit)
 	record.hit = true
 	record.point = hit.position
 	return hit
+
+
+## Surface angle at a hit, measured from two parallel rays 0.5 px either side
+## of the original one: the line through their hits is the surface, whatever
+## normal the physics server reported at a polygon vertex. Falls back to the
+## reported angle when either ray misses.
+func surface_angle(hit: Hit) -> float:
+	var side := hit.dir.orthogonal() * SURFACE_PROBE_OFFSET
+	var length := hit.length + SURFACE_PROBE_OFFSET * 4.0
+	var points: Array[Vector2] = []
+	for offset: Vector2 in [side, -side]:
+		_query.from = hit.origin + offset
+		_query.to = hit.origin + offset + hit.dir * length
+		_query.collision_mask = hit.mask
+		var result := _space.intersect_ray(_query)
+		if result.is_empty():
+			return hit.angle
+		points.append(result.position)
+	var tangent := points[0] - points[1]
+	if tangent.length_squared() < 0.0001:
+		return hit.angle
+	var normal := tangent.orthogonal().normalized()
+	if normal.dot(hit.dir) > 0.0:
+		normal = -normal
+	return angle_from_normal(normal)
 
 
 ## Casts a pair of parallel rays (A/B or C/D) offset by +/- half_width along

@@ -35,6 +35,9 @@ const SNAP_MAX := 14.0
 ## A top-only platform is only landed on when the feet are at most
 ## (y speed + this) pixels below its surface, like the classic games.
 const TOP_ONLY_GRACE := 8.0
+## A grounded floor reading that differs from the current angle by more than
+## this is re-measured from the surface around the hit.
+const SUSPICIOUS_ANGLE_STEP := 45.0
 ## Feet within this distance of a surface count as touching it.
 const CONTACT_EPSILON := 0.05
 ## bounce_off() trims this from the rebound speed (px/frame).
@@ -90,6 +93,8 @@ var _ball := false  # small hitbox: jump, roll, spin dash
 var _jumped := false  # variable jump height allowed
 var _air_locked := false  # no air control (roll jump, hurt)
 var _skidding := false
+var _hit_wall := false  # a ground wall sensor stopped Sproto this frame
+var _wall_blocked := false  # ... last frame (read by the force-roll)
 var _invincible_frames := 0
 var _death_frames := 0
 var _frozen := false
@@ -341,6 +346,8 @@ func _input_dir() -> int:
 # --- Ground ---------------------------------------------------------------------
 
 func _ground_step(p: PhysicsConstants, dt: float) -> void:
+	_wall_blocked = _hit_wall
+	_hit_wall = false
 	var dir := _input_dir() if control_lock == 0 else 0
 	var down_held := Input.is_action_pressed(&"move_down")
 	var jump_pressed := Input.is_action_just_pressed(&"jump")
@@ -351,7 +358,7 @@ func _ground_step(p: PhysicsConstants, dt: float) -> void:
 		_spindash_step(p, down_held, jump_pressed)
 		_stick_to_ground(p)
 		return
-	if crouching and jump_pressed:
+	if jump_pressed and (crouching or _is_force_rolling(p) and down_held):
 		crouching = false
 		spindash_charge = 0.0
 		_set_ball(true)
@@ -429,15 +436,22 @@ func _apply_slope_factor(p: PhysicsConstants, dt: float) -> void:
 func _has_jump_clearance() -> bool:
 	var r := get_radii()
 	var up := -mode_down(collision_mode)
-	var hit := sensors.cast_pair(PackedStringArray(["C", "D"]), global_position,
+	var hit := sensors.cast_pair(PackedStringArray(["C", "D", "CD"]), global_position,
 			mode_right(collision_mode), up, r.x, r.y + JUMP_CLEARANCE, _terrain_mask(false))
 	return hit == null
+
+
+## Rolling at creep speed under a ceiling too low to stand up in.
+func _is_force_rolling(p: PhysicsConstants) -> bool:
+	return _ball and _state == &"roll" \
+			and absf(_gsp) <= PhysicsConstants.speed(p.unroll_speed) + 0.001 \
+			and not _has_standing_headroom(p)
 
 
 ## True when the standing hitbox would fit above the feet (checked from the ball).
 func _has_standing_headroom(p: PhysicsConstants) -> bool:
 	var reach := p.height_radius * 2.0 - p.roll_height_radius
-	var hit := sensors.cast_pair(PackedStringArray(["C", "D"]), global_position,
+	var hit := sensors.cast_pair(PackedStringArray(["C", "D", "CD"]), global_position,
 			mode_right(collision_mode), -mode_down(collision_mode), p.width_radius, reach,
 			_terrain_mask(false))
 	return hit == null
@@ -500,6 +514,12 @@ func _roll_input(p: PhysicsConstants, dt: float, dir: int) -> void:
 			_set_ball(false)
 		else:
 			# Too low to stand up: keep rolling out, like the classic force-roll.
+			# The creep goes the held way, and turns back off a wall, so a low
+			# dead end can always be left.
+			if dir != 0:
+				facing = dir
+			elif _wall_blocked:
+				facing = -facing
 			_gsp = PhysicsConstants.speed(p.unroll_speed) * facing
 
 
@@ -530,15 +550,26 @@ func _ground_wall_check(p: PhysicsConstants) -> void:
 		return
 	var side := signf(_gsp)
 	var dir := mode_right(collision_mode) * side
+	var label := "F" if side > 0.0 else "E"
+	var mask := _terrain_mask(false)
 	var origin := global_position
-	if collision_mode == FLOOR and angle_from_flat(ground_angle) < 1.0:
+	var flat := collision_mode == FLOOR and angle_from_flat(ground_angle) < 1.0
+	if flat:
 		origin += Vector2(0.0, FLAT_WALL_SENSOR_DROP)
-	var hit := sensors.cast("F" if side > 0.0 else "E", origin, dir, p.push_radius, _terrain_mask(false))
+	var hit := sensors.cast(label, origin, dir, p.push_radius, mask)
+	if flat and not _ball:
+		# Standing on flat ground, a ceiling lower than the head (a tunnel too
+		# low to walk into) blocks like a wall. Roll to get in.
+		var head := global_position + Vector2(0.0, 1.0 - p.height_radius)
+		var top := sensors.cast(label, head, dir, p.push_radius, mask)
+		if top != null and (hit == null or top.distance < hit.distance):
+			hit = top
 	if hit == null:
 		return
 	global_position -= dir * (p.push_radius - hit.distance)
 	_gsp = 0.0
 	_vel = Vector2.ZERO
+	_hit_wall = true
 
 
 ## Floor sensors A/B: snap to the nearer hit or report that the ground is gone.
@@ -552,6 +583,10 @@ func _ground_floor_check(p: PhysicsConstants, tolerance := -1.0) -> bool:
 	if hit == null:
 		return false
 	var gap := hit.distance - r.y
+	# A reading far from the current angle is checked against the surface
+	# around the hit: real corners agree, polygon-vertex artefacts do not.
+	if grounded and absf(wrapf(hit.angle - ground_angle, -180.0, 180.0)) > SUSPICIOUS_ANGLE_STEP:
+		hit.angle = sensors.surface_angle(hit)
 	if tolerance < 0.0:
 		var along := absf(_vel.x if collision_mode == FLOOR or collision_mode == CEILING else _vel.y)
 		tolerance = minf(along / PhysicsConstants.FPS + SNAP_BASE, SNAP_MAX)
@@ -675,7 +710,7 @@ func _air_wall_check(p: PhysicsConstants) -> void:
 
 func _air_ceiling_check(p: PhysicsConstants) -> void:
 	var r := get_radii()
-	var hit := sensors.cast_pair(PackedStringArray(["C", "D"]), global_position, Vector2.RIGHT,
+	var hit := sensors.cast_pair(PackedStringArray(["C", "D", "CD"]), global_position, Vector2.RIGHT,
 			Vector2.UP, r.x, r.y, _terrain_mask(false))
 	if hit == null:
 		return
