@@ -47,8 +47,9 @@ games (prompts included).
 
 A small, very fast creature, the mascot of the game.
 
-- **Head:** round, with 2–3 soft upward tufts on top. Never swept-back
-  spikes.
+- **Head:** round, with 2–3 soft upward spikes on top. The spikes grow
+  ONLY from the blue half of the head, so the yellow face half has none
+  (director's note). Never swept-back spikes.
 - **Face:**
   - Split down the middle: blue on one side, yellow on the other.
   - Big round white eyes with black pupils and a white shine, and no heavy
@@ -81,7 +82,8 @@ basic enemies.
 - **Body:**
   - A rounded capsule split across the middle into two colours. The
     basic version is mint green and white.
-  - A thick dark outline, a soft shadow on one side, and a white
+  - A bold dark outline (1 px at game size, like every sprite), a soft
+    shadow on one side, and a white
     dashed shine on the coloured half.
 - **Robot parts:**
   - A dark visor slit with one or two glowing eye dots.
@@ -97,16 +99,13 @@ basic enemies.
     - **Retro Rush Hills and the test zone:** the basic mint/white walker
       and hopper.
     - **Wizard Academy:**
-      - a **spellbook pill** riding a flapping enchanted book (replaces the
-        enchanted books)
+      - a **spellbook pill** riding a flapping enchanted book
       - an **armored pill** in a little knight helmet and breastplate,
-        which takes a spin or roll to crack (replaces the living armor)
+        which takes a spin or roll to crack
       - colours: purple and cream
     - **Capital Mansion:**
       - a **drone pill** with a rotor on top and a searchlight eye
-        (replaces the security drones)
-      - a **clerk pill** juggling paper stacks and tossing sheets (replaces
-        the paperwork robots)
+      - a **clerk pill** juggling paper stacks and tossing sheets
       - colours: navy and white
     - **Neon Rush Remix:** the Zone 1 pills redone in neon, with dark bodies
       and glowing magenta and cyan outlines.
@@ -114,3 +113,25 @@ basic enemies.
 - **Off-limits:** printed text, logos or imprint codes on the pills, and
   any real medicine brand's colours or shape. Keep them cartoonish and
   clearly not real medicine.
+
+## Zones (originality guardrails)
+
+| Zone | Look | Never |
+|---|---|---|
+| Retro Rush Hills | Sunny tropical hills, palm trees, waterfalls, loops, diamond-checker dirt | A square brown-and-tan checker, or any existing game's landmarks |
+| Wizard Academy | An original magic-school castle: shifting staircases, moving bookshelves, candle-lit halls, a flying-broom chase | Houses, crests, house-coloured scarves, lightning-bolt marks, or names from existing wizard stories |
+| Capital Mansion | A grand white mansion of our own design, a lawn, rooftops, ballrooms, an underground bunker | A real building's replica, seals, flags, portraits or real people |
+| Neon Rush Remix | Zone 1's ideas in synthwave neon: a dark sky and glowing outlines | Real brand logos or signage |
+
+## Bosses (originality guardrails)
+
+All bosses are clearly fictional cartoons; none depicts or resembles a real
+person.
+
+- **The Rug Pull:** a floating magic carpet with angry stitched eyes.
+- **Library Demon:** an original horned smoke-and-ink creature rising from a
+  cursed book. No real religious symbols.
+- **Broccoli Head:** a fictional cartoon teen with a big green
+  broccoli-style haircut, on a hoverboard.
+- **The Executive:** a generic tall businessman in a grey suit with a
+  briefcase and sunglasses.

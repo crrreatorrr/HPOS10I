@@ -7,7 +7,8 @@
 #
 # Checks:
 #   files      index.html, <exe>.wasm, <exe>.pck and <exe>.js present
-#   config     GODOT_CONFIG parsed; fileSizes match the files on disk
+#   config     GODOT_CONFIG parsed; fileSizes match the files on disk;
+#              a versioned mainPack (?v=) has its own fileSizes key (WARN)
 #   threads    single-threaded: GODOT_THREADS_ENABLED false,
 #              ensureCrossOriginIsolationHeaders false, no *.worker.js, and the
 #              wasm linear memory is not shared (no SharedArrayBuffer needed)
@@ -95,7 +96,7 @@ else:
 if config is not None:
     bad = []
     for name, size in (config.get("fileSizes") or {}).items():
-        full = os.path.join(build, name)
+        full = os.path.join(build, name.split("?", 1)[0])  # versioned URLs (?v=) map to the plain file
         actual = os.path.getsize(full) if os.path.isfile(full) else None
         if actual != size:
             bad.append("%s: config %s, disk %s" % (name, size, actual))
@@ -105,6 +106,15 @@ if config is not None:
         out("PASS", "config", "fileSizes match %s" % sorted((config.get("fileSizes") or {}).keys()))
     if config.get("gdextensionLibs"):
         out("WARN", "config", "gdextensionLibs not empty: %s" % config["gdextensionLibs"])
+    # The engine looks up fileSizes[mainPack]; a versioned URL (index.pck?v=...)
+    # without its own key leaves the total unknown, so the loading bar shows no
+    # progress for the whole download.
+    main_pack = config.get("mainPack")
+    if main_pack:
+        if main_pack in (config.get("fileSizes") or {}):
+            out("PASS", "config", "fileSizes has the mainPack key %s (loading bar can show progress)" % main_pack)
+        else:
+            out("WARN", "config", "fileSizes has no key for mainPack %s: the loading bar stays indeterminate" % main_pack)
 
 # ---- threads ----------------------------------------------------------------
 if config is not None:

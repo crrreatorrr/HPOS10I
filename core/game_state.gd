@@ -24,7 +24,9 @@ var checkpoint_time := 0.0
 var _next_ticket_life := TICKETS_PER_LIFE
 
 
-func _process(delta: float) -> void:
+## Ticks with gameplay (fixed 60 Hz), so it can't drift from the game under
+## web frame catch-up, and it stops while the tree is paused.
+func _physics_process(delta: float) -> void:
 	if timer_running:
 		level_time += delta
 
@@ -87,6 +89,7 @@ func complete_level() -> void:
 	level_completed.emit()
 
 
+## The timer only runs inside levels; SceneRouter stops it in menus.
 func reset_game() -> void:
 	score = 0
 	lives = START_LIVES
