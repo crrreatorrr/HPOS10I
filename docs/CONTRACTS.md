@@ -73,7 +73,8 @@ Objects, enemies, hazards and bosses **detect the player** with their own
 
 | Name | What other code may use |
 |---|---|
-| `GameState` | **Signals:** `tickets_changed(value)`, `score_changed(value)`, `lives_changed(value)`, `checkpoint_reached(position)`, `level_completed`. **Properties:** `tickets`, `score`, `lives`, `level_time` (seconds, physics-ticked), `timer_running`, `checkpoint_position` (Vector2 or null), `zone_id`, `act`. **Methods:** `add_tickets(n)`, `lose_tickets() -> int`, `add_score(n)`, `add_life()`, `set_checkpoint(pos)`, `complete_level()`. `start_level`, `restart_from_checkpoint`, `reset_game` and `lose_life` belong to SceneRouter. |
+| `GameState` | **Signals:** `tickets_changed(value)`, `score_changed(value)`, `lives_changed(value)`, `checkpoint_reached(position)`, `level_completed`, `emerald_won(zone_id, act)` (fired inside `complete_level()`, before `level_completed`). **Properties:** `tickets`, `score`, `lives`, `level_time` (seconds, physics-ticked), `timer_running`, `checkpoint_position` (Vector2 or null), `zone_id`, `act`, `emeralds` (won this game), `emerald_just_won` (the act that just ended won a new one). **Methods:** `add_tickets(n)`, `lose_tickets() -> int`, `add_score(n)`, `add_life()`, `set_checkpoint(pos)`, `complete_level()`, `has_emerald(zone_id, act)`, `emerald_count()`. `start_level`, `restart_from_checkpoint`, `reset_game` and `lose_life` belong to SceneRouter. |
+| `Emeralds` (class, `core/emeralds.gd`) | The act-clear emerald: one per act of every zone in `ZoneRegistry.ZONES` (8); the test zone and arenas give none. `NAME` (display name: a director-approved exception to the originality guardrails, allowlisted for this file ONLY, so always show it through `Emeralds.NAME` and never write the word elsewhere: not in code, docs, file names or commit messages), `ICON_PATH` (48 px), `ICON_SMALL_PATH` (16 px), `icon(small := false)` (null until the art exists), `total()`, `all_keys()`, `key(zone_id, act)`, `is_emerald_act(zone_id, act)`. |
 | `SceneRouter` | **Methods:** `go_title()`, `go_zone_select()`, `start_zone(id, stage := 1)`, `next_stage()`, `respawn()` (takes a life, except in free scenes), `restart()` (the pause menu's Restart: from the checkpoint, no life lost), `open_scene(path)` (playgrounds; errors if missing), `in_gameplay() -> bool`, `current_zone() -> Dictionary`. **Properties:** `zone_id`, `stage` (1-based; the boss is acts + 1). **Signal:** `stage_started(zone_id, stage)`. **Constant:** `MENU_SCENES`. Only the first scene change per frame takes effect. |
 | `ZoneRegistry` | **Static:** `all_zones(include_test := false)`, `get_zone(id)`, `stage_path(id, stage)`, `next_zone_id(id)`. **Zone dict keys:** `id`, `name`, `acts` (scene paths), `boss`, `accessory`, `music`. |
 | `Tuning` | `physics: PhysicsConstants`; read it every frame. |
@@ -100,7 +101,7 @@ Objects, enemies, hazards and bosses **detect the player** with their own
 |---|---|---|
 | `--scene=res://…` | everywhere | open a scene directly |
 | `--zone=<id>`, `--stage=<n>` | everywhere | start a zone or stage |
-| `--inputs=res://….json` | everywhere | replay an input timeline |
+| `--inputs=res://….json` | everywhere | replay an input timeline. Frame 0 = the first tick the `--scene`/`--zone` target is the current scene (boot when there is none), so a plain launch, the QA bot and `record_clip.sh` replay alike; recorders count from the same tick. Completing a level prints `[Dev] level completed at timeline frame N` |
 | `--dev` | everywhere | show the boot menu even when a title screen exists |
 | `--touch` | everywhere | force touch mode (touch controls, fractional scaling) |
 | `--overlay` | everywhere | start with the F1 debug overlay open |
@@ -361,7 +362,8 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 - **SFX:** `jump`, `roll`, `spindash_charge`, `spindash_release`, `skid`,
   `ticket`, `ticket_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
   `enemy_pop`, `checkpoint`, `goal_sign`, `boss_hit`, `boss_explode`,
-  `boss_telegraph`, `enemy_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`
+  `boss_telegraph`, `enemy_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`,
+  `emerald_get`
 - **Music:** `title`, `zone_select`, `z1`, `z2`, `z3`, `z4`, `boss`,
   `act_clear`, `game_over`
 
@@ -370,11 +372,12 @@ Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
 | Scene | Purpose |
 |---|---|
 | `ui/title/title_screen.tscn` | Boot goes here once it exists. Must show the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| `ui/zone_select/zone_select.tscn` | Uses `ZoneRegistry` + `SceneRouter.start_zone()` |
+| `ui/zone_select/zone_select.tscn` | Uses `ZoneRegistry` + `SceneRouter.start_zone()`. Shows the 8 emerald slots (`EmeraldIcon`, small) |
 | `ui/hud/hud.tscn` | `CanvasLayer`; listens to `GameState` signals |
 | `ui/pause/pause_menu.tscn` | Added globally by `Display`. `process_mode = ALWAYS`; toggles `get_tree().paused` on `pause`, only while `SceneRouter.in_gameplay()` |
 | `ui/touch_controls/touch_controls.tscn` | Added globally by `Display` only on touch devices (`Display.is_touch`). It presses the normal input actions |
-| `ui/tally/score_tally.tscn` | Emits `finished` |
+| `ui/tally/score_tally.tscn` | Emits `finished`. Shows the emerald moment (big spinning icon, `Emeralds.NAME`, "N / 8", `emerald_get`) when `GameState.emerald_just_won` |
+| `ui/emerald/emerald_icon.tscn` | `EmeraldIcon`: the flat spinning emerald (whole-pixel widths, darker mirrored back face, edge strip edge-on; `small` for 16 px slots); a placeholder gem until the art exists |
 | `ui/game_over/game_over.tscn`, `ui/ending/ending.tscn` | |
 
 ## Merge gate

@@ -252,3 +252,13 @@ func test_complete_level_wins_the_act_emerald_once() -> void:
 	state.emerald_won.disconnect(on_won)
 	state.reset_game()
 	assert_eq(state.emerald_count(), 0, "a new game starts with none")
+
+
+func test_timeline_clock_waits_for_the_boot_target() -> void:
+	assert_eq(Dev.timeline_scene({scene = "res://playground/physics_playground.tscn"}),
+			"res://playground/physics_playground.tscn", "--scene target")
+	assert_eq(Dev.timeline_scene({zone = "z1_retro_rush_hills", stage = "2"}),
+			"res://levels/z1_retro_rush_hills/act2.tscn", "--zone/--stage target")
+	assert_eq(Dev.timeline_scene({zone = "z1_retro_rush_hills"}),
+			"res://levels/z1_retro_rush_hills/act1.tscn", "stage defaults to 1")
+	assert_eq(Dev.timeline_scene({}), "", "no target: starts at once")
