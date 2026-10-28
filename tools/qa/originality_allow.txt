@@ -1,5 +1,9 @@
 # Reviewed exceptions to the originality scan (path glob, or path:line).
+# Owned by QA. Keep every entry as narrow as possible: one line, one reason.
+#
 # Director decision 2026-10-28: the act-clear emerald keeps the director's
-# chosen display name. It lives in this one file; everything else shows it
-# through Emeralds.NAME.
-core/emeralds.gd
+# chosen display name (denylist term #155). Only the NAME constant in
+# core/emeralds.gd may hold it; everything else shows it through
+# Emeralds.NAME. Scoped to that single line, so a second use in the same file
+# (or the constant moving) is flagged and re-reviewed.
+core/emeralds.gd:13
