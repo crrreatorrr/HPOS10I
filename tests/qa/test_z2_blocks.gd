@@ -102,13 +102,16 @@ func test_falling_book_telegraph_and_respawn_safety() -> void:
 
 
 ## The diver locks its target when the telegraph STARTS (accepted rule):
-## running away the moment it flashes always avoids the swoop.
+## running away the moment it flashes always avoids the swoop. Lead decision
+## on BUG-Z2-01: it never dives at a target less than 120 px below its post,
+## so a low post (80 px) must not dive at all.
 func test_diver_reacting_at_the_flash_always_avoids_it() -> void:
 	var scene := _scene("res://levels/enemies/z2/spellbook_diver.tscn")
 	if scene == null:
 		scene = _scene("res://levels/enemies/diver.tscn")
 	if scene == null:
 		return
+	var has_min_drop: bool = scene.instantiate().get(&"min_dive_drop") != null
 	for d in [1.0, 10.0]:
 		for dir in [-1, 1]:
 			for depth in [80.0, 150.0, 220.0]:
@@ -121,6 +124,9 @@ func test_diver_reacting_at_the_flash_always_avoids_it() -> void:
 				while not diver.has_meta(&"qa_tele") and waited < 300:
 					await physics_frames(1)
 					waited += 1
+				if depth < 120.0 + 19.0 and has_min_drop:
+					assert_true(waited >= 300, "a diver %s px up never dives at a standing Sproto (min_dive_drop, D %s)" % [depth, d])
+					continue
 				var hold := &"move_right" if dir > 0 else &"move_left"
 				press(hold)
 				var hurt := false
