@@ -10,6 +10,7 @@
 #   --reveal            print the matched terms in plain text (default: masked,
 #                       so output can be pasted into reports and CI logs)
 #   --commits[=RANGE]   also scan commit messages (default range: HEAD)
+#   --no-files          skip files and names (with --commits: messages only)
 #   --denylist=FILE     encoded denylist (default: tools/qa/denylist.b64)
 #   --allow=FILE        allowlist (default: tools/qa/originality_allow.txt)
 #   --list-terms        print the decoded denylist with term ids and exit
@@ -82,6 +83,7 @@ commits = None
 denylist_path = os.path.join(script_dir, "denylist.b64")
 allow_path = os.path.join(script_dir, "originality_allow.txt")
 list_terms = False
+scan_files = True
 for opt in opts:
     if opt == "--reveal":
         reveal = True
@@ -95,6 +97,8 @@ for opt in opts:
         allow_path = opt.split("=", 1)[1]
     elif opt == "--list-terms":
         list_terms = True
+    elif opt == "--no-files":
+        scan_files = False
     else:
         sys.stderr.write("originality_scan: unknown option %s\n" % opt)
         sys.exit(2)
@@ -263,7 +267,7 @@ def report(location, found, excerpt_source):
         hits.append(line)
 
 
-files = list_files()
+files = list_files() if scan_files else []
 seen_dirs = set()
 text_files = 0
 for rel in files:
