@@ -37,6 +37,7 @@ in the web build (`tests/` never ships). Collectibles are golden tickets
 - [ ] TL-D4 [auto] Spring touched while dead does nothing; spring touched while hurt launches and ends hurt (or documented).
 - [ ] TL-D5 [auto] Spring under a low ceiling does not push the player into the ceiling.
 - [ ] TL-D6 [auto] Re-triggering every frame while standing on it does not stack speed.
+- [ ] TL-D7 [auto] **Every directional object's art matches its push or launch direction** (springs up, side and diagonal, boosters, conveyors, bookshelves, autoscroll brooms, enemy shields and visors). Probe each scene at both facings or rotations and compare the drawn direction (`spring_transform()` / visual node transform) with the launch or push vector it applies. Director bug 2026-10-28: diagonal springs were drawn facing opposite to their launch; `tests/levels/test_spring_art.gd` covers springs.
 
 ## E. Speed booster
 

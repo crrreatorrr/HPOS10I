@@ -1,0 +1,56 @@
+# Hand-cleaning for the 16x16 emerald icon (x,y,RRGGBB), applied on top of
+# the box-downsampled disc. Colours come from the 48 px icon's palette.
+# The "10" (most important): purple digits on the cream chest, rows 11-13.
+3,11,c3afac
+4,11,523991
+5,11,c9c1c0
+6,11,523991
+7,11,523991
+8,11,523991
+9,11,c3afac
+3,12,c9c1c0
+4,12,523991
+5,12,c9c1c0
+6,12,523991
+7,12,c9c1c0
+8,12,523991
+9,12,c3afac
+3,13,c3afac
+4,13,523991
+5,13,c9c1c0
+6,13,523991
+7,13,523991
+8,13,523991
+9,13,c9c1c0
+# eyes: red rims around dark pupils, row 3
+2,3,cb3741
+3,3,0b0b23
+4,3,cb3741
+8,3,cb3741
+9,3,0b0b23
+10,3,cb3741
+# nostrils
+5,5,353241
+6,5,353241
+# the grin: lip corners, upper teeth, dark mouth with tongue, lower lip
+4,6,c49289
+5,6,c49289
+6,6,c49289
+7,6,c49289
+3,7,ae7777
+4,7,cfd4d5
+5,7,cfd4d5
+6,7,cfd4d5
+7,7,cfd4d5
+8,7,ae7777
+4,8,27192f
+5,8,27192f
+6,8,cb3741
+7,8,27192f
+4,9,c49289
+5,9,ae7777
+6,9,ae7777
+7,9,c49289
+# the bolt: a dark diagonal stroke against the top rim
+7,1,0b0b23
+6,2,0b0b23
