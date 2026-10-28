@@ -305,7 +305,9 @@ func _slip() -> void:
 		control_lock -= 1
 		return
 	var steep := from_flat(angle)
-	if absf(gsp) >= SLIP_SPEED or steep < SLIP_ANGLE:
+	# Strictly past 45: a 1:1 hill is still held (the original checks the
+	# angle past the floor quadrant, not at its edge).
+	if absf(gsp) >= SLIP_SPEED or steep <= SLIP_ANGLE:
 		return
 	control_lock = CONTROL_LOCK
 	if steep > FALL_ANGLE:

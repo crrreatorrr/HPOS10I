@@ -34,7 +34,7 @@ reason); **fixed** = deviated before this audit, fixed now.
 | Top speed | 6; accelerate then clamp, never reduce a higher speed | `_run_input` | test_ground; test_reference (jumps at 6, loop at 8) | exact |
 | Skid | reversing at or above 4 px/f in floor mode | `_run_input` (`_skidding`) | test_ground: skid when reversing fast | exact (animation only) |
 | Slope factor, running | gsp -= 0.125 * sin(angle), before input | `_apply_slope_factor` | test_slopes: uphill/downhill; test_reference 22.5/45 | exact |
-| Slope factor on ceilings | none in the ceiling range (135-225) | `_apply_slope_factor` | test_reference loop (speed gained on the ceiling by acceleration only) | exact |
+| Slope factor on ceilings | none in the ceiling range (135-225) | `_apply_slope_factor` | test_reference loop (speed gained on the ceiling by acceleration only) | exact: the original's slope routine returns early for angles in the ceiling range ($60-$9F) |
 | Standing still on a shallow slope | no slope factor when gsp = 0 and the factor is under 0.05078125 | `_apply_slope_factor` | test_slopes: standing on gentle slope does not slip; test_reference roll uphill (30 deg: slides back after unrolling) | choice: the third game's rule (the second slides from rest) |
 | Order of the ground step | spin dash, slope factor, jump, input, roll start, move, floor sensors, slip | `_ground_step` | test_reference (every ground scenario) | exact (Guide main loop) |
 | Movement | x += gsp cos, y -= gsp sin | `_move_on_ground` | test_reference | exact; sub-stepped against the sensors (same end position on a plane) |
@@ -80,7 +80,7 @@ reason); **fixed** = deviated before this audit, fixed now.
 | Rule | Value | Where | Pinned by | Status |
 |---|---|---|---|---|
 | Slip | abs(gsp) < 2.5 on a slope at least `slip_angle` from flat: 30-frame control lock | `_check_slip` | test_slopes: standing on steep slope slips; test_reference slip on 50 | exact rule; see the angle below |
-| Slip angle | 35 deg (tuning) | `core/physics_constants.tres` | test_slopes | choice to make (LEAD): the second game slips from 45 deg (and falls), the third from 35 (and slides); the controller has the third game's angle with the brief's "slide + lock" behaviour. Set `slip_angle = 45` to follow the second game's angle. The model uses 45. |
+| Slip angle | 45 deg (tuning), strictly past it: a 1:1 hill is held | `core/physics_constants.tres`, `_check_slip` | test_slopes; test_reference 45 deg running, slip on 50 | exact (second game's angle, the project baseline; the third game slips from 35 and slides) |
 | Fall off | slipping on more than 69 deg from flat: leave the ground | `_check_slip` | test_slopes: very steep slope falls; test_reference wall climb | exact |
 | Control lock | 30 frames, counts down on the ground, input ignored | `_check_slip`, `_ground_step` | test_reference slip on 50 (sliding back locked) | exact; friction still applies while locked (the original skips it while a direction is held) |
 
@@ -112,7 +112,7 @@ reason); **fixed** = deviated before this audit, fixed now.
 | Standing radii | 9 x 19 | `get_radii`, tuning | test_player_api | exact |
 | Rolling radii | 7 x 14, centre 5 px lower | `get_radii`, `_set_ball` | test_player_api: respawn from a ball | exact |
 | Push radius | 10 | tuning; `_ground_wall_check`, `_air_wall_check` | test_ground: wall stops | exact |
-| A/B floor sensors | at centre +/- 9 (7 rolling) along the mode's "right", cast along "down" from the centre; grounded reach 19 + 14, airborne to the feet (a floor up to 19 px above the feet at a sensor still lands and pushes him out) | `_ground_floor_check`, `_air_floor_check` | test_air; test_reference | exact |
+| A/B floor sensors | at centre +/- 9 (7 rolling) along the mode's "right", cast along "down" from the centre; grounded reach 19 + 14, airborne to the feet (a floor up to 19 px above the feet at a sensor still lands and pushes him out) | `_ground_floor_check`, `_air_floor_check` | test_air; test_reference | equivalent: the Guide's sensors reach 16 px below the feet, but the min(abs(gsp) + 4, 14) snap window never uses the last 2 px |
 | C/D ceiling sensors | centre +/- width, cast "up" to the head | `_air_ceiling_check`, `_has_jump_clearance` | test_air: ceiling | exact |
 | E/F wall sensors | centre, +/- 10 along "right"; +8 px down on flat floor | `_ground_wall_check`, `_air_wall_check` | test_ground | exact |
 | Modes | floor 0-45 and 315-360, right wall 46-134, ceiling 135-225, left wall 226-314 (boundaries inclusive) | `mode_for_angle` | test_loop: angle smooth round the loop | exact |
@@ -137,10 +137,10 @@ reason); **fixed** = deviated before this audit, fixed now.
    agent's recorders.
 2. **Landing frame (fixed).** Landing inside a movement sub-step dropped the
    rest of the frame's motion; the Guide moves the full frame, then snaps.
-3. **Slip angle.** Tuning has 35 deg (third game); the brief's "slide + lock
-   from 45" matches the second game's angle with the third's behaviour. The
-   model uses 45. A lead decision on `core/physics_constants.tres`
-   (`slip_angle`); the controller needs no change either way.
+3. **Slip angle.** 45 deg (second game's angle, the project baseline), with
+   the third game's slide-and-lock behaviour. Exactly 45 deg does not slip:
+   the original checks the angle strictly past the floor quadrant, and the
+   zones' 1:1 hills must be holdable standing still.
 4. **Standing-still slope rule (0.05078125)** and **top-only landing grace
    (ysp + 8)** are the third game's rules, kept on purpose (the brief lists
    both).
@@ -168,8 +168,9 @@ reason); **fixed** = deviated before this audit, fixed now.
 
 ## Summary
 
-63 rows audited: 54 exact, 4 fixed this round (gravity order, landing frame,
-walk/run timing, roll timing), 4 documented choices between
-the games (standing-still slope rule, rolling-jump landing, hitbox trim, and
-the slip angle, which is the lead's call on the tuning resource), and 1
-addition (the force roll under low ceilings).
+63 rows audited: 54 exact (one of them, the floor sensor reach, equivalent
+rather than identical), 4 fixed this round (gravity order, landing frame,
+walk/run timing, roll timing), 3 documented choices between the games
+(standing-still slope rule, rolling-jump landing, hitbox trim), 1 lead
+decision applied (slip angle 45), and 1 addition (the force roll under low
+ceilings).
