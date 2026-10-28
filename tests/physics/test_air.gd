@@ -189,3 +189,17 @@ func test_fast_fall_does_not_tunnel() -> void:
 	await _fall_until_grounded(60)
 	assert_true(player.grounded, "landed at 16 px/frame on a 10 px floor")
 	assert_near(W.feet_y(player), 0.0, 0.05, "on top of it")
+
+
+func test_land_on_narrow_pillars() -> void:
+	for width in [8.0, 16.0]:
+		world = W.new_world(self)
+		W.add_floor(world, -2000.0, 2000.0, 300.0)
+		W.add_rect(world, Rect2(-width / 2.0, 0, width, 300))
+		await _spawn(Vector2(0, 300))
+		player.respawn_at(Vector2(0, -80))
+		await _fall_until_grounded(90)
+		assert_true(player.grounded, "%s px pillar: landed" % width)
+		assert_near(W.feet_y(player), 0.0, 0.05, "%s px pillar: on top" % width)
+		await physics_frames(30)
+		assert_near(W.feet_y(player), 0.0, 0.05, "%s px pillar: stays on top" % width)

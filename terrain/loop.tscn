@@ -11,14 +11,29 @@ script = ExtResource("1_loop")
 script = ExtResource("2_curve")
 shape = 4
 
-[node name="RightHalf" type="StaticBody2D" parent="."]
+[node name="LowerRight" type="StaticBody2D" parent="."]
 script = ExtResource("2_curve")
 shape = 0
 path_layer = 1
 
-[node name="LeftHalf" type="StaticBody2D" parent="."]
+[node name="Upper" type="StaticBody2D" parent="."]
 script = ExtResource("2_curve")
 shape = 0
+
+[node name="LowerLeft" type="StaticBody2D" parent="."]
+script = ExtResource("2_curve")
+shape = 0
+path_layer = 2
+
+[node name="RightFoot" type="StaticBody2D" parent="."]
+script = ExtResource("2_curve")
+shape = 1
+path_layer = 1
+rises_to_right = false
+
+[node name="LeftFoot" type="StaticBody2D" parent="."]
+script = ExtResource("2_curve")
+shape = 1
 path_layer = 2
 
 [node name="EntrySwitcher" type="Area2D" parent="."]

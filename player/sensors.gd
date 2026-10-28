@@ -89,11 +89,15 @@ func cast(label: String, from: Vector2, dir: Vector2, length: float, mask: int) 
 
 
 ## Casts a pair of parallel rays (A/B or C/D) offset by +/- half_width along
-## `side`, both towards `dir`. Returns the nearer hit, or null.
+## `side`, both towards `dir`. Returns the nearer hit, or null. With a third
+## label, a centre ray is cast when both miss, so terrain narrower than the
+## pair (e.g. a thin pillar) is still found.
 func cast_pair(labels: PackedStringArray, center: Vector2, side: Vector2, dir: Vector2,
 		half_width: float, length: float, mask: int) -> Hit:
 	var first := cast(labels[0], center - side * half_width, dir, length, mask)
 	var second := cast(labels[1], center + side * half_width, dir, length, mask)
+	if first == null and second == null and labels.size() > 2:
+		return cast(labels[2], center, dir, length, mask)
 	if first == null:
 		return second
 	if second == null:

@@ -134,3 +134,72 @@ func test_jump_into_steep_ceiling_attaches() -> void:
 	assert_true(player.grounded, "landed on the ceiling")
 	assert_true(player.ground_angle > 90.0 and player.ground_angle < 135.0, "steep ceiling angle (%s)" % player.ground_angle)
 	assert_true(player.ground_speed > 0.0, "upward speed carried along the ceiling")
+
+
+## True when the player's centre is inside terrain that is solid on its path.
+func _centre_in_terrain() -> bool:
+	var query := PhysicsPointQueryParameters2D.new()
+	query.position = player.global_position
+	query.collision_mask = PlayerSensors.terrain_mask(player.collision_path, false)
+	return not player.get_world_2d().direct_space_state.intersect_point(query, 1).is_empty()
+
+
+## Holds `direction` until Sproto is on the floor beside the loop (or the limit).
+## Returns whether his centre ever entered terrain.
+func _run_down_the_outside(direction: int) -> bool:
+	var action := &"move_right" if direction > 0 else &"move_left"
+	press(action)
+	var buried := false
+	for i in 360:
+		await physics_frames(1)
+		buried = buried or _centre_in_terrain()
+		if player.grounded and absf(W.feet_y(player)) < 0.05 \
+				and absf(player.global_position.x) > loop.radius + loop.thickness:
+			break
+	release(action)
+	return buried
+
+
+func _assert_on_the_floor_beside(label: String) -> void:
+	assert_true(player.grounded, "%s: grounded" % label)
+	assert_near(W.feet_y(player), 0.0, 0.05, "%s: feet on the floor" % label)
+	assert_true(absf(player.global_position.x) > loop.radius + loop.thickness,
+			"%s: beside the loop, not under it (%s)" % [label, player.global_position])
+
+
+func test_running_off_the_top_goes_down_the_outside() -> void:
+	# Matching paths (A right, B left) use the hill feet; the others drop off
+	# at the equator. Either way Sproto ends on the floor beside the loop.
+	for case in [[1, Player.PATH_A], [-1, Player.PATH_B], [1, Player.PATH_B], [-1, Player.PATH_A]]:
+		for speed in [3.0, 8.0, 16.0]:
+			await _setup(-600.0)
+			player.respawn_at(Vector2(0.0, -2.0 * loop.radius - loop.thickness - 40.0))
+			player.set_collision_path(case[1])
+			for i in 60:
+				await physics_frames(1)
+				if player.grounded:
+					break
+			assert_true(player.grounded, "landed on the loop top")
+			player.ground_speed = speed * case[0]
+			var label := "dir %d path %d speed %s" % [case[0], case[1], speed]
+			var buried := await _run_down_the_outside(case[0])
+			assert_true(not buried, "%s: never inside terrain" % label)
+			_assert_on_the_floor_beside(label)
+
+
+func test_jump_onto_the_loop_top_and_run_off() -> void:
+	for direction in [1, -1]:
+		await _setup(-600.0)
+		# Mid-jump, rising towards the top of the loop from one side.
+		player.respawn_at(Vector2(-60.0 * direction, -2.0 * loop.radius - loop.thickness - 50.0))
+		player.velocity = Vector2(2.0 * direction, -3.0)
+		var landed := false
+		for i in 90:
+			await physics_frames(1)
+			if player.grounded:
+				landed = true
+				break
+		assert_true(landed and W.feet_y(player) < -2.0 * loop.radius, "landed on top of the loop")
+		var buried := await _run_down_the_outside(direction)
+		assert_true(not buried, "dir %d: never inside terrain" % direction)
+		_assert_on_the_floor_beside("jump, dir %d" % direction)

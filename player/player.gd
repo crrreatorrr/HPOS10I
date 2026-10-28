@@ -290,9 +290,10 @@ func play_pose(new_pose: StringName) -> void:
 
 
 func respawn_at(new_position: Vector2) -> void:
-	global_position = new_position
+	# Leave the ball hitbox first: _set_ball() shifts the centre to keep the feet.
 	_leave_ground()
 	_set_ball(false)
+	global_position = new_position
 	ground_angle = 0.0
 	_gsp = 0.0
 	_vel = Vector2.ZERO
@@ -433,6 +434,15 @@ func _has_jump_clearance() -> bool:
 	return hit == null
 
 
+## True when the standing hitbox would fit above the feet (checked from the ball).
+func _has_standing_headroom(p: PhysicsConstants) -> bool:
+	var reach := p.height_radius * 2.0 - p.roll_height_radius
+	var hit := sensors.cast_pair(PackedStringArray(["C", "D"]), global_position,
+			mode_right(collision_mode), -mode_down(collision_mode), p.width_radius, reach,
+			_terrain_mask(false))
+	return hit == null
+
+
 func _jump(p: PhysicsConstants) -> void:
 	var a := deg_to_rad(ground_angle)
 	var force := PhysicsConstants.speed(p.jump_force)
@@ -486,7 +496,11 @@ func _roll_input(p: PhysicsConstants, dt: float, dir: int) -> void:
 	if _gsp != 0.0:
 		facing = int(signf(_gsp))
 	if absf(_gsp) < PhysicsConstants.speed(p.unroll_speed):
-		_set_ball(false)
+		if _has_standing_headroom(p):
+			_set_ball(false)
+		else:
+			# Too low to stand up: keep rolling out, like the classic force-roll.
+			_gsp = PhysicsConstants.speed(p.unroll_speed) * facing
 
 
 ## Moves along the ground in sub-steps no longer than the smallest sensor
@@ -532,7 +546,7 @@ func _ground_wall_check(p: PhysicsConstants) -> void:
 func _ground_floor_check(p: PhysicsConstants, tolerance := -1.0) -> bool:
 	var r := get_radii()
 	var down := mode_down(collision_mode)
-	var hit := sensors.cast_pair(PackedStringArray(["A", "B"]), global_position,
+	var hit := sensors.cast_pair(PackedStringArray(["A", "B", "AB"]), global_position,
 			mode_right(collision_mode), down, r.x, r.y + SNAP_MAX,
 			_terrain_mask(collision_mode == FLOOR))
 	if hit == null:
@@ -676,7 +690,7 @@ func _air_ceiling_check(p: PhysicsConstants) -> void:
 
 func _air_floor_check(p: PhysicsConstants) -> bool:
 	var r := get_radii()
-	var hit := sensors.cast_pair(PackedStringArray(["A", "B"]), global_position, Vector2.RIGHT,
+	var hit := sensors.cast_pair(PackedStringArray(["A", "B", "AB"]), global_position, Vector2.RIGHT,
 			Vector2.DOWN, r.x, r.y + CONTACT_EPSILON, _terrain_mask(true))
 	if hit == null:
 		return false

@@ -192,3 +192,29 @@ func test_wall_at_speed_16_no_tunnelling() -> void:
 	await physics_frames(40)
 	assert_true(player.global_position.x < 300.0, "did not pass through a thin wall")
 	assert_eq(player.ground_speed, 0.0, "stopped")
+
+
+func test_no_unroll_under_a_low_ceiling() -> void:
+	world = W.new_world(self)
+	W.add_floor(world)
+	W.add_rect(world, Rect2(100, -332, 160, 300))  # 32 px tunnel from x 100 to 260
+	player = W.spawn_player(world, Vector2.ZERO)
+	await W.settle(self, player, Vector2.ZERO)
+	player.ground_speed = 3.0
+	press(&"move_down")
+	await physics_frames(1)
+	release(&"move_down")
+	var crept := false
+	for i in 400:
+		await physics_frames(1)
+		var head := player.global_position.y - player.get_radii().y
+		var x := player.global_position.x
+		if x > 91.0 and x < 269.0:
+			assert_true(head >= -32.01, "head below the ceiling at x %.1f (%s)" % [x, player.state])
+			crept = crept or player.state == &"roll" and absf(player.ground_speed) <= 0.5
+		if x > 300.0:
+			break
+	assert_true(crept, "kept rolling slowly under the ceiling")
+	assert_true(player.global_position.x > 269.0, "rolled out of the tunnel")
+	await physics_frames(5)
+	assert_eq(player.state, &"idle", "stood up once there was room")

@@ -148,3 +148,22 @@ func test_accessory_follows_zone() -> void:
 	accessory.refresh()
 	assert_eq(accessory.accessory, "", "none elsewhere")
 	assert_true(not accessory.visible, "hidden when there is no accessory")
+
+
+func test_respawn_at_from_a_ball_is_exact() -> void:
+	await _flat()
+	player.ground_speed = 4.0
+	press(&"move_down")
+	await physics_frames(1)
+	release(&"move_down")
+	assert_eq(player.state, &"roll", "rolling")
+	player.respawn_at(Vector2(300, -19))
+	assert_eq(player.global_position, Vector2(300, -19), "exact after a roll")
+	press(&"jump")
+	await physics_frames(3)
+	assert_eq(player.state, &"jump", "jumping")
+	player.respawn_at(Vector2(200, -19))
+	assert_eq(player.global_position, Vector2(200, -19), "exact after a jump")
+	await physics_frames(2)
+	assert_true(player.grounded, "on the floor")
+	assert_near(W.feet_y(player), 0.0, 0.05, "feet on the floor")

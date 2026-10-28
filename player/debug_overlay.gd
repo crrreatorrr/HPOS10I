@@ -5,7 +5,7 @@ extends Node2D
 ## game runs with `-- --overlay` so it shows in recordings.
 
 const MODE_NAMES := ["floor", "right wall", "ceiling", "left wall"]
-const COLOR_FLOOR := Color(0.2, 1.0, 0.35)  # A/B
+const COLOR_FLOOR := Color(0.2, 1.0, 0.35)  # A/B (and the centre fallback)
 const COLOR_CEILING := Color(0.25, 0.65, 1.0)  # C/D
 const COLOR_WALL := Color(1.0, 0.3, 0.85)  # E/F
 const COLOR_HITBOX := Color(1, 1, 1, 0.6)
@@ -83,7 +83,7 @@ func _draw() -> void:
 
 func _color_for(label: String) -> Color:
 	match label:
-		"A", "B":
+		"A", "B", "AB":
 			return COLOR_FLOOR
 		"C", "D":
 			return COLOR_CEILING
