@@ -22,8 +22,8 @@ A small, very fast creature, the mascot of the game.
 - **Feel:** cheeky and upbeat. Readable at 64×64 px game size.
 - **Accessories:** a wizard hat in Wizard Academy and sunglasses in Capital
   Mansion, drawn as overlays (see CONTRACTS.md).
-- **Off-limits:** a frog-like face (droopy eyelids, wide fleshy lips) and the
-  blue-hedgehog quill silhouette.
+- **Off-limits:** a frog-like face (droopy eyelids, wide fleshy lips) and
+  swept-back spiky quills, which belong to an existing game mascot.
 
 ## Golden tickets (collectible)
 
