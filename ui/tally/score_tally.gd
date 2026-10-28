@@ -11,7 +11,9 @@ extends CanvasLayer
 ##
 ## Jump (any device) or a tap/click skips the count; once counted, it
 ## continues. Timing runs on seconds, so any frame rate gives the same tally.
-## The panel sits below the HUD counters (y 44+) so it never covers them.
+## The panel stays between the HUD counters (y < 44) and the bottom line
+## (y >= PANEL_BOTTOM, where the playground prints its control hints), so it
+## never covers either.
 
 signal finished
 
@@ -33,6 +35,8 @@ const HOLD_SECONDS := 2.0
 ## Presses this soon after the tally appears are ignored (a held jump from
 ## the goal run shouldn't skip it).
 const INPUT_GRACE := 0.4
+## The panel never reaches below this line (matches Root's bottom offset).
+const PANEL_BOTTOM := 223
 
 ## Zone shown in the heading. LevelRoot may set it; defaults to GameState's.
 var zone_id := ""
@@ -91,8 +95,7 @@ func _ready() -> void:
 	_quiet_count.text = count_text
 	var mode := emerald_mode(zone_id, act)
 	_emerald_box.visible = mode == &"won"
-	_emerald_name.visible = mode == &"won"
-	_emerald_count.visible = mode == &"won"
+	(%EmeraldLine as Control).visible = mode == &"won"
 	_quiet_box.visible = mode == &"earlier"
 	# The big icon waits (hidden) for its moment; the box keeps its space.
 	_emerald.visible = false

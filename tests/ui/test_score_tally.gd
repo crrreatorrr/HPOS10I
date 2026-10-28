@@ -132,3 +132,32 @@ func _wait_game_time(node: Node, seconds: float) -> void:
 	while elapsed < seconds + 0.05:
 		await tree.process_frame
 		elapsed += node.get_process_delta_time()
+
+
+## The panel stays clear of the HUD counters and of the playground's bottom
+## control-hint line, in every mode, at 424x240.
+func test_panel_clears_the_hud_and_the_hint_line() -> void:
+	var playground: Node = add_scene("res://playground/physics_playground.tscn")
+	var hud: Node = add_scene("res://ui/hud/hud.tscn")
+	await physics_frames(3)
+	var hint: Label = null
+	for node in playground.find_children("*", "Label", true, false):
+		if (node as Label).position.y > 200:
+			hint = node
+	assert_true(hint != null, "found the playground's bottom hint line")
+	var counters := (hud.find_child("Counters", true, false) as Control).get_global_rect()
+	for setup in [[Z1, 1, false], [Z1, 2, true], ["test_zone", 1, false]]:
+		GameState.reset_game()
+		if setup[2]:
+			GameState.emeralds[Emeralds.key(setup[0], setup[1])] = true
+		var tally := _clear(setup[0], setup[1])
+		await physics_frames(2)
+		var panel := (tally.get_node("Root/Panel") as Control).get_global_rect()
+		var label := "%s act %d" % [setup[0], setup[1]]
+		assert_true(panel.end.y <= ScoreTally.PANEL_BOTTOM, "%s: panel ends at %d" % [label, panel.end.y])
+		assert_true(panel.position.x >= 0 and panel.end.x <= 424 and panel.position.y >= 0, "%s: on screen" % label)
+		assert_true(not panel.intersects(counters), "%s: clear of the HUD counters" % label)
+		if hint != null:
+			assert_true(not panel.intersects(hint.get_global_rect()), "%s: clear of the hint line %s" % [label, hint.get_global_rect()])
+		tally.queue_free()
+		await physics_frames(1)
