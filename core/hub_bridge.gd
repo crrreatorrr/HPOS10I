@@ -40,7 +40,9 @@ signal exchange_settled(ok: bool, payload: Dictionary)
 
 var _save := HubSave.new()
 var _receipts := {}
-var _held: Array[Callable] = []
+## JavaScriptObjects returned by create_callback. The Promise keeps the JS
+## function, but that function returns before GDScript if this wrapper is freed.
+var _held: Array[Object] = []
 
 
 func _ready() -> void:
@@ -105,7 +107,7 @@ func exit_to_hub() -> void:
 	if hub != null:
 		# Flushes the outbox and, with a session, navigates using the hubUrl
 		# passed to createHubSdk (window.hposHubUrl).
-		hub.call(&"exit", &"exit_to_hub")
+		_js_call(hub, &"exit", ["exit_to_hub"])
 	# Same URL the shell gave the SDK. Absolute in production so Exit leaves
 	# play.<domain> for https://<domain>/hub/#from=hpos10i. Dev stays on /hub/.
 	_assign_hub(js)
@@ -285,9 +287,12 @@ func _invoke(method: String, args: Array, done: Callable) -> void:
 		return
 	var on_ok := _on_js_ok.bind(done)
 	var on_err := _on_js_err.bind(done)
-	_held.append(on_ok)
-	_held.append(on_err)
-	promise.call(&"then", js.call(&"create_callback", on_ok), js.call(&"create_callback", on_err))
+	var cb_ok: Object = js.call(&"create_callback", on_ok)
+	var cb_err: Object = js.call(&"create_callback", on_err)
+	_held.append(cb_ok)
+	_held.append(cb_err)
+	# init, earnTickets, exchange, submitScore, and reportEvent all settle here.
+	_js_call(promise, &"then", [cb_ok, cb_err])
 
 
 func _call_hub(hub: Object, method: String, args: Array) -> Variant:
@@ -331,7 +336,7 @@ func _describe(value: Variant, is_error: bool) -> String:
 		var win: Variant = js.call(&"get_interface", &"window")
 		if win != null:
 			var fn := "hposDescribeError" if is_error else "hposDescribe"
-			var described: Variant = win.call(fn, value)
+			var described: Variant = _js_call(win, fn, [value])
 			if described is String:
 				return described
 	if is_error:
@@ -359,7 +364,7 @@ func _read_session() -> bool:
 	var store: Variant = js.call(&"get_interface", &"sessionStorage")
 	if store == null:
 		return false
-	var raw: Variant = store.call(&"getItem", "hub:%s:session" % GAME_ID)
+	var raw: Variant = _js_call(store, &"getItem", ["hub:%s:session" % GAME_ID])
 	return raw != null and str(raw) != ""
 
 
@@ -367,6 +372,17 @@ func _js() -> Object:
 	if not OS.has_feature("web"):
 		return null
 	return Engine.get_singleton(&"JavaScriptBridge")
+
+
+## JavaScriptObject forwards every name, including "call", into JavaScript.
+## On a Variant, promise.call("then") looks up Promise.call and throws
+## "obj[method] is not a function", so the result never reaches GDScript.
+## Object.callv is Godot's call, which forwards "then" (and getItem, exit, ...).
+func _js_call(target: Variant, method: StringName, args: Array) -> Variant:
+	var obj: Object = target as Object
+	if obj == null:
+		return null
+	return obj.callv(method, args)
 
 
 ## window.hposHubUrl from the shell. Export may replace the dev default /hub/.
