@@ -59,7 +59,7 @@ Run `godot --headless --path . -s res://tools/qa/level_lint.gd` for the full per
   - routes per third;
   - vertical screens;
   - leftward-travel screens (goal left of the start, plus `Leftward*`/`Reverse*` nodes);
-  - dead ends (walls over 96 px with no spring);
+  - dead ends (walls over 96 px with no spring or lift within 160 px; a lift is any moving-terrain body);
   - doors and switches;
   - forced sections (autoscroll, reverse runs).
 
