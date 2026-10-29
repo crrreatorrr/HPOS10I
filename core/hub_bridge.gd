@@ -29,10 +29,17 @@ var earn_capped := false
 ## Optional tickets.exchange field (Verse still earnable today). Absent until a result includes it.
 var verse_cap_left := 0
 var verse_cap_known := false
-## This game's resolved effects from init. M3 applies them; this milestone does not.
+## This game's resolved effects from init. Gameplay is resolved from `relics`
+## by RelicLoadout, not from this dict, so nothing here changes Tickets.
 var effects := {}
-## Last begin_time_focus request. Pause uses get_tree().paused, so M3 must
-## apply this through Engine.time_scale for duration_sec and then restore it.
+## Owned relic ids and ranked flag from the last init() result. RelicLoadout
+## only reads these. Empty until init succeeds. Nothing here grants a Relic.
+var relics: Array = []
+var ranked := false
+## Server equip map when init includes items.loadout. Empty until then.
+var server_loadout := {}
+## Last begin_time_focus request. Pause uses get_tree().paused, so TimeFocus
+## applies this through Engine.time_scale for duration_sec and then restores it.
 var time_focus := {}
 
 signal state_changed
@@ -149,11 +156,17 @@ func _on_init(ok: bool, payload: Dictionary) -> void:
 	if not ok:
 		reach = "offline"
 		in_session = false
+		relics = []
+		ranked = false
+		server_loadout = {}
 		state_changed.emit()
 		return
 	reach = "ready"
 	var raw_effects: Variant = payload.get("effects", {})
 	effects = raw_effects if raw_effects is Dictionary else {}
+	relics = _string_list(payload.get("relics", []))
+	ranked = payload.get("ranked", false) == true
+	server_loadout = _loadout_from(payload)
 	tickets_cap_left = int(payload.get("ticketsCapLeft", 0))
 	in_session = _read_session()
 	# Resend only with a session. A no-session call returns receiptId "noop"
@@ -267,6 +280,31 @@ func _apply_receipt(payload: Dictionary) -> void:
 
 func _ignore(_ok: bool, _payload: Dictionary) -> void:
 	pass
+
+
+func _string_list(value: Variant) -> Array:
+	var items: Array = []
+	if value is Array:
+		items = value
+	elif value is PackedStringArray:
+		for entry in value:
+			items.append(entry)
+	else:
+		return []
+	var out: Array = []
+	for item in items:
+		var id := str(item)
+		if id != "" and id not in out:
+			out.append(id)
+	return out
+
+
+func _loadout_from(payload: Dictionary) -> Dictionary:
+	var items: Variant = payload.get("items", {})
+	if items is not Dictionary:
+		return {}
+	var loadout: Variant = items.get("loadout", {})
+	return loadout if loadout is Dictionary else {}
 
 
 func _invoke(method: String, args: Array, done: Callable) -> void:

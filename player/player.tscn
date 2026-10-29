@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/player_visual.gd" id="2_visual"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://player/debug_overlay.gd" id="4_overlay"]
 [ext_resource type="Script" path="res://player/player_effects.gd" id="5_effects"]
 [ext_resource type="Script" path="res://player/afterimage.gd" id="6_afterimage"]
+[ext_resource type="Script" path="res://player/cape.gd" id="7_cape"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_hitbox"]
 resource_local_to_scene = true
@@ -28,7 +29,17 @@ script = ExtResource("6_afterimage")
 [node name="Visual" type="Node2D" parent="."]
 script = ExtResource("2_visual")
 
+[node name="Cape" type="Node2D" parent="Visual"]
+show_behind_parent = true
+script = ExtResource("7_cape")
+
+[node name="SkinMarks" type="Node2D" parent="Visual"]
+z_index = 1
+script = ExtResource("7_cape")
+marks = true
+
 [node name="Accessory" type="Node2D" parent="Visual"]
+z_index = 2
 script = ExtResource("3_accessory")
 
 [node name="DebugOverlay" type="Node2D" parent="."]

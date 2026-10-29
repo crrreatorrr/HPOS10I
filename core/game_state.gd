@@ -30,6 +30,9 @@ var emeralds := {}
 var emerald_just_won := false
 
 var _next_ticket_life := TICKETS_PER_LIFE
+## Acts that already received Golden Sproto's extra life this run.
+## Cleared in reset_game(). Not a Relic, Ticket, or beaten flag.
+var _golden_life_acts := {}
 
 
 ## Ticks with gameplay (fixed 60 Hz), so it can't drift from the game under
@@ -88,6 +91,7 @@ func start_level(new_zone_id: String, new_act: int) -> void:
 	checkpoint_time = 0.0
 	_reset_level_counters()
 	level_started.emit(zone_id, act)
+	_grant_golden_life()
 
 
 ## Called on respawn after death: keeps the checkpoint.
@@ -118,6 +122,7 @@ func emerald_count() -> int:
 
 ## The timer only runs inside levels; SceneRouter stops it in menus.
 func reset_game() -> void:
+	_golden_life_acts.clear()
 	score = 0
 	lives = START_LIVES
 	zone_id = ""
@@ -128,6 +133,21 @@ func reset_game() -> void:
 	_reset_level_counters()
 	score_changed.emit(score)
 	lives_changed.emit(lives)
+
+
+## +1 life at the start of an act while Golden Sproto is equipped and the
+## session is unranked. Once per (zone, act) per run. start_level is a fresh
+## attempt, so checkpoint respawn does not call this. Tickets are untouched.
+func _grant_golden_life() -> void:
+	if zone_id == "":
+		return
+	if not bool(RelicLoadout.resolve().get("extra_life", false)):
+		return
+	var key := "%s:%d" % [zone_id, act]
+	if _golden_life_acts.has(key):
+		return
+	_golden_life_acts[key] = true
+	add_life()
 
 
 func _reset_level_counters() -> void:
