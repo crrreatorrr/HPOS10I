@@ -24,6 +24,13 @@ env:
   # Unset keeps the dev default /hub/ in the shell. Set the repo variable
   # HPOS_HUB_URL when the game origin and the hub origin differ.
   HPOS_HUB_URL: ${{ vars.HPOS_HUB_URL }}
+  # Public path this web build is served from. Unset keeps relative URLs,
+  # so the same files work in any directory (GitHub Pages included).
+  # Dev, game mounted at /play/hpos10i/: set the repo variable to /play/hpos10i/
+  # Production at https://play.<domain>/hpos10i/: set it to /hpos10i/
+  # A full http(s) URL is accepted too. The Web preset html/base_path is the
+  # same setting; a non-empty HPOS_BASE_PATH overrides the preset at export.
+  HPOS_BASE_PATH: ${{ vars.HPOS_BASE_PATH }}
   # From the release's SHA512-SUMS.txt; update together with GODOT_VERSION.
   GODOT_SHA512_EDITOR: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
   GODOT_SHA512_TEMPLATES: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"
@@ -85,7 +92,8 @@ jobs:
 
       # Pages caches files for 10 minutes and the page always asks for
       # "index.pck", so returning players kept getting an old build. Point the
-      # engine at a per-commit URL for the game data instead.
+      # engine at a per-commit URL for the game data instead. Leave it a
+      # filename (plus ?v=): HPOS_BASE_PATH resolves it with <base href>.
       - name: Version the game data URL
         run: |
           python3 - "build/web/index.html" "${GITHUB_SHA::12}" <<'EOF'

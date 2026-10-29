@@ -2,6 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8">
+		<!-- HPOS_BASE -->
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
@@ -108,11 +109,14 @@ body {
 		</div>
 
 		<script src="$GODOT_URL"></script>
-		<!-- hub-sdk before engine boot. Relative URLs so this export works at /play/hpos10i/. -->
+		<!-- hub-sdk before engine boot. Relative URLs follow <base href> when a base path is set. -->
 		<script type="module">
 import { createHubSdk, installHubSdk } from "./hub-sdk/index.js";
 // Dev default. Export replaces this when HPOS_HUB_URL is set (absolute https://<domain>/hub/).
 window.hposHubUrl = "/hub/";
+// Empty keeps index.js, the wasm and the pack relative to this page.
+// Export sets this from the Web preset html/base_path, or from HPOS_BASE_PATH.
+window.hposBasePath = "";
 installHubSdk(createHubSdk({
 	serverUrl: "",
 	hubUrl: window.hposHubUrl,
@@ -220,17 +224,72 @@ const engine = new Engine(GODOT_CONFIG);
 		}
 	} else {
 		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
+		// Relative names stay relative when hposBasePath is empty, so they
+		// follow this page. A build-time base (html/base_path or HPOS_BASE_PATH)
+		// is passed to Engine as the wasm/pack location. <base href> covers the
+		// script, splash and any other relative URL. fileSizes keys are copied
+		// onto those URLs so the loading bar still has a total.
+		function hposAsset(file) {
+			const base = window.hposBasePath || '';
+			if (!base) {
+				return file;
+			}
+			const value = String(file);
+			if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith('//') || value.startsWith('data:') || value.startsWith('#') || value.startsWith('mailto:')) {
+				return value;
+			}
+			if (value === '/hub' || value.startsWith('/hub/') || value.startsWith('/hub?') || value.startsWith('/hub#')) {
+				return value;
+			}
+			const root = base.endsWith('/') ? base : base + '/';
+			if (value.startsWith('/')) {
+				let pathBase = root;
+				if (/^https?:\/\//i.test(root)) {
+					pathBase = new URL(root).pathname;
+					if (!pathBase.endsWith('/')) {
+						pathBase += '/';
+					}
 				}
-			},
-		}).then(() => {
+				if (pathBase !== '/' && (value === pathBase.slice(0, -1) || value.startsWith(pathBase))) {
+					return /^https?:\/\//i.test(root) ? new URL(root).origin + value : value;
+				}
+				if (pathBase === '/' && !/^https?:\/\//i.test(root)) {
+					return value;
+				}
+				return root.replace(/\/$/, '') + value;
+			}
+			const rel = value.startsWith('./') ? value.slice(2) : value;
+			return root + rel.replace(/^\/+/, '');
+		}
+		const onProgress = function (current, total) {
+			if (current > 0 && total > 0) {
+				statusProgress.value = current;
+				statusProgress.max = total;
+			} else {
+				statusProgress.removeAttribute('value');
+				statusProgress.removeAttribute('max');
+			}
+		};
+		const startOverride = { 'onProgress': onProgress };
+		const basePath = window.hposBasePath || '';
+		if (basePath) {
+			const exe = GODOT_CONFIG.executable;
+			const pack = GODOT_CONFIG.mainPack || (exe + '.pck');
+			const resolvedExe = hposAsset(exe);
+			const resolvedPack = hposAsset(pack);
+			const sizes = GODOT_CONFIG.fileSizes || {};
+			const wasmKey = exe + '.wasm';
+			const resolvedWasm = resolvedExe + '.wasm';
+			if (Object.prototype.hasOwnProperty.call(sizes, wasmKey) && !Object.prototype.hasOwnProperty.call(sizes, resolvedWasm)) {
+				sizes[resolvedWasm] = sizes[wasmKey];
+			}
+			if (Object.prototype.hasOwnProperty.call(sizes, pack) && !Object.prototype.hasOwnProperty.call(sizes, resolvedPack)) {
+				sizes[resolvedPack] = sizes[pack];
+			}
+			startOverride.executable = resolvedExe;
+			startOverride.mainPack = resolvedPack;
+		}
+		engine.startGame(startOverride).then(() => {
 			setStatusMode('hidden');
 		}, displayFailureNotice);
 	}
