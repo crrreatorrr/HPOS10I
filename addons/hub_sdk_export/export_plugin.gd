@@ -46,3 +46,45 @@ func _export_end() -> void:
 		out.close()
 		copied += 1
 	print("[HubSdkExport] copied %d hub-sdk files to %s" % [copied, dest])
+	_inject_hub_url(_html_path(dest_root))
+
+
+## HPOS_HUB_URL is a build-time setting (CI env or a shell export). Empty keeps
+## the dev default /hub/ already written in the shell.
+func _inject_hub_url(html_path: String) -> void:
+	var configured := OS.get_environment("HPOS_HUB_URL").strip_edges()
+	if configured == "":
+		print("[HubSdkExport] HPOS_HUB_URL unset; hub URL stays /hub/")
+		return
+	if not _safe_hub_url(configured):
+		push_error("[HubSdkExport] ignoring HPOS_HUB_URL; use /hub/ or an http(s) URL")
+		return
+	if not FileAccess.file_exists(html_path):
+		push_error("[HubSdkExport] exported HTML missing at %s" % html_path)
+		return
+	var text := FileAccess.get_file_as_string(html_path)
+	var marker := "window.hposHubUrl = \"/hub/\";"
+	if not text.contains(marker):
+		push_error("[HubSdkExport] hub URL marker missing from the shell")
+		return
+	var out := FileAccess.open(html_path, FileAccess.WRITE)
+	if out == null:
+		push_error("[HubSdkExport] could not rewrite %s" % html_path)
+		return
+	out.store_string(text.replace(marker, "window.hposHubUrl = %s;" % JSON.stringify(configured)))
+	out.close()
+	print("[HubSdkExport] hub URL set from HPOS_HUB_URL")
+
+
+func _html_path(dest_root: String) -> String:
+	if _path.get_file().ends_with(".html"):
+		return _path if _path.is_absolute_path() else ProjectSettings.globalize_path("res://").path_join(_path)
+	return dest_root.path_join("index.html")
+
+
+func _safe_hub_url(url: String) -> bool:
+	if url.length() > 300 or url.contains("\"") or url.contains("'") or url.contains("\\"):
+		return false
+	if url.contains("\n") or url.contains("\r") or url.contains("<") or url.contains(">") or url.contains(" "):
+		return false
+	return url.begins_with("https://") or url.begins_with("http://") or url.begins_with("/")

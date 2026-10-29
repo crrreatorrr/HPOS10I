@@ -20,6 +20,10 @@ concurrency:
 
 env:
   GODOT_VERSION: "4.7.2"
+  # Absolute hub page for Exit to Hub, e.g. https://example.com/hub/
+  # Unset keeps the dev default /hub/ in the shell. Set the repo variable
+  # HPOS_HUB_URL when the game origin and the hub origin differ.
+  HPOS_HUB_URL: ${{ vars.HPOS_HUB_URL }}
   # From the release's SHA512-SUMS.txt; update together with GODOT_VERSION.
   GODOT_SHA512_EDITOR: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
   GODOT_SHA512_TEMPLATES: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"

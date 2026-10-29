@@ -129,9 +129,15 @@ func commit_earn(run_id: String, amount: int) -> bool:
 
 
 func ack_earn(run_id: String) -> void:
+	if run_id == "":
+		return
 	var earns := _earn_map()
 	var rec := earn_record(run_id)
 	if rec.is_empty():
+		var disk_earns: Variant = _read_json(KEYS_PATH).get("earn_by_run", {})
+		if disk_earns is Dictionary and disk_earns.get(run_id, null) is Dictionary:
+			rec = (disk_earns[run_id] as Dictionary).duplicate(true)
+	if rec.is_empty() or not rec.has("amount"):
 		return
 	rec["acked"] = true
 	earns[run_id] = rec
@@ -238,7 +244,69 @@ func _write_progress() -> void:
 
 
 func _write_keys() -> bool:
+	# Another tab may have saved an earn since we loaded. Fold that in
+	# instead of replacing the whole file.
+	var disk := _read_json(KEYS_PATH)
+	if not disk.is_empty():
+		_keys = _merge_keys(disk, _keys)
 	return _write_json(KEYS_PATH, _keys)
+
+
+func _merge_keys(disk: Dictionary, local: Dictionary) -> Dictionary:
+	var merged := disk.duplicate(true)
+	for key in local.keys():
+		if key == "earn_by_run":
+			merged[key] = _merge_earn_map(disk.get(key, {}), local[key])
+		elif key == "exchange_pending":
+			merged[key] = _merge_exchange(disk.get(key, {}), local[key])
+		elif key == "relic" or key == "earn":
+			merged[key] = _merge_id_map(disk.get(key, {}), local[key])
+		else:
+			merged[key] = local[key]
+	return merged
+
+
+func _merge_earn_map(disk_value: Variant, local_value: Variant) -> Dictionary:
+	var merged: Dictionary = disk_value.duplicate(true) if disk_value is Dictionary else {}
+	if not local_value is Dictionary:
+		return merged
+	for run_id in local_value.keys():
+		var local_rec: Variant = local_value[run_id]
+		if not merged.has(run_id):
+			merged[run_id] = local_rec
+			continue
+		var disk_rec: Variant = merged[run_id]
+		var local_acked := local_rec is Dictionary and bool(local_rec.get("acked", false))
+		var disk_acked := disk_rec is Dictionary and bool(disk_rec.get("acked", false))
+		# An ack must stick. A stale unacked copy must not bring it back or
+		# change the amount the other tab already saved.
+		if local_acked and not disk_acked:
+			merged[run_id] = local_rec
+	return merged
+
+
+func _merge_exchange(disk_value: Variant, local_value: Variant) -> Variant:
+	if not local_value is Dictionary:
+		return disk_value
+	if not disk_value is Dictionary:
+		return local_value
+	var disk_key := str(disk_value.get("key", ""))
+	var local_key := str(local_value.get("key", ""))
+	var disk_open := disk_key != "" and not bool(disk_value.get("acked", false))
+	if disk_open and local_key != disk_key:
+		return disk_value
+	if local_key == "":
+		return disk_value
+	return local_value
+
+
+func _merge_id_map(disk_value: Variant, local_value: Variant) -> Dictionary:
+	var merged: Dictionary = disk_value.duplicate(true) if disk_value is Dictionary else {}
+	if local_value is Dictionary:
+		for id in local_value.keys():
+			if not merged.has(id):
+				merged[id] = local_value[id]
+	return merged
 
 
 func _read_json(path: String) -> Dictionary:
