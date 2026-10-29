@@ -102,11 +102,13 @@ func exit_to_hub() -> void:
 	if js == null:
 		return
 	var hub: Variant = js.call(&"get_interface", &"hubSdk")
-	if hub == null:
-		return
-	# SDK exit flushes the outbox and goes to /hub/#from=hpos10i when a
-	# session is open. With no session it returns and the game keeps running.
-	hub.call(&"exit", &"exit_to_hub")
+	if hub != null:
+		# Flushes the outbox and, with a session, navigates using the hubUrl
+		# passed to createHubSdk (window.hposHubUrl).
+		hub.call(&"exit", &"exit_to_hub")
+	# Same URL the shell gave the SDK. Absolute in production so Exit leaves
+	# play.<domain> for https://<domain>/hub/#from=hpos10i. Dev stays on /hub/.
+	_assign_hub(js)
 
 
 func _on_level_started(zone_id: String, act: int) -> void:
@@ -196,7 +198,15 @@ func _send_pending_exchange() -> void:
 
 
 func _on_earn(ok: bool, payload: Dictionary, run_id: String) -> void:
-	if not ok or not payload.has("balance"):
+	if not ok:
+		if _terminal_earn_error(payload):
+			# Cap and idempotency mismatches will never succeed on retry.
+			_save.ack_earn(run_id)
+			push_warning("[HubBridge] dropped earn %s (%s): %s" % [
+				run_id, str(payload.get("code", "")), str(payload.get("message", "")),
+			])
+		return
+	if not payload.has("balance"):
 		return
 	if not in_session and not _read_session():
 		return
@@ -206,6 +216,12 @@ func _on_earn(ok: bool, payload: Dictionary, run_id: String) -> void:
 	balance_known = true
 	earn_capped = bool(payload.get("capped", false))
 	state_changed.emit()
+
+
+## verse_cap, ticket_cap, and any other *_cap, plus idempotency_mismatch.
+func _terminal_earn_error(payload: Dictionary) -> bool:
+	var code := str(payload.get("code", ""))
+	return code == "idempotency_mismatch" or code.ends_with("_cap")
 
 
 func _on_exchange(ok: bool, payload: Dictionary, key: String) -> void:
@@ -351,3 +367,21 @@ func _js() -> Object:
 	if not OS.has_feature("web"):
 		return null
 	return Engine.get_singleton(&"JavaScriptBridge")
+
+
+## window.hposHubUrl from the shell. Export may replace the dev default /hub/.
+func _configured_hub_url() -> String:
+	var js := _js()
+	if js == null:
+		return "/hub/"
+	var value: Variant = js.call(&"eval", "window.hposHubUrl", true)
+	var url := str(value).strip_edges() if value != null else ""
+	if url == "" or url == "null":
+		return "/hub/"
+	return url
+
+
+func _assign_hub(js: Object) -> void:
+	var base := _configured_hub_url().rstrip("/")
+	var target := "%s/#from=%s" % [base, GAME_ID]
+	js.call(&"eval", "window.location.assign(%s)" % JSON.stringify(target), true)

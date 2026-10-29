@@ -8,7 +8,7 @@ extends CanvasLayer
 ##   RESUME        back to the game
 ##   RESTART       reload the stage from its checkpoint (or the playground),
 ##                 without losing a life
-##   EXIT TO HUB   HubBridge.exit_to_hub(), which calls hubSdk.exit()
+##   EXIT TO HUB   HubBridge.exit_to_hub() — hubSdk.exit() and the configured hub URL
 ##   QUIT TO MENU  SceneRouter.go_title()
 ## time_focus (M3) must not use this menu or get_tree().paused.
 ## HubBridge.begin_time_focus() is the time-scale hook for that.

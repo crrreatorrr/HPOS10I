@@ -111,9 +111,11 @@ body {
 		<!-- hub-sdk before engine boot. Relative URLs so this export works at /play/hpos10i/. -->
 		<script type="module">
 import { createHubSdk, installHubSdk } from "./hub-sdk/index.js";
+// Dev default. Export replaces this when HPOS_HUB_URL is set (absolute https://<domain>/hub/).
+window.hposHubUrl = "/hub/";
 installHubSdk(createHubSdk({
 	serverUrl: "",
-	hubUrl: "/hub/",
+	hubUrl: window.hposHubUrl,
 }));
 window.hposDescribe = function (value) {
 	try {
