@@ -8,7 +8,10 @@ extends CanvasLayer
 ##   RESUME        back to the game
 ##   RESTART       reload the stage from its checkpoint (or the playground),
 ##                 without losing a life
+##   EXIT TO HUB   HubBridge.exit_to_hub(), which calls hubSdk.exit()
 ##   QUIT TO MENU  SceneRouter.go_title()
+## time_focus (M3) must not use this menu or get_tree().paused.
+## HubBridge.begin_time_focus() is the time-scale hook for that.
 ## Arrows/WASD/D-pad move, Enter/Space/any jump button/A choose, mouse and
 ## touch click. The panel also lists the controls for every device; key names
 ## come from the player's keyboard layout (InputHints), and Esc is never
@@ -52,8 +55,18 @@ func _ready() -> void:
 	visible = false
 	if TouchControls.is_enabled():
 		_last_device = "touch"
+	var exit_hub := Button.new()
+	exit_hub.name = "ExitHub"
+	exit_hub.text = "EXIT TO HUB"
+	exit_hub.custom_minimum_size = Vector2(150, 24)
+	var box := %Quit.get_parent()
+	box.add_child(exit_hub)
+	box.move_child(exit_hub, %Quit.get_index())
+	# Quit stays last so focus still wraps from RESUME to QUIT TO MENU.
+	_buttons = [%Resume, %Restart, exit_hub, %Quit]
 	%Resume.pressed.connect(_on_resume_pressed)
 	%Restart.pressed.connect(_on_restart_pressed)
+	exit_hub.pressed.connect(_on_exit_hub_pressed)
 	%Quit.pressed.connect(_on_quit_pressed)
 	for i in _buttons.size():
 		var button := _buttons[i]
@@ -209,6 +222,17 @@ func _on_quit_pressed() -> void:
 	SceneRouter.go_title()
 	get_tree().paused = false
 	Engine.time_scale = 1.0
+
+
+func _on_exit_hub_pressed() -> void:
+	if not _open:
+		return
+	Audio.play_sfx(&"menu_select")
+	release_game_inputs()
+	_close()
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	HubBridge.exit_to_hub()
 
 
 ## Restarts the current stage from its checkpoint without taking a life;

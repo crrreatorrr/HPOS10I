@@ -23,9 +23,14 @@ config/icon="res://icon.svg"
 Tuning="*res://core/tuning.gd"
 GameState="*res://core/game_state.gd"
 SceneRouter="*res://core/scene_router.gd"
+HubBridge="*res://core/hub_bridge.gd"
 Audio="*res://audio/audio_manager.gd"
 Dev="*res://core/dev.gd"
 Display="*res://core/display.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/hub_sdk_export/plugin.cfg")
 
 [display]
 
