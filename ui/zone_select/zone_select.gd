@@ -1,8 +1,8 @@
 class_name ZoneSelect
 extends Control
 ## Zone select: the 4 zones x 2 acts from ZoneRegistry, each act with its
-## emerald slot (filled once won). Acts whose scene isn't built yet are
-## greyed out and skipped by navigation. Choosing an act calls
+## emerald slot (filled once won). Acts whose scene isn't built yet, and
+## every act of an unreleased zone, are greyed out and skipped by navigation. Choosing an act calls
 ## SceneRouter.start_zone(); BACK (Pause, Esc or the button) returns to the
 ## title. Arrows / WASD / D-pad / stick move (wrapping), Enter, Space or any
 ## jump button chooses; mouse and touch click. Music: `zone_select`. Keys
@@ -132,9 +132,10 @@ func _build_rows() -> void:
 		row.add_child(title)
 		var buttons := []
 		var any_open := false
+		var released := is_zone_released(zone)
 		for act in range(1, zone.acts.size() + 1):
 			var path := ZoneRegistry.stage_path(zone.id, act)
-			var open := path != "" and ResourceLoader.exists(path)
+			var open := released and path != "" and ResourceLoader.exists(path)
 			any_open = any_open or open
 			var button := Button.new()
 			button.text = "ACT %d" % act
@@ -156,6 +157,12 @@ func _build_rows() -> void:
 			title.theme_type_variation = &"HudValue"
 			title.add_theme_color_override(&"font_color", LOCKED_COLOR)
 		_grid.append(buttons)
+
+
+## An unreleased zone (acts built but not tuned yet) is locked like an
+## unbuilt one.
+static func is_zone_released(zone: Dictionary) -> bool:
+	return ZoneRegistry.is_released(zone.id)
 
 
 func _slot(zone_id: String, act: int) -> Control:

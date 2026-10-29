@@ -1,5 +1,5 @@
 extends TestCase
-## Zone select: 4 zones x 2 acts from ZoneRegistry, unbuilt acts locked,
+## Zone select: 4 zones x 2 acts from ZoneRegistry, unbuilt and unreleased acts locked,
 ## 8 emerald slots (filled / empty), wrapping navigation that skips locked
 ## acts, start_zone() exactly once, back to the title, zone_select music.
 
@@ -34,9 +34,10 @@ func test_lists_every_zone_and_act_and_locks_unbuilt_ones() -> void:
 			assert_true(button != null, "%s act %d listed" % [zone.id, act])
 			if button == null:
 				continue
-			var built := ResourceLoader.exists(ZoneRegistry.stage_path(zone.id, act))
-			assert_eq(button.disabled, not built, "%s act %d locked unless built" % [zone.id, act])
-			assert_eq(button.focus_mode == Control.FOCUS_NONE, not built, "locked acts take no focus")
+			var open := ZoneRegistry.is_released(zone.id) \
+					and ResourceLoader.exists(ZoneRegistry.stage_path(zone.id, act))
+			assert_eq(button.disabled, not open, "%s act %d locked unless built and released" % [zone.id, act])
+			assert_eq(button.focus_mode == Control.FOCUS_NONE, not open, "locked acts take no focus")
 	assert_eq(Audio.current_music(), &"zone_select", "zone_select music")
 
 
@@ -130,6 +131,26 @@ func test_pause_goes_back_but_enter_chooses() -> void:
 	H.send_key(KEY_P, true)
 	H.send_key(KEY_P, false)
 	assert_true(other.is_busy(), "P (pause) goes back")
+
+
+func test_unreleased_zones_are_locked_but_keep_their_slots() -> void:
+	# Released zones unlock (when built); every act of an unreleased zone is
+	# locked, and its emerald slots still show.
+	assert_true(ZoneRegistry.is_released("z1_retro_rush_hills"), "zone 1 is released")
+	assert_true(ZoneRegistry.is_released("z2_wizard_academy"), "zone 2 is released")
+	var select := _open()
+	assert_eq(select.emerald_slots().size(), Emeralds.total(), "every slot shown, released or not")
+	var unreleased := 0
+	for entry in select.act_buttons():
+		var button: Button = entry[2]
+		var label := "%s act %d" % [entry[0], entry[1]]
+		if ZoneRegistry.is_released(entry[0]):
+			var built := ResourceLoader.exists(ZoneRegistry.stage_path(entry[0], entry[1]))
+			assert_eq(button.disabled, not built, "%s: released, locked only while unbuilt" % label)
+		else:
+			unreleased += 1
+			assert_true(button.disabled and button.focus_mode == Control.FOCUS_NONE, "%s: locked (unreleased)" % label)
+	assert_true(unreleased > 0, "some zone is unreleased today, so the lock was exercised")
 
 
 func test_hint_follows_touch_mode() -> void:
