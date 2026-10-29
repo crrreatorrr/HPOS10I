@@ -292,8 +292,15 @@ func _merge_exchange(disk_value: Variant, local_value: Variant) -> Variant:
 		return local_value
 	var disk_key := str(disk_value.get("key", ""))
 	var local_key := str(local_value.get("key", ""))
-	var disk_open := disk_key != "" and not bool(disk_value.get("acked", false))
-	if disk_open and local_key != disk_key:
+	var disk_acked := disk_key != "" and bool(disk_value.get("acked", false))
+	# Same receipt: an ack on disk sticks. A stale tab still holding
+	# acked:false must not reopen it or swap in a different slot.
+	if disk_key != "" and disk_key == local_key:
+		if disk_acked:
+			return disk_value
+		return local_value
+	# An open slot on disk wins over another tab's pending exchange.
+	if disk_key != "" and not disk_acked:
 		return disk_value
 	if local_key == "":
 		return disk_value
