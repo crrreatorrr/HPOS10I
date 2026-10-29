@@ -25,6 +25,8 @@ var _acts := {}  # Button -> [zone_id, act]
 var _clock := 0.0
 var _busy := false
 var _quiet_focus := false
+var _exchange_button: Button
+var _exchange: ExchangePanel
 
 @onready var _rows: VBoxContainer = %Rows
 @onready var _back: Button = %Back
@@ -34,10 +36,12 @@ func _ready() -> void:
 	Audio.play_music(&"zone_select")
 	_build_rows()
 	_grid.append([_back])
+	_add_exchange_button()
 	_back.pressed.connect(back)
 	_back.mouse_entered.connect(_hover.bind(_back))
 	_back.focus_entered.connect(_on_focus)
 	_link_focus()
+	_wire_exchange_focus()
 	_update_hint(Display.is_touch)
 	Display.touch_mode_changed.connect(_update_hint)
 	(%Count as Label).text = "%s  %d / %d" % [Emeralds.NAME.to_upper(), GameState.emerald_count(), Emeralds.total()]
@@ -51,6 +55,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _exchange_open():
+		return
 	if _busy or _clock < INPUT_GRACE or get_tree().current_scene != self:
 		return
 	if event.is_action_pressed(&"ui_cancel") \
@@ -112,6 +118,60 @@ func back() -> void:
 
 func is_busy() -> bool:
 	return _busy
+
+
+func _exchange_open() -> bool:
+	return _exchange != null and _exchange.visible
+
+
+func _add_exchange_button() -> void:
+	_exchange_button = Button.new()
+	_exchange_button.name = "Exchange"
+	_exchange_button.text = "EXCHANGE"
+	_exchange_button.custom_minimum_size = Vector2(86, 22)
+	var footer := %Back.get_parent()
+	footer.add_child(_exchange_button)
+	footer.move_child(_exchange_button, 0)
+	_exchange_button.pressed.connect(_open_exchange)
+	_exchange_button.mouse_entered.connect(_hover.bind(_exchange_button))
+	_exchange_button.focus_entered.connect(_on_focus)
+
+
+func _wire_exchange_focus() -> void:
+	var back_links: Dictionary = _back.get_meta(&"links")
+	back_links[&"left"] = _exchange_button
+	back_links[&"right"] = _exchange_button
+	_back.set_meta(&"links", back_links)
+	_back.focus_neighbor_left = _back.get_path_to(_exchange_button)
+	_back.focus_neighbor_right = _back.get_path_to(_exchange_button)
+	var exchange_links := {
+		&"left": _back,
+		&"right": _back,
+		&"up": back_links[&"up"],
+		&"down": back_links[&"down"],
+	}
+	_exchange_button.set_meta(&"links", exchange_links)
+	_exchange_button.focus_neighbor_left = _exchange_button.get_path_to(_back)
+	_exchange_button.focus_neighbor_right = _exchange_button.get_path_to(_back)
+	_exchange_button.focus_neighbor_top = _exchange_button.get_path_to(exchange_links[&"up"])
+	_exchange_button.focus_neighbor_bottom = _exchange_button.get_path_to(exchange_links[&"down"])
+
+
+func _open_exchange() -> void:
+	if _busy:
+		return
+	if _exchange == null:
+		_exchange = ExchangePanel.new()
+		_exchange.name = "ExchangePanel"
+		add_child(_exchange)
+		_exchange.closed.connect(_on_exchange_closed)
+	Audio.play_sfx(&"menu_select")
+	_exchange.open_panel()
+
+
+func _on_exchange_closed() -> void:
+	if _exchange_button != null:
+		_exchange_button.grab_focus()
 
 
 func _update_hint(touch: bool) -> void:

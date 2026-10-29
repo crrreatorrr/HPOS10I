@@ -37,6 +37,8 @@ func _physics_process(delta: float) -> void:
 		level_time += delta
 
 
+## Grants an extra life every TICKETS_PER_LIFE without spending Tickets.
+## The act count is banked at the goal and this counter still resets next act.
 func add_tickets(amount: int) -> void:
 	tickets += amount
 	while tickets >= _next_ticket_life:
