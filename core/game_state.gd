@@ -7,6 +7,8 @@ signal score_changed(value: int)
 signal lives_changed(value: int)
 signal checkpoint_reached(position: Vector2)
 signal level_completed
+## A fresh attempt (start_level), not a respawn. HubBridge mints the earn id here.
+signal level_started(zone_id: String, act: int)
 ## A new emerald was won (complete_level() on an emerald act; see Emeralds).
 signal emerald_won(zone_id: String, act: int)
 
@@ -85,6 +87,7 @@ func start_level(new_zone_id: String, new_act: int) -> void:
 	checkpoint_position = null
 	checkpoint_time = 0.0
 	_reset_level_counters()
+	level_started.emit(zone_id, act)
 
 
 ## Called on respawn after death: keeps the checkpoint.

@@ -35,7 +35,11 @@ func _ready() -> void:
 func open_panel() -> void:
 	visible = true
 	_clamp_amount()
-	if not _status_set:
+	if HubBridge.exchange_is_pending():
+		_busy = true
+		_status_set = true
+		_status_text = "Exchange pending"
+	elif not _status_set:
 		_status_text = _default_status()
 	_refresh()
 	if _confirm.disabled:
@@ -129,7 +133,7 @@ func _button(text: String) -> Button:
 
 
 func _step(delta: int) -> void:
-	if _busy:
+	if _busy or HubBridge.exchange_is_pending():
 		return
 	_amount += delta
 	_clamp_amount()
@@ -149,7 +153,7 @@ func _clamp_amount() -> void:
 
 
 func _on_confirm() -> void:
-	if _busy or _confirm.disabled:
+	if _busy or _confirm.disabled or HubBridge.exchange_is_pending():
 		return
 	_busy = true
 	_status_set = true
@@ -159,13 +163,17 @@ func _on_confirm() -> void:
 
 
 func _on_settled(ok: bool, payload: Dictionary) -> void:
-	_busy = false
+	_busy = HubBridge.exchange_is_pending()
 	_status_set = true
-	if ok:
+	if HubBridge.exchange_is_pending():
+		_status_text = "Exchange pending"
+	elif ok:
 		var verse := int(payload.get("verse", 0))
 		var left := int(payload.get("ticketsLeft", 0))
 		var receipt := str(payload.get("receiptId", ""))
 		_status_text = "Verse balance %d. Tickets left %d.\nReceipt %s" % [verse, left, receipt]
+		if payload.has("verseCapLeft"):
+			_status_text += "\nVerse left today: %d" % int(payload["verseCapLeft"])
 	else:
 		_status_text = _error_text(payload)
 	if visible:
@@ -174,7 +182,11 @@ func _on_settled(ok: bool, payload: Dictionary) -> void:
 
 
 func _on_state() -> void:
-	if not _status_set:
+	if HubBridge.exchange_is_pending():
+		_busy = true
+		_status_set = true
+		_status_text = "Exchange pending"
+	elif not _status_set:
 		_status_text = _default_status()
 	if visible:
 		_clamp_amount()
@@ -184,7 +196,13 @@ func _on_state() -> void:
 func _refresh() -> void:
 	if _cap == null:
 		return
+	if HubBridge.exchange_is_pending():
+		_amount = HubBridge.pending_exchange_amount()
+		_busy = true
+		_status_text = "Exchange pending"
 	var cap_text := "Daily cap: %d Verse per game" % HubBridge.VERSE_DAILY_CAP
+	if HubBridge.verse_cap_known:
+		cap_text += "\nVerse left today: %d" % HubBridge.verse_cap_left
 	if HubBridge.reach == "ready" and HubBridge.in_session:
 		cap_text += "\nTicket earn room today: %d" % HubBridge.tickets_cap_left
 		if HubBridge.earn_capped:
@@ -200,17 +218,18 @@ func _refresh() -> void:
 	var verse := int(_amount / float(HubBridge.TICKETS_PER_VERSE)) if _amount > 0 else 0
 	_worth.text = "Worth %d Verse" % verse
 	_status.text = _status_text
-	var can := not _busy and HubBridge.reach == "ready" and HubBridge.in_session and _amount >= HubBridge.TICKETS_PER_VERSE
+	var locked := _busy or HubBridge.exchange_is_pending()
+	var can := not locked and HubBridge.reach == "ready" and HubBridge.in_session and _amount >= HubBridge.TICKETS_PER_VERSE
 	if HubBridge.balance_known and HubBridge.ticket_balance < _amount:
 		can = false
 	_confirm.disabled = not can
-	_minus.disabled = _busy or _amount <= HubBridge.TICKETS_PER_VERSE
+	_minus.disabled = locked or _amount <= HubBridge.TICKETS_PER_VERSE
 	var step := HubBridge.TICKETS_PER_VERSE
 	var cap_tickets := HubBridge.VERSE_DAILY_CAP * step
 	var max_amount := cap_tickets
 	if HubBridge.balance_known:
 		max_amount = mini(cap_tickets, int(HubBridge.ticket_balance / float(step)) * step)
-	_plus.disabled = _busy or _amount + step > max_amount
+	_plus.disabled = locked or _amount + step > max_amount
 
 
 func _default_status() -> String:
@@ -236,6 +255,8 @@ func _error_text(payload: Dictionary) -> String:
 			return "Not enough Tickets."
 		"below_rate":
 			return "Need at least %d Tickets for 1 Verse." % HubBridge.TICKETS_PER_VERSE
+		"exchange_pending":
+			return "Exchange pending"
 		"offline":
 			return str(payload.get("message", "Open this game from the hub to exchange."))
 		_:
