@@ -249,6 +249,7 @@ func hurt(source_position: Vector2) -> void:
 func kill() -> void:
 	if _state == &"dead":
 		return
+	TimeFocus.restore()
 	_frozen = false
 	_leave_ground()
 	_set_ball(false)
@@ -371,6 +372,8 @@ func respawn_at(new_position: Vector2) -> void:
 func _physics_process(delta: float) -> void:
 	if _frozen:
 		return
+	if _state != &"dead" and Input.is_action_just_pressed(&"focus"):
+		TimeFocus.try_start()
 	var p := Tuning.physics
 	sensors.begin_frame(get_world_2d().direct_space_state)
 	if _invincible_frames > 0:
@@ -524,10 +527,16 @@ func _jump(p: PhysicsConstants) -> void:
 	Audio.play_sfx(&"jump")
 
 
+## Ground and air top speed. Nobu's move_speed_mult is 1.05 unranked; every
+## other case stays on Tuning.physics.top_speed. Acceleration is not scaled.
+func _top_speed(p: PhysicsConstants) -> float:
+	return PhysicsConstants.speed(p.top_speed) * float(RelicLoadout.resolve().get("speed_mult", 1.0))
+
+
 func _run_input(p: PhysicsConstants, dt: float, dir: int) -> void:
 	var acc := PhysicsConstants.accel(p.acceleration) * dt
 	var dec := PhysicsConstants.accel(p.deceleration) * dt
-	var top := PhysicsConstants.speed(p.top_speed)
+	var top := _top_speed(p)
 	_skidding = false
 	if dir == 0:
 		_gsp = move_toward(_gsp, 0.0, PhysicsConstants.accel(p.friction) * dt)
@@ -782,7 +791,7 @@ func _air_step(p: PhysicsConstants, dt: float) -> void:
 	# 2. Air acceleration, never reducing a speed above top speed.
 	if dir != 0:
 		if not _air_locked:
-			var top := PhysicsConstants.speed(p.top_speed)
+			var top := _top_speed(p)
 			if _vel.x * dir < top:
 				_vel.x += PhysicsConstants.accel(p.air_acceleration) * dt * dir
 				if _vel.x * dir > top:

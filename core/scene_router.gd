@@ -156,5 +156,7 @@ func _change_to(path: String) -> void:
 	if path in MENU_SCENES:
 		GameState.timer_running = false
 	get_tree().paused = false
+	# Time Focus restores itself here too, then the scale is forced back to 1.
+	TimeFocus.restore()
 	Engine.time_scale = 1.0
 	get_tree().change_scene_to_file.call_deferred(path)

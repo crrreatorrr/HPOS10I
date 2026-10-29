@@ -26,7 +26,7 @@ signal opened
 signal closed
 
 ## Released on pause and on resume so nothing stays held across the menu.
-const GAME_ACTIONS: Array[StringName] = [&"move_left", &"move_right", &"move_up", &"move_down", &"jump"]
+const GAME_ACTIONS: Array[StringName] = [&"move_left", &"move_right", &"move_up", &"move_down", &"jump", &"focus"]
 const DEVICE_COLUMNS := {"keyboard": 1, "gamepad": 2, "touch": 3}
 const HEADER_ACTIVE := Color(1, 0.86, 0.34)
 const HEADER_IDLE := Color(0.62, 0.66, 0.82)
@@ -42,6 +42,7 @@ var _resume_pending := false
 var _quiet_frames := 0
 var _last_device := "keyboard"
 var _quiet_focus := false
+var _relic_line: Label
 
 @onready var _buttons: Array[Button] = [%Resume, %Restart, %Quit]
 @onready var _grid: GridContainer = %Grid
@@ -64,6 +65,13 @@ func _ready() -> void:
 	box.move_child(exit_hub, %Quit.get_index())
 	# Quit stays last so focus still wraps from RESUME to QUIT TO MENU.
 	_buttons = [%Resume, %Restart, exit_hub, %Quit]
+	_relic_line = Label.new()
+	_relic_line.name = "RelicLine"
+	_relic_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_relic_line.visible = false
+	var layout := box.get_parent()
+	layout.add_child(_relic_line)
+	layout.move_child(_relic_line, box.get_index() + 1)
 	%Resume.pressed.connect(_on_resume_pressed)
 	%Restart.pressed.connect(_on_restart_pressed)
 	exit_hub.pressed.connect(_on_exit_hub_pressed)
@@ -141,6 +149,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		_step_focus(1)
 	elif event.is_action_pressed(&"move_up"):
 		_step_focus(-1)
+	elif event.is_action_pressed(&"move_left"):
+		if not RelicLoadout.cycle_body(-1):
+			return
+		_refresh_relic_line()
+		Audio.play_sfx(&"menu_move")
+	elif event.is_action_pressed(&"move_right"):
+		if not RelicLoadout.cycle_body(1):
+			return
+		_refresh_relic_line()
+		Audio.play_sfx(&"menu_move")
 	elif event.is_action_pressed(&"jump") and not event.is_action(&"ui_accept"):
 		# Space and pad A are ui_accept too: the focused button handles those.
 		_focused_button().pressed.emit()
@@ -165,6 +183,7 @@ func open_menu() -> void:
 	release_game_inputs()
 	_refresh_key_hints()
 	_refresh_device_columns()
+	_refresh_relic_line()
 	visible = true
 	_quiet_focus = true
 	_buttons[0].grab_focus()
@@ -262,6 +281,43 @@ func _on_button_focused() -> void:
 
 
 ## Keyboard column of the controls table, named for the current layout.
+func _refresh_relic_line() -> void:
+	if _relic_line == null:
+		return
+	var state := RelicLoadout.resolve()
+	var body := str(state.get("body", ""))
+	var choices: Array = state.get("body_choices", [])
+	var cape := bool(state.get("cape", false))
+	if body == "" and not cape and choices.size() < 2:
+		_relic_line.text = ""
+		_relic_line.visible = false
+		return
+	var parts := PackedStringArray()
+	if bool(state.get("ranked", false)):
+		parts.append("RANKED · LOOK ONLY")
+	if choices.size() > 0 or body != "":
+		parts.append("SKIN %s" % _skin_label(body))
+	if cape:
+		parts.append("CAPE DUELIST")
+	if bool(state.get("time_focus", false)):
+		var key := InputHints.action_keys(&"focus")
+		if key != "":
+			parts.append("FOCUS %s" % key)
+	if choices.size() >= 2:
+		parts.append("LEFT RIGHT")
+	_relic_line.text = "  ".join(parts)
+	_relic_line.visible = _relic_line.text != ""
+
+
+func _skin_label(body: String) -> String:
+	match body:
+		RelicLoadout.ITEM_GOLDEN:
+			return "GOLDEN"
+		RelicLoadout.ITEM_NOBU:
+			return "NOBU"
+	return "NONE"
+
+
 func _refresh_key_hints() -> void:
 	_grid_cell(1, 1).text = InputHints.move_keys()
 	_grid_cell(2, 1).text = InputHints.action_keys(&"jump")

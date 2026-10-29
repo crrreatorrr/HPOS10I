@@ -10,6 +10,9 @@ extends Node2D
 ## hitbox centre, feet at +height radius.
 
 const FRAMES_PATH := "res://assets/sprites/common/sproto/sproto_frames.tres"
+## Golden Sproto art. Missing until the 16-bit pass; the placeholder swaps
+## BLUE/YELLOW for GOLD/GOLD_DARK in the meantime.
+const GOLDEN_FRAMES_PATH := "res://assets/sprites/common/sproto/golden_sproto_frames.tres"
 ## Feet centre inside a 64x64 frame cell, relative to the cell centre.
 const CELL_FEET_OFFSET := 28.0
 const BLINK_PERIOD_FRAMES := 4
@@ -40,6 +43,12 @@ const BLACK := Color(0.04, 0.04, 0.07)
 
 var _player: Player
 var _sprite: AnimatedSprite2D
+var _base_frames: SpriteFrames
+var _shown_skin := ""
+var _body_color := BLUE
+var _face_color := YELLOW
+var _shade_color := BLUE_SHADE
+var _nose_color := RED
 ## Frames of the walk cycle and of the rolling ball.
 const WALK_FRAMES := 6
 const ROLL_FRAMES := 8
@@ -57,6 +66,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(FRAMES_PATH):
 		var frames := load(FRAMES_PATH) as SpriteFrames
 		if frames != null:
+			_base_frames = frames
 			_sprite = AnimatedSprite2D.new()
 			_sprite.name = "Sprite"
 			_sprite.sprite_frames = frames
@@ -99,6 +109,7 @@ func _physics_process(_delta: float) -> void:
 func _process(delta: float) -> void:
 	if _player == null:
 		return
+	_apply_skin()
 	# The placeholder's leg swing and ball spin follow the frame counter.
 	_cycle = TAU * float(anim_frame % WALK_FRAMES) / WALK_FRAMES
 	_spin = TAU * float(anim_frame % ROLL_FRAMES) / ROLL_FRAMES
@@ -179,9 +190,54 @@ func _update_sprite() -> void:
 
 # --- Placeholder drawing ---------------------------------------------------------
 
+func _skin() -> String:
+	return str(RelicLoadout.resolve().get("skin", ""))
+
+
+## Golden uses golden_sproto_frames.tres when it exists. Otherwise the base
+## frames pick up a gold tint, and the placeholder swaps blue/yellow for gold.
+func _apply_skin() -> void:
+	var skin := _skin()
+	match skin:
+		"golden":
+			_body_color = GOLD
+			_face_color = GOLD_DARK
+			_shade_color = GOLD_DARK
+			_nose_color = RED
+		"nobu":
+			_body_color = Color(0.95, 0.88, 0.74)
+			_face_color = Color(0.98, 0.93, 0.84)
+			_shade_color = Color(0.55, 0.36, 0.2)
+			_nose_color = BLACK
+		_:
+			_body_color = BLUE
+			_face_color = YELLOW
+			_shade_color = BLUE_SHADE
+			_nose_color = RED
+	if _sprite == null or skin == _shown_skin:
+		return
+	_shown_skin = skin
+	if skin == "golden" and ResourceLoader.exists(GOLDEN_FRAMES_PATH):
+		var frames := load(GOLDEN_FRAMES_PATH) as SpriteFrames
+		if frames != null:
+			_sprite.sprite_frames = frames
+			_sprite.modulate = Color.WHITE
+			return
+	if _base_frames != null:
+		_sprite.sprite_frames = _base_frames
+	match skin:
+		"golden":
+			_sprite.modulate = Color(1.05, 0.84, 0.38)
+		"nobu":
+			_sprite.modulate = Color(1.0, 0.86, 0.68)
+		_:
+			_sprite.modulate = Color.WHITE
+
+
 func _draw() -> void:
 	if _sprite != null or _player == null:
 		return
+	_apply_skin()
 	if is_ball():
 		_draw_ball()
 	else:
@@ -192,13 +248,13 @@ func _draw_ball() -> void:
 	var r := _player.get_radii().y - 1.0
 	var center := Vector2(0.0, feet_y() - r - 1.0)
 	draw_circle(center, r + 1.0, OUTLINE)
-	draw_circle(center, r, BLUE)
+	draw_circle(center, r, _body_color)
 	# Yellow half and red nose dot, spinning with the ball.
 	var half := PackedVector2Array()
 	for i in 13:
 		half.append(center + Vector2.from_angle(_spin + PI * i / 12.0) * r)
-	draw_colored_polygon(half, YELLOW)
-	draw_circle(center + Vector2.from_angle(_spin + PI * 0.5) * r * 0.55, 2.2, RED)
+	draw_colored_polygon(half, _face_color)
+	draw_circle(center + Vector2.from_angle(_spin + PI * 0.5) * r * 0.55, 2.2, _nose_color)
 	if _player.state == &"spindash":
 		# Dust puffs behind the ball.
 		for i in 3:
@@ -249,14 +305,14 @@ func _draw_sproto() -> void:
 		var top := body + Vector2(leg[0], 3.0)
 		var foot := Vector2(leg[1], feet - 1.5)
 		draw_line(top, foot, OUTLINE, 4.0)
-		draw_line(top, foot, BLUE, 2.2)
+		draw_line(top, foot, _body_color, 2.2)
 		_draw_ellipse(foot + Vector2(1.0, 0.0), Vector2(2.6, 1.6), OUTLINE)
-		_draw_ellipse(foot + Vector2(1.0, 0.0), Vector2(2.0, 1.1), YELLOW)
+		_draw_ellipse(foot + Vector2(1.0, 0.0), Vector2(2.0, 1.1), _face_color)
 
 	# Body with a yellow belly.
 	_draw_ellipse(body, Vector2(5.8, 5.6), OUTLINE)
-	_draw_ellipse(body, Vector2(4.9, 4.7), BLUE)
-	_draw_ellipse(body + Vector2(1.5, 0.8), Vector2(2.3, 2.8), YELLOW)
+	_draw_ellipse(body, Vector2(4.9, 4.7), _body_color)
+	_draw_ellipse(body + Vector2(1.5, 0.8), Vector2(2.3, 2.8), _face_color)
 
 	# Short arms.
 	var arm_swing := -swing * 0.6
@@ -268,8 +324,8 @@ func _draw_sproto() -> void:
 		arms = [[Vector2(-3.5, -1.5), Vector2(-7.5, -5.0)], [Vector2(3.5, -1.5), Vector2(7.5, -5.0)]]
 	for arm in arms:
 		draw_line(body + arm[0], body + arm[1], OUTLINE, 3.6)
-		draw_line(body + arm[0], body + arm[1], BLUE, 1.8)
-		draw_circle(body + arm[1], 1.4, YELLOW)
+		draw_line(body + arm[0], body + arm[1], _body_color, 1.8)
+		draw_circle(body + arm[1], 1.4, _face_color)
 
 	# Red collar with a tiny golden-ticket badge.
 	var collar := Vector2(body.x, head.y + HEAD_RADIUS)
@@ -279,16 +335,17 @@ func _draw_sproto() -> void:
 	draw_rect(Rect2(collar + Vector2(1.5, 0.0), Vector2(2.0, 1.2)), GOLD)
 
 	# Soft upward spikes, only on the blue back half (the yellow face half has
-	# none). Drawn before the head, which covers their roots.
-	for spike in SPIKES:
-		_draw_spike(head + spike[0], head + spike[1], OUTLINE, 1.0)
-	for spike in SPIKES:
-		_draw_spike(head + spike[0], head + spike[1], BLUE, 0.0)
+	# none). The Nobu suit replaces them with ears (player/cape.gd).
+	if _skin() != "nobu":
+		for spike in SPIKES:
+			_draw_spike(head + spike[0], head + spike[1], OUTLINE, 1.0)
+		for spike in SPIKES:
+			_draw_spike(head + spike[0], head + spike[1], _body_color, 0.0)
 
 	# Round head, split down the middle: blue back half, yellow face half.
 	draw_circle(head, HEAD_RADIUS + 1.0, OUTLINE)
-	_draw_half_disc(head, HEAD_RADIUS, PI, BLUE)
-	_draw_half_disc(head, HEAD_RADIUS, 0.0, YELLOW)
+	_draw_half_disc(head, HEAD_RADIUS, PI, _body_color)
+	_draw_half_disc(head, HEAD_RADIUS, 0.0, _face_color)
 
 	# Big round eyes: white, black pupil looking ahead, white shine.
 	for eye in [[Vector2(1.0, -2.0), 3.0], [Vector2(5.5, -2.0), 2.6]]:
@@ -310,7 +367,7 @@ func _draw_sproto() -> void:
 	else:
 		draw_arc(grin, 4.5, PI * 0.15, PI * 0.85, 10, RED, 1.6)
 	draw_circle(head + Vector2(8.0, 0.8), 2.6, OUTLINE)
-	draw_circle(head + Vector2(8.0, 0.8), 2.0, RED)
+	draw_circle(head + Vector2(8.0, 0.8), 2.0, _nose_color)
 	draw_circle(head + Vector2(7.5, 0.2), 0.6, Color(1.0, 0.7, 0.7))
 
 
@@ -328,7 +385,7 @@ func _draw_spike(base: Vector2, tip: Vector2, color: Color, grow: float) -> void
 		# Shade the back (head-outward) edge.
 		var back := side if side.x < 0.0 else -side
 		draw_colored_polygon(PackedVector2Array([base + back * half, tip + back * 0.9,
-				tip, base]), BLUE_SHADE)
+				tip, base]), _shade_color)
 
 
 ## Filled half disc: the half on the side of `facing_angle` (radians).
