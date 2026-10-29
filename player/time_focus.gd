@@ -42,6 +42,7 @@ func try_start() -> bool:
 
 
 ## Ends slow motion and restores time scale. Does not refill the use.
+## Time scale changes only when a focus was active.
 func restore() -> void:
 	var was := _active
 	_active = false
@@ -52,7 +53,15 @@ func restore() -> void:
 
 func _on_level_started(_zone_id: String, _act: int) -> void:
 	_uses_left = USES_PER_LEVEL
-	restore()
+	if bool(RelicLoadout.resolve().get("ranked", false)):
+		# Ranked must not inherit slow-mo. restore() leaves Engine.time_scale
+		# alone when _active is already false, so clear the focus here anyway.
+		_active = false
+		_paused_at = 0
+		_deadline_msec = 0
+		Engine.time_scale = 1.0
+	else:
+		restore()
 
 
 func _process(_delta: float) -> void:
