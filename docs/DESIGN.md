@@ -61,6 +61,15 @@ A small, very fast creature, the mascot of the game.
 - **Feel:** cheeky and upbeat. Readable at 64×64 px game size.
 - **Accessories:** a wizard hat in Wizard Academy and sunglasses in Capital
   Mansion, drawn as overlays (see CONTRACTS.md).
+- **Relic skins:** one body-slot skin at a time, from hub Relics
+  (`core/relic_loadout.gd`). The effect is off in Ranked; the look stays.
+  - Golden (`hpos_skin_golden_sproto`, Genesis Shard): all gold. +1 life per act.
+  - Nobu (`hpos_skin_nobu`, Cone's Tip): cream suit with ears. Top speed ×1.05.
+  - Tidebreaker (`hpos_skin_tidebreaker`, Tidebreaker Belt from Sproto
+    Fighter): the blue parts sea-green, the face still yellow, a shiny gold
+    championship belt with a round wave-emblem plate; a sea-green ball with a
+    gold stripe. Spin-dash charge +3 per press instead of +2, max charge
+    unchanged (a full dash in 3 presses instead of 4, never faster).
 - **Off-limits:** a frog-like face (droopy eyelids, wide fleshy lips) and
   swept-back spiky quills, which belong to an existing game mascot.
 

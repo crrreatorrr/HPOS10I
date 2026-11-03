@@ -315,6 +315,8 @@ func _skin_label(body: String) -> String:
 			return "GOLDEN"
 		RelicLoadout.ITEM_NOBU:
 			return "NOBU"
+		RelicLoadout.ITEM_TIDEBREAKER:
+			return "TIDEBREAKER"
 	return "NONE"
 
 

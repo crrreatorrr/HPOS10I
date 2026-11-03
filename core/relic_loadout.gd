@@ -12,21 +12,34 @@ extends Node
 const RELIC_GENESIS := "genesis_shard"
 const RELIC_CONES := "cones_tip"
 const RELIC_CROWN := "tinubu_crown"
+## Sproto Fighter's Relic (the hub's fifth game).
+const RELIC_BELT := "tidebreaker_belt"
 const ITEM_GOLDEN := "hpos_skin_golden_sproto"
 const ITEM_NOBU := "hpos_skin_nobu"
+const ITEM_TIDEBREAKER := "hpos_skin_tidebreaker"
 const ITEM_CAPE := "hpos_cape_duelist"
 const SPEED_MULT := 1.05
+## Tidebreaker's spin-dash charge per jump press (the hub item matrix part
+## `spindash_charge`, `{ charge_per_press: 3 }`). The base is
+## Tuning.physics.spindash_charge_per_press (2.0). The max charge
+## (spindash_max_charge, 8.0) and the release speed (8 + floor(charge) / 2,
+## 12 at most) are unchanged, so it reaches a full dash in 3 presses instead
+## of 4 but never goes faster. A sidegrade to Golden's extra life and Nobu's
+## top speed.
+const SPINDASH_CHARGE_PER_PRESS := 3.0
 ## Equip choice only. Not progress.json and not an ownership record.
 const SLOTS_PATH := "user://hpos10i/relic_slots.json"
 
-const _KNOWN := [RELIC_GENESIS, RELIC_CONES, RELIC_CROWN]
+const _KNOWN := [RELIC_GENESIS, RELIC_CONES, RELIC_CROWN, RELIC_BELT]
 
 var _slots := {}
 var _slots_loaded := false
 
 
 ## Owned Relics, the equipped body/back slots, and the gameplay that follows.
-## Cosmetics stay on in Ranked. Gameplay (extra life, speed, time focus) does not.
+## Cosmetics stay on in Ranked. Gameplay (extra life, speed, spin-dash charge,
+## time focus) does not. `spindash_charge` is the charge per press while
+## Tidebreaker is worn unranked, else 0.0 (the player keeps the base rate).
 func resolve() -> Dictionary:
 	var owned: Array = []
 	var ranked := false
@@ -55,6 +68,7 @@ func resolve() -> Dictionary:
 		"cape": back == ITEM_CAPE,
 		"extra_life": gameplay and body == ITEM_GOLDEN,
 		"speed_mult": SPEED_MULT if gameplay and body == ITEM_NOBU else 1.0,
+		"spindash_charge": SPINDASH_CHARGE_PER_PRESS if gameplay and body == ITEM_TIDEBREAKER else 0.0,
 		"time_focus": gameplay and back == ITEM_CAPE,
 	}
 
@@ -98,6 +112,8 @@ func _owned_skins(owned: Array) -> Array:
 		skins.append(ITEM_GOLDEN)
 	if RELIC_CONES in owned:
 		skins.append(ITEM_NOBU)
+	if RELIC_BELT in owned:
+		skins.append(ITEM_TIDEBREAKER)
 	return skins
 
 
@@ -125,6 +141,8 @@ func _skin_id(body: String) -> String:
 			return "golden"
 		ITEM_NOBU:
 			return "nobu"
+		ITEM_TIDEBREAKER:
+			return "tidebreaker"
 	return ""
 
 

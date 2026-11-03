@@ -5,14 +5,21 @@ extends Node2D
 ## (the yellow face half stays smooth), big round eyes, a red clown nose and grin, a
 ## small blue body with yellow accents, a red collar with a golden-ticket
 ## badge, and short arms and legs; or, in the ball states, a blue ball with a
-## yellow half and a red nose dot. Rotates with the ground angle, mirrors with
-## facing and blinks while invincible. Child of the Player node; local origin =
+## yellow half and a red nose dot. Relic skins swap the colors (Tidebreaker
+## also wears a gold belt, and its ball has a gold stripe instead of the yellow
+## half). Rotates with the ground angle, mirrors with facing and blinks while
+## invincible. Child of the Player node; local origin =
 ## hitbox centre, feet at +height radius.
 
 const FRAMES_PATH := "res://assets/sprites/common/sproto/sproto_frames.tres"
 ## Golden Sproto art. Missing until the 16-bit pass; the placeholder swaps
 ## BLUE/YELLOW for GOLD/GOLD_DARK in the meantime.
 const GOLDEN_FRAMES_PATH := "res://assets/sprites/common/sproto/golden_sproto_frames.tres"
+## Tidebreaker Sproto art (Tidebreaker Belt, Sproto Fighter's Relic). Missing
+## until the 16-bit pass, like Golden: the placeholder swaps blue for SEA/SEA_SHADE,
+## keeps the yellow face, and draws a gold championship belt at the waist
+## (a gold stripe on the ball).
+const TIDEBREAKER_FRAMES_PATH := "res://assets/sprites/common/sproto/tidebreaker_sproto_frames.tres"
 ## Feet centre inside a 64x64 frame cell, relative to the cell centre.
 const CELL_FEET_OFFSET := 28.0
 const BLINK_PERIOD_FRAMES := 4
@@ -38,6 +45,10 @@ const YELLOW := Color(1.0, 0.84, 0.2)
 const RED := Color(0.93, 0.18, 0.2)
 const GOLD := Color(1.0, 0.78, 0.16)
 const GOLD_DARK := Color(0.7, 0.45, 0.05)
+## Tidebreaker sea-green / teal, and the belt plate's shine.
+const SEA := Color(0.12, 0.72, 0.62)
+const SEA_SHADE := Color(0.05, 0.47, 0.44)
+const GOLD_SHINE := Color(1.0, 0.95, 0.7)
 const WHITE := Color(1, 1, 1)
 const BLACK := Color(0.04, 0.04, 0.07)
 
@@ -194,8 +205,10 @@ func _skin() -> String:
 	return str(RelicLoadout.resolve().get("skin", ""))
 
 
-## Golden uses golden_sproto_frames.tres when it exists. Otherwise the base
-## frames pick up a gold tint, and the placeholder swaps blue/yellow for gold.
+## Golden uses golden_sproto_frames.tres and Tidebreaker uses
+## tidebreaker_sproto_frames.tres when they exist. Otherwise the base frames
+## pick up a tint, and the placeholder swaps colors (gold for Golden, sea-green
+## blue parts with the yellow face kept for Tidebreaker).
 func _apply_skin() -> void:
 	var skin := _skin()
 	match skin:
@@ -209,6 +222,11 @@ func _apply_skin() -> void:
 			_face_color = Color(0.98, 0.93, 0.84)
 			_shade_color = Color(0.55, 0.36, 0.2)
 			_nose_color = BLACK
+		"tidebreaker":
+			_body_color = SEA
+			_face_color = YELLOW
+			_shade_color = SEA_SHADE
+			_nose_color = RED
 		_:
 			_body_color = BLUE
 			_face_color = YELLOW
@@ -217,8 +235,9 @@ func _apply_skin() -> void:
 	if _sprite == null or skin == _shown_skin:
 		return
 	_shown_skin = skin
-	if skin == "golden" and ResourceLoader.exists(GOLDEN_FRAMES_PATH):
-		var frames := load(GOLDEN_FRAMES_PATH) as SpriteFrames
+	var skin_path := _skin_frames_path(skin)
+	if skin_path != "" and ResourceLoader.exists(skin_path):
+		var frames := load(skin_path) as SpriteFrames
 		if frames != null:
 			_sprite.sprite_frames = frames
 			_sprite.modulate = Color.WHITE
@@ -230,8 +249,20 @@ func _apply_skin() -> void:
 			_sprite.modulate = Color(1.05, 0.84, 0.38)
 		"nobu":
 			_sprite.modulate = Color(1.0, 0.86, 0.68)
+		"tidebreaker":
+			_sprite.modulate = Color(0.62, 1.0, 0.9)
 		_:
 			_sprite.modulate = Color.WHITE
+
+
+## Dedicated SpriteFrames for a skin, or "" when the skin only tints the base.
+static func _skin_frames_path(skin: String) -> String:
+	match skin:
+		"golden":
+			return GOLDEN_FRAMES_PATH
+		"tidebreaker":
+			return TIDEBREAKER_FRAMES_PATH
+	return ""
 
 
 func _draw() -> void:
@@ -250,10 +281,16 @@ func _draw_ball() -> void:
 	draw_circle(center, r + 1.0, OUTLINE)
 	draw_circle(center, r, _body_color)
 	# Yellow half and red nose dot, spinning with the ball.
-	var half := PackedVector2Array()
-	for i in 13:
-		half.append(center + Vector2.from_angle(_spin + PI * i / 12.0) * r)
-	draw_colored_polygon(half, _face_color)
+	if _skin() == "tidebreaker":
+		# Sea-green ball with a gold stripe through the middle, spinning with it.
+		var along := Vector2.from_angle(_spin)
+		draw_line(center - along * r, center + along * r, OUTLINE, 4.2)
+		draw_line(center - along * (r - 0.6), center + along * (r - 0.6), GOLD, 2.6)
+	else:
+		var half := PackedVector2Array()
+		for i in 13:
+			half.append(center + Vector2.from_angle(_spin + PI * i / 12.0) * r)
+		draw_colored_polygon(half, _face_color)
 	draw_circle(center + Vector2.from_angle(_spin + PI * 0.5) * r * 0.55, 2.2, _nose_color)
 	if _player.state == &"spindash":
 		# Dust puffs behind the ball.
@@ -313,6 +350,8 @@ func _draw_sproto() -> void:
 	_draw_ellipse(body, Vector2(5.8, 5.6), OUTLINE)
 	_draw_ellipse(body, Vector2(4.9, 4.7), _body_color)
 	_draw_ellipse(body + Vector2(1.5, 0.8), Vector2(2.3, 2.8), _face_color)
+	if _skin() == "tidebreaker":
+		_draw_belt(body)
 
 	# Short arms.
 	var arm_swing := -swing * 0.6
@@ -369,6 +408,22 @@ func _draw_sproto() -> void:
 	draw_circle(head + Vector2(8.0, 0.8), 2.6, OUTLINE)
 	draw_circle(head + Vector2(8.0, 0.8), 2.0, _nose_color)
 	draw_circle(head + Vector2(7.5, 0.2), 0.6, Color(1.0, 0.7, 0.7))
+
+
+## Tidebreaker's gold championship belt across the waist, with a round plate
+## on the front stamped with a wave.
+func _draw_belt(body: Vector2) -> void:
+	var waist := body + Vector2(0.0, 1.6)
+	draw_rect(Rect2(waist + Vector2(-5.6, -1.7), Vector2(11.2, 3.4)), OUTLINE)
+	draw_rect(Rect2(waist + Vector2(-5.0, -1.1), Vector2(10.0, 2.2)), GOLD)
+	draw_line(waist + Vector2(-5.0, 0.9), waist + Vector2(5.0, 0.9), GOLD_DARK, 0.6)
+	var plate := waist + Vector2(1.6, 0.0)
+	draw_circle(plate, 3.0, OUTLINE)
+	draw_circle(plate, 2.4, GOLD)
+	# The wave: two small crests across the plate.
+	draw_arc(plate + Vector2(-0.9, 0.5), 0.9, PI, TAU, 6, GOLD_DARK, 0.7)
+	draw_arc(plate + Vector2(0.9, 0.5), 0.9, PI, TAU, 6, GOLD_DARK, 0.7)
+	draw_circle(plate + Vector2(-1.0, -1.1), 0.5, GOLD_SHINE)
 
 
 ## One soft spike from `base` to `tip`: a tapered blade with a rounded tip, its

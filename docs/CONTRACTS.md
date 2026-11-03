@@ -329,6 +329,10 @@ plays explosions, opens the gate and shows the tally, then goes to the next stag
   - Code derives the rest when missing: `walk` from `run` played slower,
     `roll`/`spindash` from `jump`, `dead` from `hurt`.
   - Frame cells are 64×64. The feet's centre sits at (32, 60) in each cell.
+  - Relic skins, optional, same animations and cells:
+    `golden_sproto_frames.tres` (Golden) and `tidebreaker_sproto_frames.tres`
+    (Tidebreaker) in the same folder. Until they exist the base frames are
+    tinted and the code-drawn placeholder swaps colors (`player/player_visual.gd`).
 - Accessories:
   - `assets/sprites/z2_wizard_academy/wizard_hat/`
   - `assets/sprites/z3_capital_mansion/sunglasses/`

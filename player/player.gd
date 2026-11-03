@@ -469,7 +469,7 @@ func _spindash_step(p: PhysicsConstants, down_held: bool, jump_pressed: bool) ->
 	# Classic per-frame decay first, then a press adds charge.
 	spindash_charge -= floorf(spindash_charge / 0.125) / 256.0
 	if jump_pressed:
-		spindash_charge = minf(spindash_charge + p.spindash_charge_per_press, p.spindash_max_charge)
+		spindash_charge = minf(spindash_charge + _spindash_charge_per_press(p), p.spindash_max_charge)
 		Audio.play_sfx(&"spindash_charge")
 
 
@@ -531,6 +531,14 @@ func _jump(p: PhysicsConstants) -> void:
 ## other case stays on Tuning.physics.top_speed. Acceleration is not scaled.
 func _top_speed(p: PhysicsConstants) -> float:
 	return PhysicsConstants.speed(p.top_speed) * float(RelicLoadout.resolve().get("speed_mult", 1.0))
+
+
+## Spin-dash charge per jump press. Tidebreaker's spindash_charge is 3 unranked
+## (RelicLoadout.SPINDASH_CHARGE_PER_PRESS); every other case stays on
+## Tuning.physics.spindash_charge_per_press. The max charge is not scaled.
+func _spindash_charge_per_press(p: PhysicsConstants) -> float:
+	var relic := float(RelicLoadout.resolve().get("spindash_charge", 0.0))
+	return relic if relic > 0.0 else p.spindash_charge_per_press
 
 
 func _run_input(p: PhysicsConstants, dt: float, dir: int) -> void:

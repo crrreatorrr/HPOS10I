@@ -89,7 +89,7 @@ reason); **fixed** = deviated before this audit, fixed now.
 | Rule | Value | Where | Pinned by | Status |
 |---|---|---|---|---|
 | Start | jump while crouching (down held, standing still) | `_ground_step` step 1 | test_ground: spin dash tests | exact |
-| Charge | +2 per press, at most 8 | `_spindash_step` | test_ground: four presses; full charge is 12 | exact |
+| Charge | +2 per press, at most 8 (+3 with the Tidebreaker skin unranked, `RelicLoadout.SPINDASH_CHARGE_PER_PRESS`; max unchanged) | `_spindash_step` | test_ground: four presses; full charge is 12; test_relic_loadout: Tidebreaker | exact |
 | Decay | charge -= floor(charge / 0.125) / 256 each frame, before the press | `_spindash_step` | test_ground: charge decays; test_reference x1/x3/x7 with a 20-frame wait | exact |
 | Release | 8 + floor(charge) / 2 the way he faces, on releasing down; rolling | `_spindash_step` | test_ground; test_reference | exact |
 | While charging | no slope factor, friction or movement | `_ground_step` | test_reference | exact |
