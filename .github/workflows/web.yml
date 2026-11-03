@@ -24,6 +24,9 @@ env:
   # Unset keeps the dev default /hub/ in the shell. Set the repo variable
   # HPOS_HUB_URL when the game origin and the hub origin differ.
   HPOS_HUB_URL: ${{ vars.HPOS_HUB_URL }}
+  # Nakama's client server key (not the HTTP key). Unset builds still play, but
+  # the server refuses every hub ticket, so no Tickets or Relics are recorded.
+  HPOS_NAKAMA_SERVER_KEY: ${{ vars.HPOS_NAKAMA_SERVER_KEY }}
   # Public path this web build is served from. Unset keeps relative URLs,
   # so the same files work in any directory (GitHub Pages included).
   # Dev, game mounted at /play/hpos10i/: set the repo variable to /play/hpos10i/
