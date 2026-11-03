@@ -114,11 +114,16 @@ body {
 import { createHubSdk, installHubSdk } from "./hub-sdk/index.js";
 // Dev default. Export replaces this when HPOS_HUB_URL is set (absolute https://<domain>/hub/).
 window.hposHubUrl = "/hub/";
+// Nakama's client server key for the ticket redeem, not the runtime HTTP key.
+// Export replaces this when HPOS_NAKAMA_SERVER_KEY is set. Empty means every redeem
+// is refused and the game runs without a hub session.
+window.hposServerKey = "";
 // Empty keeps index.js, the wasm and the pack relative to this page.
 // Export sets this from the Web preset html/base_path, or from HPOS_BASE_PATH.
 window.hposBasePath = "";
 installHubSdk(createHubSdk({
 	serverUrl: "",
+	serverKey: window.hposServerKey,
 	hubUrl: window.hposHubUrl,
 }));
 window.hposDescribe = function (value) {
