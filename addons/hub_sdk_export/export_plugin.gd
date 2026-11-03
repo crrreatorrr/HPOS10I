@@ -77,6 +77,7 @@ func _export_end() -> void:
 	print("[HubSdkExport] copied %d hub-sdk files to %s" % [copied, dest])
 	var html_path := _html_path(dest_root)
 	_inject_hub_url(html_path)
+	_inject_server_key(html_path)
 	_apply_base_path(html_path)
 
 
@@ -105,6 +106,32 @@ func _inject_hub_url(html_path: String) -> void:
 	out.store_string(text.replace(marker, "window.hposHubUrl = %s;" % JSON.stringify(configured)))
 	out.close()
 	print("[HubSdkExport] hub URL set from HPOS_HUB_URL")
+
+
+## HPOS_NAKAMA_SERVER_KEY is a build-time setting (CI env or a shell export). It is
+## Nakama's client server key, never the runtime HTTP key. Locally it is the stock
+## key from metaverse-hub/server/.env. Unset leaves the shell's empty key, and the
+## server refuses every ticket redeem.
+func _inject_server_key(html_path: String) -> void:
+	var configured := OS.get_environment("HPOS_NAKAMA_SERVER_KEY").strip_edges()
+	if configured == "":
+		push_warning("[HubSdkExport] HPOS_NAKAMA_SERVER_KEY unset; this build cannot redeem hub tickets")
+		return
+	if not FileAccess.file_exists(html_path):
+		push_error("[HubSdkExport] exported HTML missing at %s" % html_path)
+		return
+	var text := FileAccess.get_file_as_string(html_path)
+	var marker := "window.hposServerKey = \"\";"
+	if not text.contains(marker):
+		push_error("[HubSdkExport] server key marker missing from the shell")
+		return
+	var out := FileAccess.open(html_path, FileAccess.WRITE)
+	if out == null:
+		push_error("[HubSdkExport] could not rewrite %s" % html_path)
+		return
+	out.store_string(text.replace(marker, "window.hposServerKey = %s;" % JSON.stringify(configured)))
+	out.close()
+	print("[HubSdkExport] server key set from HPOS_NAKAMA_SERVER_KEY")
 
 
 func _html_path(dest_root: String) -> String:

@@ -1,5 +1,5 @@
 /** Game ids stored on the server and used in `/hub#from=<game>` and `play/<game>`. */
-export const GAME_IDS = ['hpos10i', 'nobu', 'pb', 'sproto'];
+export const GAME_IDS = ['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto'];
 /** Earn-once relics. The primary key on the server is (user, relic). */
 // HPOS10I patch: tidebreaker_belt (Sproto Fighter) added by hand so init()
 // keeps it in `relics` (asRelics/readRelics drop unknown ids). Matches the
@@ -7,7 +7,7 @@ export const GAME_IDS = ['hpos10i', 'nobu', 'pb', 'sproto'];
 export const RELIC_IDS = ['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt'];
 export const RELIC_BY_GAME = {
     hpos10i: 'hpos10i_core',
-    pb: 'genesis_shard',
+    'peoples-bitcoin': 'genesis_shard',
     nobu: 'cones_tip',
     sproto: 'tinubu_crown',
 };
@@ -38,6 +38,10 @@ export const MOCK_TICKET_EARN_CAP = 1000;
 export const MOCK_TICKET_TTL_SECONDS = 60;
 export function isGameId(value) {
     return GAME_IDS.includes(value);
+}
+/** True when `value` is a stored game id. */
+export function canonicalGameId(value) {
+    return isGameId(value) ? value : null;
 }
 export function isRelicId(value) {
     return RELIC_IDS.includes(value);
