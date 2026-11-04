@@ -104,6 +104,7 @@ for opt in opts:
         sys.exit(2)
 
 TEXT_EXT = {
+    ".ts", ".mts", ".cts", ".tsx", ".mjs", ".cjs",
     ".gd", ".tscn", ".tres", ".md", ".json", ".cfg", ".yml", ".yaml", ".txt",
     ".html", ".htm", ".godot", ".import", ".svg", ".sh", ".py", ".js", ".css",
     ".csv", ".xml", ".ini", ".toml", ".po", ".pot", ".gdshader", ".shader",
@@ -164,14 +165,48 @@ MATCHER = re.compile(r"(?<![a-z])(?:%s)(?:e?s)?(?![a-z])" % "|".join(groups))
 LOOSE = {number: re.compile(term_body(term), re.I) for number, term in terms}
 
 
+# Matching (same results as one finditer of MATCHER, much faster): a match
+# can only start at a word start, so at each word start only the terms whose
+# first word begins with the same one or two letters are tried, longest term
+# first, exactly as the alternation in MATCHER orders them.
+ORDERED = sorted(terms, key=lambda t: -len(t[1]))
+TERM_RES = []
+BY_ONE = {}
+BY_TWO = {}
+for index, (number, term) in enumerate(ORDERED):
+    TERM_RES.append((number, re.compile(r"(?:%s)(?:e?s)?(?![a-z])" % term_body(term))))
+    first = normalize(term).lower().split()[0]
+    if len(first) == 1:
+        BY_ONE.setdefault(first, []).append(index)
+    else:
+        BY_TWO.setdefault(first[:2], []).append(index)
+WORD_START = re.compile(r"(?<![a-z])[^\W_]")
+
+
+def match_variant(variant, found):
+    pos = 0
+    for m in WORD_START.finditer(variant):
+        i = m.start()
+        if i < pos:
+            continue
+        candidates = BY_ONE.get(variant[i], []) + BY_TWO.get(variant[i:i + 2], [])
+        if not candidates:
+            continue
+        for index in sorted(candidates):
+            number, pattern = TERM_RES[index]
+            hit = pattern.match(variant, i)
+            if hit:
+                found.setdefault(number, hit.group(0))
+                pos = hit.end()
+                break
+
+
 def find_terms(text):
     """Returns {term_id: matched_text} for one line or name."""
     found = {}
     norm = normalize(text)
     for variant in {norm.lower(), decamel(norm).lower()}:
-        for m in MATCHER.finditer(variant):
-            number, _ = by_group[m.lastgroup]
-            found.setdefault(number, m.group(0))
+        match_variant(variant, found)
     return found
 
 
@@ -244,6 +279,7 @@ def list_files():
 
 
 hits = []  # (sort key, text)
+HAS_LETTER = re.compile(r"[^\W\d_]")
 
 
 def mask_path(rel):
@@ -294,6 +330,10 @@ for rel in files:
     text_files += 1
     with open(full, encoding="utf-8", errors="replace") as handle:
         for lineno, line in enumerate(handle, 1):
+            # Fast path: a line with no letters can't hold a term (tile rows
+            # in the level data are all numbers).
+            if not HAS_LETTER.search(line):
+                continue
             found = find_terms(line)
             if found and not allowed(rel, lineno):
                 report("%s:%d" % (rel, lineno), found, line)

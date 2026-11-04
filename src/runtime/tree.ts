@@ -47,6 +47,7 @@ export class SceneTree {
   private pendingScene: (() => Node) | null = null;
   private dirty = true;
   private ordered: Node[] = [];
+  private processOrder: Node[] = [];
   private groupCache = new Map<string, Node[]>();
   private accumulator = 0;
   private lastTime = -1;
@@ -82,6 +83,9 @@ export class SceneTree {
     };
     walk(this.root);
     this.ordered = out;
+    this.processOrder = out.some((n) => n.processPriority !== 0)
+      ? out.map((n, i) => [n, i] as const).sort((p, q) => p[0].processPriority - q[0].processPriority || p[1] - q[1]).map((x) => x[0])
+      : out;
     this.groupCache.clear();
   }
 
@@ -170,7 +174,7 @@ export class SceneTree {
     }
     Input.inPhysics = true;
     try {
-      const nodes = this.ordered.slice();
+      const nodes = this.processOrder.slice();
       for (const n of nodes) {
         if (n.isInsideTree() && !n.isQueuedForDeletion() && n.canProcess()) n.physicsProcess(dt);
       }
@@ -188,7 +192,7 @@ export class SceneTree {
     this.processFrames++;
     const events = Input.beginProcessFrame();
     for (const ev of events) this.dispatchInput(ev);
-    const nodes = this.ordered.slice();
+    const nodes = this.processOrder.slice();
     for (const n of nodes) {
       if (n.isInsideTree() && !n.isQueuedForDeletion() && n.canProcess()) n.process(delta);
     }

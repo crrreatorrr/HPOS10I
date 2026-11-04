@@ -91,6 +91,8 @@ export class GameCamera extends Node2D implements ViewProvider {
   constructor() {
     super('Camera');
     this.addToGroup('game_camera');
+    // Runs after the player has moved this tick.
+    this.processPriority = 100;
   }
 
   static current(): GameCamera | null {
@@ -161,7 +163,17 @@ export class GameCamera extends Node2D implements ViewProvider {
 
   // --- Update ---------------------------------------------------------------------
 
+  // Runs after the player (processPriority 100) and updates in a deferred call
+  // queued after his, so it also sees his end-of-tick moving-terrain pass
+  // (Player.afterPhysicsStep). Input is read here, on the physics clock.
   override physicsProcess(delta: number): void {
+    const upHeld = Input.isActionPressed('move_up');
+    this.tree.callDeferred(() => {
+      if (this.isInsideTree()) this.update(delta, upHeld);
+    });
+  }
+
+  private update(delta: number, upHeld: boolean): void {
     this.prevCenter = this.globalPosition;
     const frames = delta * FPS;
     if (!this.target || this.target.isFreed() || !this.target.isInsideTree()) {
@@ -174,7 +186,7 @@ export class GameCamera extends Node2D implements ViewProvider {
     const target = this.target.globalPosition;
     if (this.autoscrolling) this.focus = this.focus.add(this.autoscroll.mul(delta));
     else if (target.distanceTo(this.lastTarget) > this.snapDistance) this.snapToTarget();
-    else if (!(this.target instanceof Player && this.target.state === 'dead')) this.follow(frames);
+    else if (!(this.target instanceof Player && this.target.state === 'dead')) this.follow(frames, upHeld);
     this.lastTarget = target;
     this.focus = this.clampCenter(this.focus, this.currentClamp());
     this.applyPosition();
@@ -182,7 +194,7 @@ export class GameCamera extends Node2D implements ViewProvider {
     if (this.autoscrolling && this.target instanceof Player) this.target.clampRect = this.viewRect();
   }
 
-  private follow(frames: number): void {
+  private follow(frames: number, upHeld: boolean): void {
     const target = this.target!.globalPosition;
     const player = this.target instanceof Player ? this.target : null;
     let speed = 0;
@@ -202,7 +214,7 @@ export class GameCamera extends Node2D implements ViewProvider {
       else if (tx < fx - half) dx = tx - (fx - half);
       fx += clamp(dx, -this.maxSpeedX * frames, this.maxSpeedX * frames);
     }
-    this.updateLook(player, frames);
+    this.updateLook(player, frames, upHeld);
     const ty = target.y + this.verticalOffset + this.lookShift;
     if (!player || player.grounded) {
       const fast = !!player && Math.abs(player.groundSpeed) >= this.fastFollowGroundSpeed;
@@ -217,11 +229,11 @@ export class GameCamera extends Node2D implements ViewProvider {
     this.focus = new Vec2(fx, fy);
   }
 
-  private updateLook(player: Player | null, frames: number): void {
+  private updateLook(player: Player | null, frames: number, upHeld: boolean): void {
     let dir = 0;
     if (player && player.grounded && player.state === 'idle' && player.groundSpeed === 0) {
       if (player.crouching) dir = 1;
-      else if (Input.isActionPressed('move_up')) dir = -1;
+      else if (upHeld) dir = -1;
     }
     if (dir !== 0 && dir === this.lookDir) {
       this.lookTimer += 1;

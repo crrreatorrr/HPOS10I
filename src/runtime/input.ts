@@ -110,6 +110,10 @@ export class InputEvent implements InputEventLike {
     readonly echo: boolean,
     readonly code: string | null = null,
     readonly pointer: Vec2 | null = null,
+    /** Pointer events: which finger/mouse (PointerEvent.pointerId). */
+    readonly pointerId: number = -1,
+    /** Pointer events: 'down', 'move' or 'up'. */
+    readonly pointerPhase: 'down' | 'move' | 'up' | null = null,
   ) {}
 
   get action(): string | null {
@@ -232,8 +236,10 @@ export class InputManager {
     return true;
   }
 
-  pointerEvent(pos: Vec2, pressed: boolean): void {
-    this.eventQueue.push(new InputEvent('pointer', [], pressed, false, null, pos));
+  /** A pointer (mouse, finger, pen) in game pixels. Touch marks the device as touch. */
+  pointerEvent(pos: Vec2, phase: 'down' | 'move' | 'up', pointerId = 0, touch = false): void {
+    if (touch) this.lastDevice = 'touch';
+    this.eventQueue.push(new InputEvent('pointer', [], phase !== 'up', phase === 'move', null, pos, pointerId, phase));
   }
 
   private setSource(action: Action, source: Source, down: boolean, eventKind: InputEvent['kind'] | null): void {

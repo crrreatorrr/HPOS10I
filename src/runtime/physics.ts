@@ -93,20 +93,25 @@ export abstract class CollisionObject2D extends Node2D {
   collisionMask = 0;
   readonly shapes: Shape[] = [];
   /** @internal */ _world: PhysicsWorld | null = null;
+  /** @internal Bumped on every shape change (area geometry cache). */
+  _shapeVersion = 0;
 
   addShape(shape: Shape): Shape {
+    this._shapeVersion++;
     this.shapes.push(shape);
     this._world?._shapesChanged(this);
     return shape;
   }
 
   clearShapes(): void {
+    this._shapeVersion++;
     this.shapes.length = 0;
     this._world?._shapesChanged(this);
   }
 
   /** Call after changing shapes in place. */
   shapesChanged(): void {
+    this._shapeVersion++;
     this._world?._shapesChanged(this);
   }
 
@@ -534,32 +539,41 @@ export class PhysicsWorld {
 
   // --- Areas ------------------------------------------------------------------------
 
+  /**
+   * Overlaps for every monitoring area against the monitorable areas on its
+   * mask. Monitorable areas are few (the player, enemies, shots), so they go
+   * in a small grid each tick and each monitoring area (thousands of tickets)
+   * only looks up its own cells. Geometry is cached until a transform changes.
+   */
   private updateAreas(): void {
-    const byBit: Area2D[][] = [];
-    const boxes = new Map<Area2D, AreaGeom[]>();
-    for (const a of this.areas) {
-      if (!a.isInsideTree()) continue;
-      boxes.set(a, areaGeometry(a));
-      if (!a.monitorable) continue;
-      for (let bit = 0; bit < 32; bit++) {
-        if (a.collisionLayer & (1 << bit)) (byBit[bit] ??= []).push(a);
+    const grid = new Map<number, Area2D[]>();
+    for (const b of this.areas) {
+      if (!b.isInsideTree() || !b.monitorable || b.collisionLayer === 0) continue;
+      const g = cachedGeometry(b);
+      for (const key of cellsFor(g.minX, g.minY, g.maxX, g.maxY)) {
+        let list = grid.get(key);
+        if (!list) grid.set(key, (list = []));
+        list.push(b);
       }
     }
     const entered: [Area2D, Area2D][] = [];
     const exited: [Area2D, Area2D][] = [];
+    const now = new Set<Area2D>();
     for (const a of this.areas) {
       if (!a.isInsideTree()) continue;
-      const now = new Set<Area2D>();
-      if (a.monitoring && a.collisionMask !== 0) {
-        const ga = boxes.get(a)!;
-        for (let bit = 0; bit < 32; bit++) {
-          if (!(a.collisionMask & (1 << bit))) continue;
-          for (const b of byBit[bit] ?? []) {
-            if (b === a || now.has(b)) continue;
-            if (geomOverlap(ga, boxes.get(b)!)) now.add(b);
+      now.clear();
+      if (a.monitoring && a.collisionMask !== 0 && grid.size > 0) {
+        const ga = cachedGeometry(a);
+        for (const key of cellsFor(ga.minX, ga.minY, ga.maxX, ga.maxY)) {
+          const list = grid.get(key);
+          if (!list) continue;
+          for (const b of list) {
+            if (b === a || now.has(b) || (a.collisionMask & b.collisionLayer) === 0) continue;
+            if (geomOverlap(ga.shapes, cachedGeometry(b).shapes)) now.add(b);
           }
         }
       }
+      if (now.size === 0 && a._overlaps.size === 0) continue;
       for (const b of a._overlaps) if (!now.has(b)) exited.push([a, b]);
       for (const b of now) if (!a._overlaps.has(b)) entered.push([a, b]);
       a._overlaps.clear();
@@ -690,8 +704,65 @@ function pointOnLine(e: Edge, dx: number, dy: number, t: number): Vec2 {
 
 type AreaGeom = { kind: 'rect'; x0: number; y0: number; x1: number; y1: number } | { kind: 'circle'; cx: number; cy: number; r: number };
 
-function areaGeometry(area: Area2D): AreaGeom[] {
+interface CachedGeom {
+  t: Transform2D;
+  version: number;
+  shapes: AreaGeom[];
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+const geomCache = new WeakMap<Area2D, CachedGeom>();
+
+function cachedGeometry(area: Area2D): CachedGeom {
   const t = area.globalTransform;
+  const known = geomCache.get(area);
+  const version = shapeFingerprint(area);
+  if (known && known.version === version && sameTransform(known.t, t)) return known;
+  const shapes = areaGeometry(area, t);
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const g of shapes) {
+    if (g.kind === 'rect') {
+      minX = Math.min(minX, g.x0);
+      minY = Math.min(minY, g.y0);
+      maxX = Math.max(maxX, g.x1);
+      maxY = Math.max(maxY, g.y1);
+    } else {
+      minX = Math.min(minX, g.cx - g.r);
+      minY = Math.min(minY, g.cy - g.r);
+      maxX = Math.max(maxX, g.cx + g.r);
+      maxY = Math.max(maxY, g.cy + g.r);
+    }
+  }
+  if (shapes.length === 0) minX = minY = maxX = maxY = 0;
+  const geom = { t, version, shapes, minX, minY, maxX, maxY };
+  geomCache.set(area, geom);
+  return geom;
+}
+
+/** A number that changes when any shape is edited in place (size, offset, disabled...). */
+function shapeFingerprint(area: Area2D): number {
+  let h = area.shapes.length * 7919;
+  for (const sh of area.shapes) {
+    h = h * 31 + (sh.disabled ? 17 : 3);
+    if (sh.kind === 'rect') h = h * 31 + sh.size.x * 131 + sh.size.y * 137 + sh.offset.x * 139 + sh.offset.y * 149;
+    else if (sh.kind === 'circle') h = h * 31 + sh.radius * 151 + sh.offset.x * 157 + sh.offset.y * 163;
+    else h = h * 31 + sh.points.length + (sh.points[0]?.x ?? 0) * 167 + (sh.points[0]?.y ?? 0) * 173;
+    h %= 1e12;
+  }
+  return h;
+}
+
+function sameTransform(p: Transform2D, q: Transform2D): boolean {
+  return p.tx === q.tx && p.ty === q.ty && p.a === q.a && p.b === q.b && p.c === q.c && p.d === q.d;
+}
+
+function areaGeometry(area: Area2D, t: Transform2D = area.globalTransform): AreaGeom[] {
   const out: AreaGeom[] = [];
   for (const s of area.shapes) {
     if (s.disabled) continue;
@@ -699,6 +770,11 @@ function areaGeometry(area: Area2D): AreaGeom[] {
       const c = t.xform(s.offset);
       const sc = Math.max(Math.hypot(t.a, t.b), Math.hypot(t.c, t.d));
       out.push({ kind: 'circle', cx: c.x, cy: c.y, r: s.radius * sc });
+    } else if (s.kind === 'rect' && t.b === 0 && t.c === 0) {
+      const c = t.xform(s.offset);
+      const hx = Math.abs((s.size.x / 2) * t.a);
+      const hy = Math.abs((s.size.y / 2) * t.d);
+      out.push({ kind: 'rect', x0: c.x - hx, y0: c.y - hy, x1: c.x + hx, y1: c.y + hy });
     } else {
       const pts = shapePolygon(s).map((p) => t.xform(p));
       let x0 = Infinity;
@@ -743,7 +819,7 @@ function shapeOverlap(a: AreaGeom, b: AreaGeom): boolean {
 
 /** World-space rectangles of an area's shapes (debug, tests). */
 export function areaRects(area: Area2D): Rect2[] {
-  return areaGeometry(area).map((g) =>
+  return areaGeometry(area, area.globalTransform).map((g) =>
     g.kind === 'rect' ? new Rect2(g.x0, g.y0, g.x1 - g.x0, g.y1 - g.y0) : new Rect2(g.cx - g.r, g.cy - g.r, g.r * 2, g.r * 2),
   );
 }

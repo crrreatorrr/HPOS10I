@@ -27,6 +27,8 @@ export class Node {
   parent: Node | null = null;
   readonly children: Node[] = [];
   processMode = ProcessMode.INHERIT;
+  /** Lower runs earlier in the physics and process passes (ties keep tree order). */
+  processPriority = 0;
 
   readonly treeEntered = new Signal();
   readonly treeExiting = new Signal();

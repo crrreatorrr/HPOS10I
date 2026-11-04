@@ -61,6 +61,15 @@ function parseValue(src, ctx) {
     if (!m) throw new Error(`bad value at ${i}: ${s.slice(i, i + 40)}`);
     const word = m[0];
     i += word.length;
+    // Typed arrays and dictionaries: Array[NodePath]([...]) -> the inner list.
+    if ((word === 'Array' || word === 'Dictionary') && peek() === '[') {
+      let depth = 0;
+      do {
+        if (peek() === '[') depth++;
+        else if (peek() === ']') depth--;
+        i++;
+      } while (depth > 0 && i < s.length);
+    }
     if (word === 'true') return true;
     if (word === 'false') return false;
     if (word === 'null') return null;
@@ -156,7 +165,7 @@ function construct(word, args, ctx) {
     case 'SubResource':
       return ctx.sub[args[0]] ?? { sub: 'missing' };
     case 'NodePath':
-      return { nodepath: args[0] };
+      return args[0];
     case 'StringName':
       return args[0];
     case 'Array':
@@ -295,13 +304,31 @@ function convertScene(path) {
   return { source: path, nodes };
 }
 
+// Line-oriented JSON: one node, or one row of tiles, per line, so diffs and
+// the originality scan stay fast (both are line based).
+function sceneJson(data) {
+  const lines = data.nodes.map((n) => {
+    if (!n.cells) return JSON.stringify(n);
+    const { cells, ...rest } = n;
+    const rows = [];
+    for (let i = 0; i < cells.length; i += 24) rows.push(cells.slice(i, i + 24).map((c) => JSON.stringify(c)).join(','));
+    return `${JSON.stringify(rest).slice(0, -1)},"cells":[\n${rows.join(',\n')}\n]}`;
+  });
+  return `{"source":${JSON.stringify(data.source)},"nodes":[\n${lines.join(',\n')}\n]}\n`;
+}
+
+function tilesetJson(data) {
+  const cells = Object.entries(data.cells).map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`);
+  return `{"texture":${JSON.stringify(data.texture)},"cells":{\n${cells.join(',\n')}\n}}\n`;
+}
+
 mkdirSync(join(outDir, 'tilesets'), { recursive: true });
 const tilesDir = join(root, 'levels/common/tiles');
 for (const file of readdirSync(tilesDir)) {
   if (!file.endsWith('_tiles.tres')) continue;
   const id = file.replace('_tiles.tres', '');
   const data = convertTileset(relative(root, join(tilesDir, file)));
-  writeFileSync(join(outDir, 'tilesets', `${id}.json`), JSON.stringify(data));
+  writeFileSync(join(outDir, 'tilesets', `${id}.json`), tilesetJson(data));
   console.log(`tileset ${id}: ${Object.keys(data.cells).length} cells`);
 }
 for (const level of LEVELS) {
@@ -310,7 +337,7 @@ for (const level of LEVELS) {
   const rel = level.replace(/^levels\//, '').replace(/^playground\//, 'playground/').replace(/\.tscn$/, '.json');
   const dest = join(outDir, rel);
   mkdirSync(dirname(dest), { recursive: true });
-  writeFileSync(dest, JSON.stringify(data));
+  writeFileSync(dest, sceneJson(data));
   const cells = data.nodes.reduce((n, x) => n + (x.cells?.length ?? 0), 0);
   console.log(`${level}: ${data.nodes.length} nodes, ${cells} tiles -> ${relative(root, dest)}`);
 }

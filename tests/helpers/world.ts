@@ -10,6 +10,9 @@ import { degToRad } from '../../src/runtime/math';
 import { Node2D } from '../../src/runtime/node';
 import { polygonShape, StaticBody2D } from '../../src/runtime/physics';
 import { tree } from '../../src/runtime/tree';
+import { CurveShape, CurveTerrain } from '../../src/terrain/curve_terrain';
+import { TerrainLoop } from '../../src/terrain/loop';
+import { terrainMask } from '../../src/player/sensors';
 import { Rect2, Vec2 } from '../../src/runtime/vec2';
 
 export const SOLID = Layers.TERRAIN_SOLID;
@@ -50,6 +53,36 @@ export function addSlope(world: Node2D, angleDeg: number, halfLength = 600): Sta
   const d = new Vec2(Math.cos(degToRad(angleDeg)), -Math.sin(degToRad(angleDeg))).mul(halfLength);
   const bottom = Math.abs(d.y) + 300;
   return addPolygon(world, [d.neg(), d, new Vec2(d.x, bottom), new Vec2(-d.x, bottom)]);
+}
+
+/** A full loop with its bottom centre at `bottomCenter`. */
+export function addLoop(world: Node2D, bottomCenter: Vec2): TerrainLoop {
+  const loop = new TerrainLoop();
+  loop.position = bottomCenter;
+  world.addChild(loop);
+  return loop;
+}
+
+/**
+ * A quarter pipe (CurveTerrain) with its bottom at `bottom`, curving up to the
+ * right (or left) over `radius`, with a vertical wall of `wallHeight` above.
+ */
+export function addQuarterPipe(world: Node2D, bottom: Vec2, radius: number, risesToRight: boolean, wallHeight = 0): CurveTerrain {
+  const piece = new CurveTerrain();
+  piece.shape = CurveShape.QUARTER_PIPE;
+  piece.radius = radius;
+  piece.risesToRight = risesToRight;
+  piece.wallHeight = wallHeight;
+  piece.thickness = 48;
+  piece.depth = 64;
+  piece.position = bottom;
+  world.addChild(piece);
+  return piece;
+}
+
+/** True when the player's centre is inside solid terrain of its path. */
+export function centreInTerrain(player: Player): boolean {
+  return tree.physics.intersectPoint(player.globalPosition, terrainMask(player.collisionPath, false), 1).length > 0;
 }
 
 export function spawnPlayer(world: Node2D, feet: Vec2): Player {

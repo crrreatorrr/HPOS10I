@@ -7,6 +7,7 @@
 # Emeralds.NAME. Scoped to that single line, so a second use in the same file
 # (or the constant moving) is flagged and re-reviewed.
 core/emeralds.gd:13
+src/core/emeralds.ts:12
 
 # Owner decision 2026-11-02: the vendored hub SDK names another hub game by its
 # server game id (denylist term #425). It is an id the SDK compares against, never
@@ -17,3 +18,10 @@ web/hub-sdk/createHubSdk.js:376
 web/hub-sdk/events.js:33
 web/hub-sdk/types.js:2
 web/hub-sdk/types.js:7
+vendor/hub-sdk/README.md:133
+vendor/hub-sdk/dist/createHubSdk.js:403
+vendor/hub-sdk/dist/createHubSdk.js:428
+vendor/hub-sdk/dist/events.js:34
+vendor/hub-sdk/dist/types.d.ts:2
+vendor/hub-sdk/dist/types.js:2
+vendor/hub-sdk/dist/types.js:12

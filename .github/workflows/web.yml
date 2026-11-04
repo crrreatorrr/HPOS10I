@@ -1,6 +1,8 @@
 name: Web build
 
-# Every branch: run tests and export the web build (downloadable artifact).
+# Every branch: typecheck, tests, originality scan, the web build and its
+# checks, and a browser smoke test; the build is kept as a downloadable
+# artifact ("web-build", which the hub's `npm run fetch:games` downloads).
 # main only: also deploy to GitHub Pages, once the repo variable
 # PAGES_ENABLED is set to "true" (Pages must be switched on first).
 
@@ -19,24 +21,19 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GODOT_VERSION: "4.7.2"
   # Absolute hub page for Exit to Hub, e.g. https://example.com/hub/
-  # Unset keeps the dev default /hub/ in the shell. Set the repo variable
-  # HPOS_HUB_URL when the game origin and the hub origin differ.
+  # Unset keeps the dev default /hub/. Set the repo variable HPOS_HUB_URL when
+  # the game origin and the hub origin differ.
   HPOS_HUB_URL: ${{ vars.HPOS_HUB_URL }}
   # Nakama's client server key (not the HTTP key). Unset builds still play, but
   # the server refuses every hub ticket, so no Tickets or Relics are recorded.
   HPOS_NAKAMA_SERVER_KEY: ${{ vars.HPOS_NAKAMA_SERVER_KEY }}
-  # Public path this web build is served from. Unset keeps relative URLs,
-  # so the same files work in any directory (GitHub Pages included).
+  # Public path this web build is served from. Unset keeps relative URLs, so
+  # the same files work in any directory (GitHub Pages included).
   # Dev, game mounted at /play/hpos10i/: set the repo variable to /play/hpos10i/
   # Production at https://play.<domain>/hpos10i/: set it to /hpos10i/
-  # A full http(s) URL is accepted too. The Web preset html/base_path is the
-  # same setting; a non-empty HPOS_BASE_PATH overrides the preset at export.
   HPOS_BASE_PATH: ${{ vars.HPOS_BASE_PATH }}
-  # From the release's SHA512-SUMS.txt; update together with GODOT_VERSION.
-  GODOT_SHA512_EDITOR: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
-  GODOT_SHA512_TEMPLATES: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"
+  PLAYWRIGHT_VERSION: "1.63.0"
 
 jobs:
   build:
@@ -45,77 +42,36 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Cache Godot and web export templates
-        id: godot-cache
-        uses: actions/cache@v5
+      - uses: actions/setup-node@v4
         with:
-          path: |
-            ~/godot
-            ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-web-verified
+          node-version: 22
+          cache: npm
 
-      - name: Install Godot ${{ env.GODOT_VERSION }}
-        if: steps.godot-cache.outputs.cache-hit != 'true'
-        run: |
-          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          templates="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
-          mkdir -p ~/godot "$templates" /tmp/tpl
-          curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          echo "${GODOT_SHA512_EDITOR}  /tmp/godot.zip" | sha512sum -c -
-          unzip -q /tmp/godot.zip -d ~/godot
-          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
-          curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          echo "${GODOT_SHA512_TEMPLATES}  /tmp/templates.tpz" | sha512sum -c -
-          # Keep only the web templates so the cache stays small.
-          unzip -q /tmp/templates.tpz 'templates/web_*' 'templates/version.txt' -d /tmp/tpl
-          mv /tmp/tpl/templates/* "$templates/"
-          ls -la "$templates"
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Import project
-        run: ~/godot/godot --headless --path . --import
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Originality scan
         run: tools/qa/originality_scan.sh .
 
       - name: Run tests
-        run: ~/godot/godot --headless --fixed-fps 60 --path . -s res://tests/run_tests.gd
+        run: npm test
 
-      # `godot --import` exits 0 even on script parse errors; this catches them
-      # and runs every scene for a few frames.
-      - name: Script and scene smoke test
-        env:
-          SMOKE_IMPORT: "0"
-        run: GODOT="$HOME/godot/godot" tools/qa/scene_smoke.sh .
+      - name: Build
+        run: npm run build
 
-      - name: Export web build
+      - name: Check web build (sizes, dev content, audio formats, hub SDK)
+        run: node tools/qa/web_check.mjs build/web
+
+      - name: Install the smoke-test browser
         run: |
-          mkdir -p build/web
-          ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
-          touch build/web/.nojekyll
+          npm install --no-save "playwright@${PLAYWRIGHT_VERSION}"
+          npx playwright install --with-deps chromium
 
-      # Pages caches files for 10 minutes and the page always asks for
-      # "index.pck", so returning players kept getting an old build. Point the
-      # engine at a per-commit URL for the game data instead. Leave it a
-      # filename (plus ?v=): HPOS_BASE_PATH resolves it with <base href>.
-      - name: Version the game data URL
-        run: |
-          python3 - "build/web/index.html" "${GITHUB_SHA::12}" <<'EOF'
-          import sys
-          path, version = sys.argv[1], sys.argv[2]
-          html = open(path).read()
-          marker = '"executable":"index",'
-          assert marker in html, "GODOT_CONFIG format changed"
-          html = html.replace(marker, marker + '"mainPack":"index.pck?v=%s",' % version, 1)
-          # The loader looks up fileSizes[mainPack] for its progress bar.
-          sizes_key = '"index.pck":'
-          assert sizes_key in html, "fileSizes format changed"
-          html = html.replace(sizes_key, '"index.pck?v=%s":' % version, 1)
-          open(path, "w").write(html)
-          print("mainPack -> index.pck?v=" + version)
-          EOF
-
-      - name: Check web build (single-threaded, sizes, audio formats)
-        run: tools/qa/web_check.sh build/web
+      - name: Browser smoke test (every scene, and the title-to-act path)
+        run: node tools/qa/smoke.mjs build/web
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7

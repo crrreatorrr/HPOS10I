@@ -33,7 +33,7 @@ export default defineConfig({
     __NAKAMA_SERVER_KEY__: JSON.stringify((process.env.HPOS_NAKAMA_SERVER_KEY ?? '').trim()),
     __BUILD_ID__: JSON.stringify(buildId()),
   },
-  publicDir: false,
+  publicDir: 'public',
   build: {
     outDir: 'build/web',
     emptyOutDir: true,

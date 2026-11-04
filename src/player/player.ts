@@ -125,6 +125,11 @@ export class Player extends Node2D {
   private _support: CollisionObject2D | null = null;
   private _supportOrigin = Vec2.ZERO;
   private _rideDown = 0;
+  /** The moving-terrain pass (carry, push-out) is still due before the next own step. */
+  private _contactPending = true;
+  /** Crushed by the end-of-tick pass: the next tick is the kill tick (no death motion yet). */
+  private _killedAfterStep = false;
+  private readonly _afterStep = () => this.afterPhysicsStep();
 
   constructor() {
     super('Player');
@@ -392,6 +397,8 @@ export class Player extends Node2D {
     this.zIndex = 0;
     this.collisionPath = PATH_A;
     this._rideDown = 0;
+    this._contactPending = true;
+    this._killedAfterStep = false;
     this.hitbox.monitorable = true;
     this.moves.clearAll();
     this.changeState('idle');
@@ -399,6 +406,14 @@ export class Player extends Node2D {
   }
 
   // --- Main loop -------------------------------------------------------------------
+  // Each tick: carry with moving terrain and get pushed out of it, then the own
+  // step (the Godot order). Godot drew a moving body where the physics server
+  // had it, one tick behind its script; this runtime draws it where its script
+  // put it this tick. So the moving-terrain pass for the next tick runs at the
+  // end of this one, after the world step (a deferred call): the same sequence
+  // of operations against the same geometry, and he is drawn on the platform
+  // where it is drawn. When that pass didn't run (first tick, respawn, a tick
+  // he skipped) it runs at the start of the tick instead.
 
   override physicsProcess(delta: number): void {
     if (this._frozen) return;
@@ -407,17 +422,36 @@ export class Player extends Node2D {
     this.sensors.beginFrame(this.tree.physics);
     if (this._invincibleFrames > 0) this._invincibleFrames -= 1;
     if (this._state === 'dead') {
-      this.deadStep(p, delta);
+      // Crushed by the end-of-tick pass: this is the tick Godot killed him in.
+      if (this._killedAfterStep) this._killedAfterStep = false;
+      else this.deadStep(p, delta);
       return;
     }
     this.moves.tick();
-    this.carry(p);
-    if (!this.isDead()) this.resolveMovingTerrain(p);
-    if (this.isDead()) return;
+    if (this._contactPending) {
+      this.movingTerrainPass(p);
+      if (this.isDead()) return;
+    }
     if (this.grounded) this.groundStep(p, delta);
     else this.airStep(p, delta);
     this.applyClampRect(p);
     this.updateHitbox();
+    this._contactPending = true;
+    this.tree.callDeferred(this._afterStep);
+  }
+
+  /** Carry by moving terrain, then get pushed out of it (or crushed). */
+  private movingTerrainPass(p: PhysicsConstants): void {
+    this._contactPending = false;
+    this.carry(p);
+    if (!this.isDead()) this.resolveMovingTerrain(p);
+  }
+
+  /** End of the tick, after the world step: the next tick's moving-terrain pass. */
+  private afterPhysicsStep(): void {
+    if (!this._contactPending || this._frozen || this.isDead() || !this.isInsideTree()) return;
+    this.movingTerrainPass(Tuning.physics);
+    if (this.isDead()) this._killedAfterStep = true;
   }
 
   private inputDir(): number {

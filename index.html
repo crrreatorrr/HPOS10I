@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#12141f" />
+    <meta name="description" content="HPOS10I: a free, non-commercial 2D momentum platformer starring Sproto. All characters and art are original." />
+    <title>HPOS10I</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #12141f;
+        overflow: hidden;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #game {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        outline: none;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #e8e6f0;
+        font: 14px/1.4 system-ui, sans-serif;
+        pointer-events: none;
+      }
+      #boot.hidden {
+        display: none;
+      }
+      #boot .bar {
+        width: 160px;
+        height: 6px;
+        border-radius: 3px;
+        background: #2a2d44;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      #boot .bar > div {
+        height: 100%;
+        width: 30%;
+        background: #ffd23f;
+        animation: slide 1s ease-in-out infinite alternate;
+      }
+      @keyframes slide {
+        from {
+          margin-left: 0;
+        }
+        to {
+          margin-left: 70%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" width="424" height="240" tabindex="0" aria-label="HPOS10I game"></canvas>
+    <div id="boot"><div><div>HPOS10I</div><div class="bar"><div></div></div></div></div>
+    <noscript>HPOS10I needs JavaScript.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
