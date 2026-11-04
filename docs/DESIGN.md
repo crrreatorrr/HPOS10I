@@ -64,7 +64,8 @@ A small, very fast creature, the mascot of the game.
 - **Relic skins:** one body-slot skin at a time, from hub Relics
   (`src/hub/relic_loadout.ts`). The effect is off in Ranked; the look stays.
   - Golden (`hpos_skin_golden_sproto`, Genesis Shard): all gold. +1 life per act.
-  - Nobu (`hpos_skin_nobu`, Cone's Tip): cream suit with ears. Top speed ×1.05.
+  - Nobu (`hpos_skin_nobu`, Cone's Tip or Breakwater Coin from Sproto Arcade;
+    owning both gives it once): cream suit with ears. Top speed ×1.05.
   - Tidebreaker (`hpos_skin_tidebreaker`, Tidebreaker Belt from Sproto
     Fighter): the blue parts sea-green, the face still yellow, a shiny gold
     championship belt with a round wave-emblem plate; a sea-green ball with a
