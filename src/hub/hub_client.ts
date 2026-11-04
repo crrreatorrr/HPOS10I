@@ -212,7 +212,10 @@ class HubClientImpl {
       if (zone === BOARD_ZONE && act === BOARD_ACT) {
         void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, best, { zone, act }));
       }
-      const eventKey = this.save.keyFor('relic', `${zone}:${act}:${timeMs}`);
+      // One key per clear: the attempt's run id is part of the id, so two
+      // attempts that clear the same act in the same time are two reports.
+      if (!this.save.runMatches(zone, act)) this.save.beginAttempt(zone, act);
+      const eventKey = this.save.keyFor('relic', `${zone}:${act}:${this.save.currentRunId()}:${timeMs}`);
       void this.call(() => this.sdk!.reportEvent(EVENT_LEVEL_COMPLETE, { zone, act, time: timeSec }, eventKey));
     }
     if (tickets > 0) this.bankTickets(zone, act, tickets);

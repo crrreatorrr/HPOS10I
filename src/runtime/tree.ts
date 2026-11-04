@@ -55,6 +55,8 @@ export class SceneTree {
   private gfx: Gfx | null = null;
   /** Debug: physics ticks run in the last frame. */
   lastTicks = 0;
+  /** Ticks the game holds still for impact (hit-stop); the main loop skips them. */
+  hitStopTicks = 0;
 
   constructor() {
     this.root._tree = this;
@@ -114,6 +116,11 @@ export class SceneTree {
     const index = this.currentScene ? this.root.children.indexOf(this.currentScene) : -1;
     this.root.addChild(node, index);
     return node;
+  }
+
+  /** Holds the game still for `ticks` ticks (impact feel). Only the main loop honours it. */
+  hitStop(ticks: number): void {
+    this.hitStopTicks = Math.max(this.hitStopTicks, Math.min(ticks, 12));
   }
 
   callDeferred(fn: () => void): void {
@@ -236,7 +243,8 @@ export class SceneTree {
       this.accumulator += real * this.timeScale;
       let ticks = 0;
       while (this.accumulator >= PHYSICS_DT && ticks < 8) {
-        this.physicsStep();
+        if (this.hitStopTicks > 0 && !this.paused) this.hitStopTicks--;
+        else this.physicsStep();
         this.accumulator -= PHYSICS_DT;
         ticks++;
       }

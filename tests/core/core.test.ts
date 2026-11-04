@@ -23,8 +23,8 @@ import { checked } from '../helpers/check';
 
 /** A dummy scene that remembers which id built it. */
 class Dummy extends Node {
-  constructor(readonly id: string) {
-    super(`Dummy:${id}`);
+  constructor(readonly sceneId: string) {
+    super(`Dummy:${sceneId}`);
   }
 }
 
@@ -44,7 +44,7 @@ function flush(): void {
 }
 
 function sceneId(): string {
-  return tree.currentScene instanceof Dummy ? tree.currentScene.id : '';
+  return tree.currentScene instanceof Dummy ? tree.currentScene.sceneId : '';
 }
 
 beforeEach(() => {
