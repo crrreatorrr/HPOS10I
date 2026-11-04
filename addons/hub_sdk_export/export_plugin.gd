@@ -54,10 +54,24 @@ func _export_end() -> void:
 	if dest_root.is_relative_path():
 		dest_root = ProjectSettings.globalize_path("res://").path_join(dest_root)
 	var dest := dest_root.path_join("hub-sdk")
-	var from := DirAccess.open(src)
-	if from == null:
+	if DirAccess.open(src) == null:
 		push_error("[HubSdkExport] missing vendored SDK at %s" % src)
 		return
+	var copied := _copy_js(src, dest)
+	print("[HubSdkExport] copied %d hub-sdk files to %s" % [copied, dest])
+	var html_path := _html_path(dest_root)
+	_inject_hub_url(html_path)
+	_inject_server_key(html_path)
+	_apply_base_path(html_path)
+
+
+## Copies the .js files under `src` to `dest`, keeping subfolders (the SDK's
+## index.js imports ./realtime/). Returns how many files it wrote.
+func _copy_js(src: String, dest: String) -> int:
+	var from := DirAccess.open(src)
+	if from == null:
+		push_error("[HubSdkExport] could not open %s" % src)
+		return 0
 	DirAccess.make_dir_recursive_absolute(dest)
 	var copied := 0
 	for name in from.get_files():
@@ -74,11 +88,11 @@ func _export_end() -> void:
 		out.store_buffer(bytes)
 		out.close()
 		copied += 1
-	print("[HubSdkExport] copied %d hub-sdk files to %s" % [copied, dest])
-	var html_path := _html_path(dest_root)
-	_inject_hub_url(html_path)
-	_inject_server_key(html_path)
-	_apply_base_path(html_path)
+	for sub in from.get_directories():
+		if sub.begins_with("."):
+			continue
+		copied += _copy_js(src.path_join(sub), dest.path_join(sub))
+	return copied
 
 
 ## HPOS_HUB_URL is a build-time setting (CI env or a shell export). Empty keeps

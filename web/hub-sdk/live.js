@@ -1,7 +1,8 @@
 import { resolveHubEnv } from './env.js';
 import { HubSdkError } from './errors.js';
-import { sessionVarsFromToken, userIdFromToken } from './nakama.js';
+import { sessionVarsFromToken, tokenExpiryMs, userIdFromToken } from './nakama.js';
 import { getOrCreateDeviceId } from './storage.js';
+import { EMPTY_SAVE, encodeSave, readSaveResult } from './save.js';
 import { readTicketParam, stripTicketParam } from './ticket.js';
 import { GAME_IDS, canonicalGameId, isBoardId, isRelicId, } from './types.js';
 /** IndexedDB database for earn, event, and exchange writes that have not been acked. */
@@ -153,6 +154,7 @@ export function createLiveHubSdk(env, client) {
                 ranked: parsed.ranked,
                 sid: parsed.sid,
                 token: parsed.token,
+                refreshToken: typeof parsed.refreshToken === 'string' ? parsed.refreshToken : undefined,
                 effects: flatEffects(parsed.effects),
                 relics: asRelics(parsed.relics),
                 ticketsCapLeft: typeof parsed.ticketsCapLeft === 'number' ? parsed.ticketsCapLeft : 0,
@@ -168,6 +170,15 @@ export function createLiveHubSdk(env, client) {
             resolved.session.removeItem(sessionKey(game));
         resolved.session.setItem(sessionKey(session.game), JSON.stringify(session));
         active = session;
+    }
+    function sessionInfo(session) {
+        return {
+            token: session.token,
+            playerId: session.playerId,
+            game: session.game,
+            ranked: session.ranked,
+            expiresAt: tokenExpiryMs(session.token),
+        };
     }
     function profileOf(session, serverTime) {
         return {
@@ -276,6 +287,7 @@ export function createLiveHubSdk(env, client) {
             ranked,
             sid: vars.sid,
             token: auth.token,
+            refreshToken: auth.refreshToken || undefined,
             effects,
             relics,
             ticketsCapLeft,
@@ -355,9 +367,55 @@ export function createLiveHubSdk(env, client) {
                 throw new HubSdkError('bad_board', `Unknown board "${boardId}"`);
             if (!Number.isFinite(value) || value < 0)
                 throw new HubSdkError('bad_score', 'Score must be a non-negative number');
-            if (!active || !active.ranked)
+            // The server owns eligibility (ranked gate, god mode, bounds), so unranked sessions post too.
+            if (!active)
                 return;
-            await client.rpc('score.submit', { boardId, value, meta: meta ?? {} }, { token: active.token });
+            const godMode = meta?.godMode === true;
+            return client.rpc('score.submit', { boardId, value, meta: meta ?? {}, godMode }, { token: active.token });
+        },
+        getSession() {
+            return active ? sessionInfo(active) : null;
+        },
+        async refreshSession() {
+            if (!active)
+                return null;
+            const session = active;
+            const expiresAt = tokenExpiryMs(session.token);
+            if (!expiresAt || expiresAt - resolved.now() > 300_000)
+                return sessionInfo(session);
+            if (!client.sessionRefresh || !session.refreshToken)
+                return sessionInfo(session);
+            const fresh = await client.sessionRefresh(session.refreshToken);
+            if (active !== session)
+                return active ? sessionInfo(active) : null;
+            session.token = fresh.token;
+            session.refreshToken = fresh.refreshToken;
+            writeCached(session);
+            return sessionInfo(session);
+        },
+        async getLeaderboard(boardId, opts) {
+            if (!isBoardId(boardId))
+                throw new HubSdkError('bad_board', `Unknown board "${boardId}"`);
+            const variant = opts?.variant ?? '';
+            if (!active)
+                return { boardId, variant, order: boardId === 'hpos10i_act_time' || boardId === 'nobu_trial_time' ? 'asc' : 'desc', rows: [], me: null };
+            const body = { boardId };
+            if (opts?.variant !== undefined)
+                body.variant = opts.variant;
+            if (opts?.limit !== undefined)
+                body.limit = opts.limit;
+            return client.rpc('leaderboard.top', body, { token: active.token });
+        },
+        async loadSave() {
+            if (!active)
+                return { ...EMPTY_SAVE };
+            return readSaveResult(await client.rpc('save.get', {}, { token: active.token }));
+        },
+        async writeSave(data) {
+            encodeSave(data);
+            if (!active)
+                return { ...EMPTY_SAVE };
+            return readSaveResult(await client.rpc('save.put', { data }, { token: active.token }));
         },
         async earnTickets(amount, reason, key) {
             if (!key)
