@@ -395,6 +395,17 @@ export interface Column {
 
 const RAD = 180 / Math.PI;
 
+const scans = new WeakMap<Node, { at: number; columns: Column[] }>();
+
+/** scan() of a root's bounds, reused within the same physics frame (lint and measure). */
+function scanOf(root: Node, bounds: Rect2, loops: LoopInfo[]): Column[] {
+  const known = scans.get(root);
+  if (known && known.at === tree.physicsFrames) return known.columns;
+  const columns = scan(bounds, loops);
+  scans.set(root, { at: tree.physicsFrames, columns });
+  return columns;
+}
+
 /** Floor points per x column (every 2 px), skipping loop footprints. */
 export function scan(bounds: Rect2, loops: LoopInfo[]): Column[] {
   const columns: Column[] = [];
@@ -592,7 +603,7 @@ export function lint(root: Node2D): Finding[] {
   if (start) spots.push(['PlayerStart', start.globalPosition]);
   for (const cp of findCheckpoints(root)) spots.push([cp.name, cp.globalPosition]);
   for (const [label, at] of spots) checkSpot(out, label, at, bounds, loops);
-  const columns = scan(bounds, loops);
+  const columns = scanOf(root, bounds, loops);
   checkTunnels(out, columns);
   checkFloors(out, columns);
   checkMomentum(out, columns, spots);
@@ -685,7 +696,7 @@ function median(values: number[]): number {
 export function measure(root: Node2D, isEnemy: (n: Node) => boolean = isEnemyNode): Measures {
   const bounds = boundsOf(root) ?? terrainExtent(root);
   const loops = findLoops(root);
-  const columns = scan(bounds, loops);
+  const columns = scanOf(root, bounds, loops);
 
   const start = root.getNodeOrNull<Node2D>('PlayerStart');
   const goal = collectAll(root, (n) => named(n, ['goal']))[0];

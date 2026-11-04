@@ -93,8 +93,7 @@ export class Bumper extends PlayerArea implements Configurable {
   /** 0..1 squash amount of the animation (1 right after a hit). */
   squash(): number {
     if (this.anim >= Bumper.ANIM_FRAMES) return 0;
-    const t = this.anim / Bumper.ANIM_FRAMES;
-    return Math.sin(t * Math.PI) * (1 - t * 0.5);
+    return 1 - this.anim / Bumper.ANIM_FRAMES;
   }
 
   cullRect(): Rect2 {
