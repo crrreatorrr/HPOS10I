@@ -4,7 +4,8 @@
 // A hub guest opens a portal ticket for hpos10i, the game redeems it in a
 // headless browser, clears Zone 1 Act 1 with tickets, and the server is
 // checked: Ticket balance, the HPOS10I Core Relic, the act-time score, no
-// double payment on a retry and a reload, and Exit to Hub.
+// double payment on a retry and a reload, the Act 2 pets (once each), and
+// Exit to Hub.
 //
 //   HUB_DIR=../metaverse-hub node tools/e2e/hub_e2e.mjs
 //
@@ -112,6 +113,8 @@ function sql(query) {
 }
 const balance = () => Number(sql(`SELECT COALESCE((SELECT balance FROM game.tickets_balance WHERE user_id = '${userId}' AND game_id = 'hpos10i'), 0)`));
 const relic = () => Number(sql(`SELECT count(*) FROM game.relic_claim WHERE user_id = '${userId}' AND relic_id = 'hpos10i_core'`));
+const pets = () => sql(`SELECT string_agg(item_id, ',' ORDER BY item_id) FROM game.item_owned WHERE user_id = '${userId}'`);
+const owns = (item) => pets().split(',').includes(item);
 const score = () => sql(`SELECT value FROM game.ranked_score WHERE user_id = '${userId}' AND board_id = 'hpos10i_act_time'`);
 async function until(fn, ms = 15000) {
   const end = Date.now() + ms;
@@ -174,6 +177,19 @@ await page.evaluate(() => window.hpos.router.startZone('z1_retro_rush_hills', 2)
 await page.waitForFunction(() => window.hpos.router.currentId === 'level:z1_retro_rush_hills/act2', null, { timeout: 20000 });
 await clearAct(7);
 check(await until(() => balance() === 27), `a new attempt pays: ${balance()} (want 27)`);
+
+// 6b. Act 2 clears grant their pets (hub M6 item rules), once each.
+check(await until(() => owns('pet_honk_sproto')), `Zone 1 Act 2 grants pet_honk_sproto (owned: ${pets() || 'none'})`);
+await page.evaluate(() => window.hpos.router.startZone('z2_wizard_academy', 2));
+await page.waitForFunction(() => window.hpos.router.currentId === 'level:z2_wizard_academy/act2', null, { timeout: 20000 });
+await clearAct(0);
+check(await until(() => owns('pet_spiral_sproto')), `Zone 2 Act 2 grants pet_spiral_sproto (owned: ${pets() || 'none'})`);
+await page.evaluate(() => window.hpos.router.startZone('z1_retro_rush_hills', 2));
+await page.waitForFunction(() => window.hpos.router.currentId === 'level:z1_retro_rush_hills/act2', null, { timeout: 20000 });
+await clearAct(0);
+await new Promise((r) => setTimeout(r, 2000));
+check(pets() === 'pet_honk_sproto,pet_spiral_sproto', `a second Zone 1 Act 2 clear grants nothing new: ${pets()}`);
+check(balance() === 27, `clears with no tickets pay nothing: ${balance()}`);
 
 // 7. A player stuck by an older build: an over-cap earn queued in the SDK
 //    outbox. The next launch must still reach the hub.
