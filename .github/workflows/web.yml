@@ -87,9 +87,24 @@ jobs:
         with:
           path: build/web
 
+  # The headless playtest bots play every act (several minutes), in parallel
+  # with the build job. Deploying waits for both.
+  bots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Playtest bots (every act, item boxes on and off, timeline replays)
+        run: npm run test:bots
+
   deploy:
     if: github.ref == 'refs/heads/main' && vars.PAGES_ENABLED == 'true'
-    needs: build
+    needs: [build, bots]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

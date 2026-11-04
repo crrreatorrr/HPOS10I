@@ -23,6 +23,7 @@ import { Node, Node2D } from '../runtime/node';
 import { tree } from '../runtime/tree';
 import { registerZone4 } from './z4/register';
 import { Vec2 } from '../runtime/vec2';
+import { TerrainLoop } from '../terrain/loop';
 
 /** Seconds before time over. */
 export const TIME_LIMIT = 600;
@@ -31,6 +32,8 @@ const BOX_SPACING = 424 * 5;
 /** Nothing else this close to a box (px), except tickets. */
 const CLEAR_RADIUS = 56;
 const FLOOR_MASK = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A;
+/** Offsets tried around each target x, nearest first (up to 1.5 screens either way). */
+const SEARCH_OFFSETS: readonly number[] = [0, ...Array.from({ length: 20 }, (_, i) => [(i + 1) * 32, -(i + 1) * 32]).flat()];
 const BOX_CONTENTS: readonly BoxContent[] = ['shield', 'speed_shoes', 'shield', 'invincibility', 'speed_shoes', 'shield', 'life'];
 
 /** Ends the act with a time over at 10:00, like the classic games. */
@@ -70,6 +73,48 @@ export function floorsAt(x: number, top: number, bottom: number): number[] {
   return out;
 }
 
+/** Floor y near `y` at x (searching 40 px above and below), or null. */
+function floorNear(x: number, y: number): number | null {
+  const hit = tree.physics.intersectRay(new Vec2(x, y - 40), new Vec2(x, y + 40), FLOOR_MASK);
+  return hit ? hit.position.y : null;
+}
+
+/**
+ * True when the ground stays level around x: flat under the box and its
+ * approach, and no slope foot or downhill bottom within a few tiles, so a
+ * box never stops a runner coming down a hill or sits where a jump over it
+ * lands on an up-slope.
+ */
+function levelGround(x: number, y: number): boolean {
+  for (let dx = -256; dx <= 256; dx += 16) {
+    const f = floorNear(x + dx, y);
+    if (f === null) {
+      // A gap (pit) close by is not a good spot either.
+      if (Math.abs(dx) <= 128) return false;
+      continue;
+    }
+    const limit = Math.abs(dx) <= 96 ? 1 : 8;
+    if (Math.abs(f - y) > limit) return false;
+  }
+  return true;
+}
+
+/** Spans of x to keep clear: loops (and their run-up), springs and boosters (launch and landing zones). */
+function keepOutSpans(root: LevelRoot): [number, number][] {
+  const spans: [number, number][] = [];
+  for (const n of root.findChildren<Node2D>((c) => c instanceof Node2D)) {
+    const name = n.constructor.name;
+    const x = n.globalPosition.x;
+    if (n instanceof TerrainLoop) {
+      const half = n.radius + n.thickness + Math.max(n.floorMargin, Math.min(n.footRadius, n.radius) + 64) + 64;
+      spans.push([x - half, x + half]);
+    } else if (/Spring|Booster|Launch|Bumper|Tube/.test(name)) {
+      spans.push([x - 320, x + 320]);
+    }
+  }
+  return spans;
+}
+
 /** Places item boxes along an act. Returns how many were placed. */
 export function placeItemBoxes(root: LevelRoot): number {
   const bounds = root.getBounds();
@@ -79,13 +124,15 @@ export function placeItemBoxes(root: LevelRoot): number {
   const end = goal ? goal.globalPosition.x : bounds.right;
   const blockers = root.findChildren<Node2D>((n) => n instanceof Node2D && n.parent !== null && !(n instanceof LevelTicket) && isLevelThing(n));
   const parent = root.getNodeOrNull('Objects') ?? root;
+  const spans = keepOutSpans(root);
   let placed = 0;
   let index = 0;
   for (let x = start + BOX_SPACING * 0.6; x < end - 424; x += BOX_SPACING, index++) {
     let done = false;
-    for (const dx of [0, 64, -64, 128, -128, 192, -192, 256]) {
+    for (const dx of SEARCH_OFFSETS) {
       const cx = Math.round((x + dx) / 16) * 16;
-      const floors = floorsAt(cx, bounds.y, bounds.bottom);
+      if (spans.some(([a, b]) => cx >= a && cx <= b)) continue;
+      const floors = floorsAt(cx, bounds.y, bounds.bottom).filter((y) => levelGround(cx, y));
       if (floors.length === 0) continue;
       // Alternate: even boxes on the highest route, odd ones on the lowest.
       const ordered = index % 2 === 0 ? floors : [...floors].reverse();
