@@ -15,6 +15,7 @@ import { registerEnemies } from './levels/registry_enemies';
 import { registerObjects } from './levels/registry_objects';
 import { registerLevelScenes } from './levels/scenes';
 import { registerNewContent } from './levels/content';
+import { registerBosses } from './bosses/register';
 import { installPlayerVisuals } from './player/visuals_setup';
 import { TimeFocus } from './player/time_focus';
 import { preload, assetUrl } from './runtime/assets';
@@ -104,6 +105,7 @@ async function boot(): Promise<void> {
   registerEnemies();
   registerLevelScenes();
   registerNewContent();
+  registerBosses();
   const ui = installUi();
 
   // Autoloads (before the first scene), then the global overlays.
