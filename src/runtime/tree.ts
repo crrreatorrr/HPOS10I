@@ -11,6 +11,10 @@ import { PhysicsWorld } from './physics';
 import { Transform2D } from './transform';
 import { Rect2, Vec2 } from './vec2';
 
+const BASE_PHYSICS = Node.prototype.physicsProcess;
+const BASE_PROCESS = Node.prototype.process;
+const BASE_INPUT = Node.prototype.input;
+
 export const VIEW_W = 424;
 export const VIEW_H = 240;
 export const PHYSICS_FPS = 60;
@@ -48,6 +52,10 @@ export class SceneTree {
   private dirty = true;
   private ordered: Node[] = [];
   private processOrder: Node[] = [];
+  private physicsNodes: Node[] = [];
+  private processNodes: Node[] = [];
+  private inputNodes: Node[] = [];
+  private node2ds: Node2D[] = [];
   private groupCache = new Map<string, Node[]>();
   private accumulator = 0;
   private lastTime = -1;
@@ -88,6 +96,11 @@ export class SceneTree {
     this.processOrder = out.some((n) => n.processPriority !== 0)
       ? out.map((n, i) => [n, i] as const).sort((p, q) => p[0].processPriority - q[0].processPriority || p[1] - q[1]).map((x) => x[0])
       : out;
+    // Only nodes that override a hook are visited each tick / frame.
+    this.physicsNodes = this.processOrder.filter((n) => n.physicsProcess !== BASE_PHYSICS);
+    this.processNodes = this.processOrder.filter((n) => n.process !== BASE_PROCESS);
+    this.inputNodes = out.filter((n) => n.input !== BASE_INPUT);
+    this.node2ds = out.filter((n): n is Node2D => n instanceof Node2D);
     this.groupCache.clear();
   }
 
@@ -173,15 +186,13 @@ export class SceneTree {
     this.physicsFrames++;
     const dt = PHYSICS_DT;
     // Interpolation: remember where everything was at the start of the tick.
-    for (const n of this.ordered) {
-      if (n instanceof Node2D) {
-        n._prevPosition = n.position;
-        n._interpReset = false;
-      }
+    for (const n of this.node2ds) {
+      n._prevPosition = n.position;
+      n._interpReset = false;
     }
     Input.inPhysics = true;
     try {
-      const nodes = this.processOrder.slice();
+      const nodes = this.physicsNodes.slice();
       for (const n of nodes) {
         if (n.isInsideTree() && !n.isQueuedForDeletion() && n.canProcess()) n.physicsProcess(dt);
       }
@@ -199,7 +210,7 @@ export class SceneTree {
     this.processFrames++;
     const events = Input.beginProcessFrame();
     for (const ev of events) this.dispatchInput(ev);
-    const nodes = this.processOrder.slice();
+    const nodes = this.processNodes.slice();
     for (const n of nodes) {
       if (n.isInsideTree() && !n.isQueuedForDeletion() && n.canProcess()) n.process(delta);
     }
@@ -209,7 +220,7 @@ export class SceneTree {
   /** Delivers an input event to nodes, last in tree order first, until handled. */
   dispatchInput(ev: InputEvent): void {
     this.refresh();
-    const nodes = this.ordered.slice();
+    const nodes = this.inputNodes.slice();
     for (let i = nodes.length - 1; i >= 0; i--) {
       const n = nodes[i]!;
       if (!n.isInsideTree() || !n.canProcess()) continue;

@@ -307,9 +307,48 @@ export interface InputEventLike {
 }
 
 export class Node2D extends Node {
-  position: Vec2 = Vec2.ZERO;
-  rotation = 0;
-  scale: Vec2 = Vec2.ONE;
+  private _position: Vec2 = Vec2.ZERO;
+  private _rotation = 0;
+  private _scale: Vec2 = Vec2.ONE;
+  /** @internal Bumped on every local transform change (global transform cache). */
+  _localVersion = 0;
+  /** @internal Bumped whenever the cached global transform is recomputed. */
+  _globalVersion = 0;
+  private _gCache: Transform2D | null = null;
+  private _gLocal = -1;
+  private _gParent: Node2D | null = null;
+  private _gParentVersion = -1;
+  private _gTopLevel = false;
+
+  get position(): Vec2 {
+    return this._position;
+  }
+
+  set position(v: Vec2) {
+    this._position = v;
+    this._localVersion++;
+  }
+
+  get rotation(): number {
+    return this._rotation;
+  }
+
+  set rotation(v: number) {
+    if (v !== this._rotation) {
+      this._rotation = v;
+      this._localVersion++;
+    }
+  }
+
+  get scale(): Vec2 {
+    return this._scale;
+  }
+
+  set scale(v: Vec2) {
+    this._scale = v;
+    this._localVersion++;
+  }
+
   zIndex = 0;
   zAsRelative = true;
   visible = true;
@@ -339,17 +378,34 @@ export class Node2D extends Node {
   }
 
   get globalTransform(): Transform2D {
-    if (this.topLevel) return this.transform;
-    const parent = this.parentNode2D();
+    const parent = this.topLevel ? null : this.parentNode2D();
+    const parentT = parent ? parent.globalTransform : null;
+    const parentV = parent ? parent._globalVersion : -1;
+    const c = this._gCache;
+    if (c && this._gLocal === this._localVersion && this._gParent === parent && this._gParentVersion === parentV && this._gTopLevel === this.topLevel) {
+      return c;
+    }
     const local = this.transform;
-    return parent ? parent.globalTransform.mul(local) : local;
+    const t = parentT ? parentT.mul(local) : local;
+    this._gCache = t;
+    this._gLocal = this._localVersion;
+    this._gParent = parent;
+    this._gParentVersion = parentV;
+    this._gTopLevel = this.topLevel;
+    this._globalVersion++;
+    return t;
   }
 
   get globalPosition(): Vec2 {
     if (this.topLevel) return this.position;
     const parent = this.parentNode2D();
     if (!parent) return this.position;
-    return parent.globalTransform.xform(this.position);
+    const t = parent.globalTransform;
+    if (t.a === 1 && t.b === 0 && t.c === 0 && t.d === 1) {
+      if (t.tx === 0 && t.ty === 0) return this.position;
+      return new Vec2(this.position.x + t.tx, this.position.y + t.ty);
+    }
+    return t.xform(this.position);
   }
 
   set globalPosition(p: Vec2) {
@@ -358,7 +414,13 @@ export class Node2D extends Node {
       return;
     }
     const parent = this.parentNode2D();
-    this.position = parent ? parent.globalTransform.affineInverse().xform(p) : p;
+    if (!parent) {
+      this.position = p;
+      return;
+    }
+    const t = parent.globalTransform;
+    if (t.a === 1 && t.b === 0 && t.c === 0 && t.d === 1) this.position = new Vec2(p.x - t.tx, p.y - t.ty);
+    else this.position = t.affineInverse().xform(p);
   }
 
   get globalRotation(): number {
