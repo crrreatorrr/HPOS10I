@@ -79,7 +79,7 @@ export class EndingScreen extends Node {
   }
 
   override ready(): void {
-    Audio.playMusic('ending');
+    Audio.playMusic('title');
   }
 
   /** Scroll at which the last line sits in the middle of the screen. */

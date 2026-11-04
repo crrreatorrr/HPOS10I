@@ -62,7 +62,7 @@ A small, very fast creature, the mascot of the game.
 - **Accessories:** a wizard hat in Wizard Academy and sunglasses in Capital
   Mansion, drawn as overlays (see CONTRACTS.md).
 - **Relic skins:** one body-slot skin at a time, from hub Relics
-  (`core/relic_loadout.gd`). The effect is off in Ranked; the look stays.
+  (`src/hub/relic_loadout.ts`). The effect is off in Ranked; the look stays.
   - Golden (`hpos_skin_golden_sproto`, Genesis Shard): all gold. +1 life per act.
   - Nobu (`hpos_skin_nobu`, Cone's Tip): cream suit with ears. Top speed ×1.05.
   - Tidebreaker (`hpos_skin_tidebreaker`, Tidebreaker Belt from Sproto
@@ -72,6 +72,22 @@ A small, very fast creature, the mascot of the game.
     unchanged (a full dash in 3 presses instead of 4, never faster).
 - **Off-limits:** a frog-like face (droopy eyelids, wide fleshy lips) and
   swept-back spiky quills, which belong to an existing game mascot.
+
+## Item boxes and power-ups
+
+Sturdy grey crates on two little feet with a small screen on the front that
+flickers with what's inside (our own design; never an existing game's item
+monitor look). Jumping or rolling into one bursts it into chips and its icon
+rises out of the screen.
+
+- **Shield:** a translucent blue bubble around Sproto. Takes one hit with no
+  tickets lost; with the extra moves on, jumping again slams down and bounces.
+- **Speed shoes:** red sneakers with a gold stripe. Double top speed and
+  acceleration for 20 seconds, with a faint trail.
+- **Invincibility:** a rainbow star. 20 seconds of sparkles; touch destroys
+  enemies and hazards can't hurt (pits still can).
+- **Extra life:** Sproto's face.
+- Never tickets. Off in Ranked, and the player can turn them off.
 
 ## Golden tickets (collectible)
 
@@ -92,7 +108,7 @@ psychedelic grinning portrait with a "10"), kept as it is.
 
 - The director chose the display name and the image knowingly, as a scoped
   exception to the originality guardrails. The name lives only in
-  `core/emeralds.gd` (allowlisted there). Everywhere else, show it through
+  `src/core/emeralds.ts` (allowlisted there). Everywhere else, show it through
   `Emeralds.NAME` and call it "the emerald".
 - Shown big on the act-clear tally the first time it's won, and as 16 px
   slots on the zone select.

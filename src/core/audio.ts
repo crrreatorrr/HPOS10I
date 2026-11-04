@@ -39,7 +39,7 @@ export const SFX_NAMES = [
   'power_up',
 ] as const;
 
-export const MUSIC_NAMES = ['title', 'zone_select', 'z1', 'z2', 'z3', 'z4', 'boss', 'act_clear', 'game_over', 'invincible', 'ending'] as const;
+export const MUSIC_NAMES = ['title', 'zone_select', 'z1', 'z2', 'z3', 'z4', 'boss', 'act_clear', 'game_over'] as const;
 
 export type SfxName = (typeof SFX_NAMES)[number];
 export type MusicName = (typeof MUSIC_NAMES)[number];
