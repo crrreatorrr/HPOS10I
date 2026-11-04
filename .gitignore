@@ -17,3 +17,9 @@ assets/**/_raw/
 .DS_Store
 *.tmp
 __pycache__/
+
+# Node / Vite
+node_modules/
+build/web/
+*.tsbuildinfo
+test-results/
