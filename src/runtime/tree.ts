@@ -272,6 +272,7 @@ export class SceneTree {
     const layers: { layer: number; root: CanvasLayer }[] = [];
     const world: DrawItem[] = [];
     let order = 0;
+    let viewBase = view;
     const collect = (n: Node, parentT: Transform2D, parentZ: number, parentAlpha: number, out: DrawItem[], interp: boolean) => {
       if (n instanceof CanvasLayer) {
         if (n.visible) layers.push({ layer: n.layer, root: n });
@@ -293,8 +294,8 @@ export class SceneTree {
           }
         }
         const local = Transform2D.from(pos, n.rotation, n.scale);
-        t = parentT.mul(local);
-        z = n.zAsRelative ? parentZ + n.zIndex : n.zIndex;
+        t = n.topLevel ? viewBase.mul(local) : parentT.mul(local);
+        z = n.zAsRelative && !n.topLevel ? parentZ + n.zIndex : n.zIndex;
         a = parentAlpha * n.modulate.a;
         if (a <= 0) return;
         const item: DrawItem = { node: n, t, z, alpha: a * n.selfModulate.a, order: 0 };
@@ -333,9 +334,12 @@ export class SceneTree {
 
     const below = layers.filter((l) => l.layer < 0).sort((p, q) => p.layer - q.layer);
     const above = layers.filter((l) => l.layer >= 0).sort((p, q) => p.layer - q.layer);
-    for (const l of below) drawList(this.collectLayer(l.root, collect), null);
+    const setBase = (t: Transform2D) => {
+      viewBase = t;
+    };
+    for (const l of below) drawList(this.collectLayer(l.root, collect, setBase), null);
     drawList(world, viewRect);
-    for (const l of above) drawList(this.collectLayer(l.root, collect), null);
+    for (const l of above) drawList(this.collectLayer(l.root, collect, setBase), null);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
   }
@@ -343,9 +347,11 @@ export class SceneTree {
   private collectLayer(
     layer: CanvasLayer,
     collect: (n: Node, t: Transform2D, z: number, a: number, out: DrawItem[], interp: boolean) => void,
+    setBase: (t: Transform2D) => void,
   ): DrawItem[] {
     const out: DrawItem[] = [];
     const t = new Transform2D(1, 0, 0, 1, layer.offset.x, layer.offset.y);
+    setBase(t);
     for (const c of layer.children) collect(c, t, 0, 1, out, false);
     return out;
   }

@@ -319,6 +319,8 @@ export class Node2D extends Node {
   showBehindParent = false;
   /** Round the drawn position to whole pixels (crisp pixel art). */
   snapToPixel = true;
+  /** Ignores the parent's transform: position is in world space (effects). */
+  topLevel = false;
 
   /** @internal position at the start of the last physics tick (interpolation). */
   _prevPosition: Vec2 = Vec2.ZERO;
@@ -335,23 +337,30 @@ export class Node2D extends Node {
   }
 
   get globalTransform(): Transform2D {
+    if (this.topLevel) return this.transform;
     const parent = this.parentNode2D();
     const local = this.transform;
     return parent ? parent.globalTransform.mul(local) : local;
   }
 
   get globalPosition(): Vec2 {
+    if (this.topLevel) return this.position;
     const parent = this.parentNode2D();
     if (!parent) return this.position;
     return parent.globalTransform.xform(this.position);
   }
 
   set globalPosition(p: Vec2) {
+    if (this.topLevel) {
+      this.position = p;
+      return;
+    }
     const parent = this.parentNode2D();
     this.position = parent ? parent.globalTransform.affineInverse().xform(p) : p;
   }
 
   get globalRotation(): number {
+    if (this.topLevel) return this.rotation;
     const parent = this.parentNode2D();
     return (parent ? parent.globalRotation : 0) + this.rotation;
   }

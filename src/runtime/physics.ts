@@ -14,17 +14,18 @@
 //  - Areas (triggers) report enter/exit overlaps against other areas, once
 //    per tick after every script has run.
 
-import { CanvasLayer, Node2D } from './node';
+import { Node2D } from './node';
 import { Signal } from './signal';
 import { Transform2D } from './transform';
 import { Rect2, Vec2 } from './vec2';
 
 // --- Shapes -------------------------------------------------------------------------
 
+/** `edgeless` shapes answer point queries but give rays no edges (tiles buried in ground). */
 export type Shape =
-  | { kind: 'rect'; size: Vec2; offset: Vec2; disabled?: boolean }
-  | { kind: 'circle'; radius: number; offset: Vec2; disabled?: boolean }
-  | { kind: 'polygon'; points: Vec2[]; disabled?: boolean };
+  | { kind: 'rect'; size: Vec2; offset: Vec2; disabled?: boolean; edgeless?: boolean }
+  | { kind: 'circle'; radius: number; offset: Vec2; disabled?: boolean; edgeless?: boolean }
+  | { kind: 'polygon'; points: Vec2[]; disabled?: boolean; edgeless?: boolean };
 
 export function rectShape(size: Vec2, offset: Vec2 = Vec2.ZERO): Shape {
   return { kind: 'rect', size, offset };
@@ -328,14 +329,15 @@ export class PhysicsWorld {
     rec.cells = [];
   }
 
-  private worldPolys(rec: BodyRecord): Vec2[][] {
+  private worldPolys(rec: BodyRecord): { pts: Vec2[]; edgeless: boolean }[] {
     const t = rec.transform;
-    const out: Vec2[][] = [];
+    const out: { pts: Vec2[]; edgeless: boolean }[] = [];
+    const identity = t.isTranslationOnly() && t.tx === 0 && t.ty === 0;
     for (const shape of rec.body.shapes) {
       if (shape.disabled) continue;
       const local = shapePolygon(shape);
       if (local.length < 3) continue;
-      out.push(local.map((p) => t.xform(p)));
+      out.push({ pts: identity ? local : local.map((p) => t.xform(p)), edgeless: shape.edgeless === true });
     }
     return out;
   }
@@ -345,8 +347,8 @@ export class PhysicsWorld {
     rec.edges = [];
     rec.polys = [];
     for (const poly of this.worldPolys(rec)) {
-      rec.polys.push(makeWorldPoly(poly, rec.body));
-      rec.edges.push(...polygonEdges(poly, rec.body));
+      rec.polys.push(makeWorldPoly(poly.pts, rec.body));
+      if (!poly.edgeless) pushAll(rec.edges, polygonEdges(poly.pts, rec.body));
     }
     if (rec.isStatic) this.index(rec);
     this.revision++;
@@ -389,8 +391,8 @@ export class PhysicsWorld {
       const all: Edge[] = [];
       for (const rec of recs) {
         for (const poly of this.worldPolys(rec)) {
-          rec.polys.push(makeWorldPoly(poly, rec.body));
-          all.push(...polygonEdges(poly, rec.body));
+          rec.polys.push(makeWorldPoly(poly.pts, rec.body));
+          if (!poly.edgeless) pushAll(all, polygonEdges(poly.pts, rec.body));
         }
       }
       const merged = mergeEdges(all);
@@ -414,8 +416,8 @@ export class PhysicsWorld {
         rec.edges = [];
         rec.polys = [];
         for (const poly of this.worldPolys(rec)) {
-          rec.polys.push(makeWorldPoly(poly, rec.body));
-          rec.edges.push(...polygonEdges(poly, rec.body));
+          rec.polys.push(makeWorldPoly(poly.pts, rec.body));
+          if (!poly.edgeless) pushAll(rec.edges, polygonEdges(poly.pts, rec.body));
         }
       }
     }
@@ -432,8 +434,8 @@ export class PhysicsWorld {
       rec.edges = [];
       rec.polys = [];
       for (const poly of this.worldPolys(rec)) {
-        rec.polys.push(makeWorldPoly(poly, rec.body));
-        rec.edges.push(...polygonEdges(poly, rec.body));
+        rec.polys.push(makeWorldPoly(poly.pts, rec.body));
+        if (!poly.edgeless) pushAll(rec.edges, polygonEdges(poly.pts, rec.body));
       }
     }
   }
@@ -569,6 +571,10 @@ export class PhysicsWorld {
 }
 
 // --- Helpers --------------------------------------------------------------------------
+
+function pushAll<T>(into: T[], items: T[]): void {
+  for (const it of items) into.push(it);
+}
 
 function* cellsFor(minX: number, minY: number, maxX: number, maxY: number): Generator<number> {
   const x0 = Math.floor(minX / CELL);
@@ -741,6 +747,3 @@ export function areaRects(area: Area2D): Rect2[] {
     g.kind === 'rect' ? new Rect2(g.x0, g.y0, g.x1 - g.x0, g.y1 - g.y0) : new Rect2(g.cx - g.r, g.cy - g.r, g.r * 2, g.r * 2),
   );
 }
-
-// Re-export for callers that only need the layer helper types.
-export { CanvasLayer };

@@ -25,7 +25,19 @@ class TimeFocusNode extends Node {
   constructor() {
     super('TimeFocus');
     this.processMode = ProcessMode.ALWAYS;
+  }
+
+  private wired = false;
+
+  /** Connects to GameState (at boot; not at import, which would be an import cycle). */
+  wire(): void {
+    if (this.wired) return;
+    this.wired = true;
     GameState.levelStarted.connect(() => this.onLevelStarted());
+  }
+
+  override enterTree(): void {
+    this.wire();
   }
 
   isActive(): boolean {
