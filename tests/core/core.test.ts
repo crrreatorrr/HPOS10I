@@ -172,7 +172,8 @@ describe('zones', () => {
     checked((c) => {
       c.true(ZoneRegistry.isReleased(Z1), 'Zone 1 released');
       c.true(ZoneRegistry.isReleased('test_zone'), 'the test zone is always open');
-      c.true(!ZoneRegistry.isReleased('z4_neon_rush_remix'), 'Zone 4 not yet');
+      c.true(ZoneRegistry.isReleased('z3_capital_mansion') && ZoneRegistry.isReleased('z4_neon_rush_remix'), 'Zones 3 and 4 released');
+      c.true(!ZoneRegistry.isReleased('z9_unknown'), 'unknown zones are not');
     }),
   );
 });

@@ -245,11 +245,20 @@ describe('ZoneSelect', () => {
     return d ? `${d.zoneId}:${d.act}` : String(zs.menu.focus === zs.backIndex ? 'back' : zs.menu.focus);
   }
 
-  it('locks unreleased zones and has 8 emerald slots, filled once won', () => {
+  it('opens every released zone and has 8 emerald slots, filled once won', () => {
     GameState.emeralds.add(Emeralds.key('z1_retro_rush_hills', 2));
     const zs = open();
     const open1 = zs.acts.filter((a) => a.open).map((a) => `${a.zoneId}:${a.act}`);
-    expect(open1).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2', 'z2_wizard_academy:1', 'z2_wizard_academy:2']);
+    expect(open1).toEqual([
+      'z1_retro_rush_hills:1',
+      'z1_retro_rush_hills:2',
+      'z2_wizard_academy:1',
+      'z2_wizard_academy:2',
+      'z3_capital_mansion:1',
+      'z3_capital_mansion:2',
+      'z4_neon_rush_remix:1',
+      'z4_neon_rush_remix:2',
+    ]);
     for (const a of zs.acts) expect(a.open).toBe(ZoneRegistry.isReleased(a.zoneId));
     const slots = zs.emeraldSlots();
     expect(slots.length).toBe(8);
@@ -266,7 +275,7 @@ describe('ZoneSelect', () => {
     }
   });
 
-  it('navigation wraps and skips locked zones', () => {
+  it('navigation wraps through every zone', () => {
     const zs = open();
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1');
     tapAction('ui_right');
@@ -276,7 +285,11 @@ describe('ZoneSelect', () => {
     tapAction('ui_down');
     expect(focusedAct(zs)).toBe('z2_wizard_academy:1');
     tapAction('ui_down');
-    expect(focusedAct(zs)).toBe('back'); // z3 and z4 are locked
+    expect(focusedAct(zs)).toBe('z3_capital_mansion:1');
+    tapAction('ui_down');
+    expect(focusedAct(zs)).toBe('z4_neon_rush_remix:1');
+    tapAction('ui_down');
+    expect(focusedAct(zs)).toBe('back');
     tapAction('ui_down');
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1'); // wraps
     tapAction('ui_up');
@@ -712,7 +725,8 @@ describe('screens', () => {
     frames(1);
     const labels = menu.entries.map((e) => e.label);
     expect(labels).toContain('Retro Rush Hills Act 1');
-    expect(labels).toContain('Capital Mansion Boss (WIP)');
+    expect(labels).toContain('Capital Mansion Boss');
+    expect(labels).toContain('Neon Rush Remix Act 2');
     expect(labels).toContain('Test Zone');
     Input.keyDown('Digit2', false);
     frames(1);

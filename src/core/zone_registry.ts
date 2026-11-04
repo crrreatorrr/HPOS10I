@@ -64,7 +64,7 @@ export const ZONES: readonly Zone[] = [
  * ?zone= while they are tuned; the zone select hides them. A zone is
  * released after QA passes it.
  */
-export const RELEASED: readonly string[] = ['z1_retro_rush_hills', 'z2_wizard_academy'];
+export const RELEASED: readonly string[] = ['z1_retro_rush_hills', 'z2_wizard_academy', 'z3_capital_mansion', 'z4_neon_rush_remix'];
 
 export const ZoneRegistry = {
   allZones(includeTest = false): Zone[] {
