@@ -22,6 +22,10 @@ GODOT=godot tools/qa/scene_smoke.sh .
 
 `tools/lead/gate.sh` runs the merge gate on a clean checkout of a commit.
 
+## Art generation
+
+Follow `docs/higgsfield-workflow-guide.md`. This repo uses the **sprite sheet** workflow. If the owner says to skip approvals, follow that section of the guide.
+
 ## Working with other agents
 
 Claude Code, Codex, Cursor and Grok Bot all work on this repo.
