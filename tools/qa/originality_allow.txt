@@ -11,8 +11,10 @@ core/emeralds.gd:13
 # Owner decision 2026-11-02: the vendored hub SDK names another hub game by its
 # server game id (denylist term #425). It is an id the SDK compares against, never
 # shown to players. Scoped to these lines, so a re-vendor that moves them is
-# flagged and re-reviewed. Re-pinned 2026-11-04 for SDK 0.6.0: the same five
-# uses of the same id, moved by the re-vendor.
+# flagged and re-reviewed. Re-pinned 2026-11-04 for SDK 0.6.0 and re-reviewed: the
+# same five uses of the same id (two shop-row lookups, the quest relic event, the
+# game id list, the relic-by-game map), one per line, with per-file counts unchanged
+# from the 0.5.0 vendor (2, 1, 2) and none in the new save.js or realtime/ files.
 web/hub-sdk/createHubSdk.js:426
 web/hub-sdk/createHubSdk.js:451
 web/hub-sdk/events.js:35
