@@ -21,6 +21,7 @@ import { boxesEnabled, ItemBox, type BoxContent } from './objects/item_box';
 import { LevelTicket } from './objects/ticket';
 import { Node, Node2D } from '../runtime/node';
 import { tree } from '../runtime/tree';
+import { registerZone4 } from './z4/register';
 import { Vec2 } from '../runtime/vec2';
 
 /** Seconds before time over. */
@@ -144,5 +145,6 @@ function onLevelReady(root: LevelRoot): void {
 
 export function registerNewContent(): void {
   LevelTypes.register('hpos://objects/item_box', () => new ItemBox());
+  registerZone4();
   if (!LevelHooks.afterReady.includes(onLevelReady)) LevelHooks.afterReady.push(onLevelReady);
 }

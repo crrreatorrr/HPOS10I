@@ -9,8 +9,7 @@
 // the right and `height` px up. Drawn as a glass tube with flowing chevrons
 // (neon in Neon Rush Remix, `art_zone`). Layer 7 (objects), mask 5 (player).
 //
-// forceRoll() is the helper a public Player.forceRoll() would replace: it
-// uses Player.setBall() and Player.changeState('roll') (marked internal).
+// forceRoll() plays the roll sound and calls Player.forceRoll().
 
 import { Audio } from '../../../core/audio';
 import type { Player } from '../../../player/player';
@@ -25,11 +24,8 @@ import { glowLine, resolveArtZone, styleFor, type SetPieceStyle } from './style'
 
 /** Curls `player` into a rolling ball on the ground (no-op when he already is). */
 export function forceRoll(player: Player): void {
-  if (!player.isBall) {
-    player.setBall(true);
-    Audio.playSfx('roll');
-  }
-  if (player.state !== 'roll') player.changeState('roll');
+  if (!player.isBall) Audio.playSfx('roll');
+  player.forceRoll();
 }
 
 export class RollTube extends PlayerArea implements Configurable {

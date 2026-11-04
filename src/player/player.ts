@@ -348,6 +348,14 @@ export class Player extends Node2D {
     this.controlLock = lockFrames;
   }
 
+  /** Curls a grounded player into a roll (forced-roll tubes). No effect in the air or when hurt/dead. */
+  forceRoll(): void {
+    if (!this.grounded || this._state === 'hurt' || this._state === 'dead') return;
+    this.crouching = false;
+    if (!this._ball) this.setBall(true);
+    if (this._state !== 'spindash') this.changeState('roll');
+  }
+
   setControlLock(frames: number): void {
     this.controlLock = Math.max(frames, 0);
   }
