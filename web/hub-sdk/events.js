@@ -3,7 +3,7 @@ import { RELIC_BY_GAME } from './types.js';
  * Event ids games report through `reportEvent`.
  * `ready` is the boot handshake. `game_beaten` is accepted but grants nothing: the
  * server has no open rule for it (migration 0008), so a client cannot claim a relic
- * by saying it won. The four `*.` ids are the relic triggers from the architecture doc.
+ * by saying it won. The six `*.` ids are the relic triggers from the architecture doc.
  */
 export const HubEvent = {
     Ready: 'ready',
@@ -12,6 +12,8 @@ export const HubEvent = {
     PbQuestComplete: 'pb.quest_complete',
     NobuBossDefeated: 'nobu.boss_defeated',
     SprotoBossDefeated: 'sproto.boss_defeated',
+    FighterStoryLevelComplete: 'fighter.story_level_complete',
+    ArcadeBossDefeated: 'arcade.boss_defeated',
 };
 function record(data) {
     return data;
@@ -42,6 +44,16 @@ export function relicForEvent(game, eventId, data) {
     }
     if (eventId === HubEvent.SprotoBossDefeated && game === 'sproto') {
         if (payload.boss === 'tinubu')
+            return own;
+        return undefined;
+    }
+    if (eventId === HubEvent.FighterStoryLevelComplete && game === 'sproto-fighter') {
+        if (payload.world === 1)
+            return own;
+        return undefined;
+    }
+    if (eventId === HubEvent.ArcadeBossDefeated && game === 'sproto-arcade') {
+        if (payload.boss === 'bront')
             return own;
         return undefined;
     }

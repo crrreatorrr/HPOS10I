@@ -1,7 +1,8 @@
 extends TestCase
 ## Relic skins in the body slot (core/relic_loadout.gd): ownership from the hub
 ## init relics, the exclusive body slot, Ranked, and Tidebreaker's spin-dash
-## charge per press (player/player.gd _spindash_step).
+## charge per press (player/player.gd _spindash_step), and the Breakwater Coin
+## owning the Nobu skin just as Cone's Tip does.
 ##
 ##   godot --headless --fixed-fps 60 --path . -s res://tests/run_tests.gd -- --filter=relic_loadout
 
@@ -54,6 +55,50 @@ func test_no_belt_no_tidebreaker() -> void:
 	assert_eq(state["owned"], [], "offline owns nothing")
 	assert_eq(state["body"], "", "offline wears nothing")
 	assert_eq(state["spindash_charge"], 0.0, "offline: base charge")
+
+
+func test_coin_owns_the_nobu_skin() -> void:
+	_set_hub(["breakwater_coin"], false, {})
+	var state := RelicLoadout.resolve()
+	assert_eq(state["owned"], ["breakwater_coin"], "the coin is a known relic")
+	assert_eq(state["body"], RelicLoadout.ITEM_NOBU, "the coin gives Cone's Tip's skin")
+	assert_eq(state["skin"], "nobu", "skin id")
+	assert_eq(state["body_choices"], [RelicLoadout.ITEM_NOBU, ""], "picker choices")
+	assert_eq(state["speed_mult"], RelicLoadout.SPEED_MULT, "Nobu speed unranked")
+	assert_eq(state["extra_life"], false, "no Golden life")
+	assert_eq(state["spindash_charge"], 0.0, "base charge")
+	assert_eq(state["cape"], false, "the coin is not the cape")
+	_set_hub(["breakwater_coin"], true, {})
+	state = RelicLoadout.resolve()
+	assert_eq(state["skin"], "nobu", "cosmetic stays on in Ranked")
+	assert_eq(state["speed_mult"], 1.0, "gameplay is off in Ranked")
+
+
+func test_cone_and_coin_give_one_nobu_skin() -> void:
+	_set_hub(["cones_tip", "breakwater_coin"], false, {})
+	var state := RelicLoadout.resolve()
+	assert_eq(state["owned"], ["cones_tip", "breakwater_coin"], "both relics are owned")
+	assert_eq(state["body_choices"], [RelicLoadout.ITEM_NOBU, ""], "one Nobu skin, not two")
+	assert_eq(state["speed_mult"], RelicLoadout.SPEED_MULT, "one speed boost, not stacked")
+	# With the coin alone, a server loadout naming the Nobu skin is honoured.
+	_set_hub(["genesis_shard", "breakwater_coin"], false,
+			{"slots": {"body": RelicLoadout.ITEM_NOBU, "back": null}})
+	state = RelicLoadout.resolve()
+	assert_eq(state["body"], RelicLoadout.ITEM_NOBU, "server loadout body")
+	assert_eq(state["speed_mult"], RelicLoadout.SPEED_MULT, "Nobu speed")
+	assert_eq(state["extra_life"], false, "one body at a time: no Golden life")
+
+
+func test_no_cone_or_coin_no_nobu() -> void:
+	_set_hub(["genesis_shard", "tinubu_crown", "tidebreaker_belt"], false, {})
+	var state := RelicLoadout.resolve()
+	assert_true(RelicLoadout.ITEM_NOBU not in state["body_choices"], "not owned without either relic")
+	assert_eq(state["speed_mult"], 1.0, "base speed")
+	_set_hub(["breakwater_coin"], false, {})
+	HubBridge.reach = "offline"
+	state = RelicLoadout.resolve()
+	assert_eq(state["owned"], [], "offline owns nothing")
+	assert_eq(state["speed_mult"], 1.0, "offline: base speed")
 
 
 func test_body_slot_is_exclusive() -> void:

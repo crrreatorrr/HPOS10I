@@ -14,6 +14,10 @@ const RELIC_CONES := "cones_tip"
 const RELIC_CROWN := "tinubu_crown"
 ## Sproto Fighter's Relic (the hub's fifth game).
 const RELIC_BELT := "tidebreaker_belt"
+## Sproto Arcade's Relic (the hub's sixth game). Owner rule: in every other
+## game it gives the same award as Cone's Tip, so here it owns the Nobu skin
+## too. Owning both still gives one Nobu skin and one speed boost.
+const RELIC_COIN := "breakwater_coin"
 const ITEM_GOLDEN := "hpos_skin_golden_sproto"
 const ITEM_NOBU := "hpos_skin_nobu"
 const ITEM_TIDEBREAKER := "hpos_skin_tidebreaker"
@@ -30,7 +34,7 @@ const SPINDASH_CHARGE_PER_PRESS := 3.0
 ## Equip choice only. Not progress.json and not an ownership record.
 const SLOTS_PATH := "user://hpos10i/relic_slots.json"
 
-const _KNOWN := [RELIC_GENESIS, RELIC_CONES, RELIC_CROWN, RELIC_BELT]
+const _KNOWN := [RELIC_GENESIS, RELIC_CONES, RELIC_CROWN, RELIC_BELT, RELIC_COIN]
 
 var _slots := {}
 var _slots_loaded := false
@@ -110,7 +114,7 @@ func _owned_skins(owned: Array) -> Array:
 	var skins: Array = []
 	if RELIC_GENESIS in owned:
 		skins.append(ITEM_GOLDEN)
-	if RELIC_CONES in owned:
+	if RELIC_CONES in owned or RELIC_COIN in owned:
 		skins.append(ITEM_NOBU)
 	if RELIC_BELT in owned:
 		skins.append(ITEM_TIDEBREAKER)

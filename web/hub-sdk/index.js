@@ -1,8 +1,13 @@
-export { BOARD_IDS, BoardId, GAME_IDS, MOCK_TICKET_EARN_CAP, MOCK_TICKET_TTL_SECONDS, RELIC_BY_GAME, RELIC_IDS, TICKETS_PER_VERSE, VERSE_DAILY_CAP, canonicalGameId, isBoardId, isGameId, isRelicId, } from './types.js';
+export { BOARD_IDS, BoardId, FOUR_LIGHTS_RELIC_IDS, GAME_IDS, MOCK_TICKET_EARN_CAP, MOCK_TICKET_TTL_SECONDS, NOBU_TRIAL_CEIL_MS, NOBU_TRIAL_FLOOR_MS, RELIC_BY_GAME, RELIC_IDS, SAVE_MAX_BYTES, TICKETS_PER_VERSE, VERSE_DAILY_CAP, canonicalGameId, isBoardId, isGameId, isRelicId, } from './types.js';
 export { HubEvent, relicForEvent } from './events.js';
+export { EMPTY_SAVE, encodeSave, readSaveResult } from './save.js';
 export { DEVICE_ID_KEY, getOrCreateDeviceId, memoryKeyValue } from './storage.js';
 export { MOCK_TICKET_KEY, mintMockTicket, readTicketParam, stripTicketParam, verifyMockTicket, } from './ticket.js';
 export { createHubSdk, installHubSdk } from './createHubSdk.js';
 export { HubSdkError } from './errors.js';
 export { HUB_OUTBOX_DB } from './live.js';
-export { LOCAL_NAKAMA, createNakamaClient, userIdFromToken, } from './nakama.js';
+export { LOCAL_NAKAMA, createNakamaClient, tokenExpiryMs, userIdFromToken, } from './nakama.js';
+export { createRealtime, realtimeFromSdk } from './realtime/client.js';
+export { createMockRealtimeServer, mockLabelMatches } from './realtime/mock.js';
+export { CHAT_COLORS, CHAT_EFFECTS, CHAT_RATE, CHAT_RAW_MAX_BYTES, CHAT_RULE_FIXTURES, CHAT_TEXT_MAX, chatRuleOutcome, normalizeChatText, takeChatToken, validateChatContent, } from './realtime/chatRules.js';
+export { errorCodeFromMessage } from './realtime/protocol.js';
