@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "smoke": "node tools/qa/smoke.mjs",
     "check": "npm run typecheck && npm test && tools/qa/originality_scan.sh . && npm run build && npm run smoke",
-    "test:bots": "vitest run tests/qa/playtest"
+    "test:bots": "vitest run tests/qa/playtest",
+    "e2e:hub": "node tools/e2e/hub_e2e.mjs"
   },
   "devDependencies": {
     "@types/node": "22.15.30",

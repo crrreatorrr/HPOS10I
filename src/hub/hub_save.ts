@@ -133,6 +133,21 @@ export class HubSave {
     return this.earnOnDisk(runId);
   }
 
+  /**
+   * Lowers an unacked earn's amount to `max` (only for earns the server refused
+   * as over its per-event maximum, which it never stores). Returns the amount now saved.
+   */
+  capEarn(runId: string, max: number): number {
+    const rec = this.earnRecord(runId);
+    if (!rec) return 0;
+    if (rec.acked || rec.amount <= max) return rec.amount;
+    const earns = this.earnMap();
+    earns[runId] = { amount: max, acked: false, capped: true };
+    this.keys.earn_by_run = earns;
+    this.writeKeys();
+    return this.earnRecord(runId)?.amount ?? max;
+  }
+
   ackEarn(runId: string): void {
     if (runId === '') return;
     const earns = this.earnMap();
@@ -227,8 +242,19 @@ function mergeEarnMap(diskValue: unknown, localValue: unknown): Json {
     const localAcked = isObj(localRec) && localRec.acked === true;
     const diskAcked = isObj(diskRec) && diskRec.acked === true;
     // An ack must stick. A stale unacked copy must not bring it back or
-    // change the amount the other tab already saved.
+    // change the amount the other tab already saved, except a cap to the
+    // server's maximum (capEarn), which only ever lowers an unacked amount.
     if (localAcked && !diskAcked) merged[runId] = localRec;
+    else if (
+      !localAcked &&
+      !diskAcked &&
+      isObj(localRec) &&
+      isObj(diskRec) &&
+      localRec.capped === true &&
+      Number(localRec.amount) < Number(diskRec.amount)
+    ) {
+      merged[runId] = localRec;
+    }
   }
   return merged;
 }

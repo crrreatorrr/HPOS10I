@@ -21,6 +21,7 @@ import { GameState } from '../core/game_state';
 import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
 import { HubSave } from './hub_save';
+import { repairOutbox } from './outbox_repair';
 
 export const GAME_ID: GameId = 'hpos10i';
 export const EVENT_LEVEL_COMPLETE = 'hpos10i.level_complete';
@@ -28,6 +29,15 @@ export const BOARD_ACT_TIME = 'hpos10i_act_time';
 export const BOARD_ZONE = 'z1_retro_rush_hills';
 export const BOARD_ACT = 1;
 export const EARN_REASON = 'level_end';
+/**
+ * Most Tickets one level_end earn may carry: the hub's event_rule max_amount
+ * for (hpos10i, level_end) (metaverse-hub migration 0007_earn_caps_relic_exchange).
+ * A bigger earn is refused with amount_over_rule and pays nothing, so each act
+ * banks at most this many, whatever was collected.
+ */
+export const EARN_MAX_PER_ACT = 20;
+/** Earn replies that can never succeed with the same key and body: the earn is dropped. */
+const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount', 'bad_reason', 'server_reason', 'bad_key'];
 /** How often the session token is checked for refresh (the SDK refreshes within 5 min of expiry). */
 const REFRESH_EVERY_MS = 120_000;
 
@@ -74,6 +84,9 @@ class HubClientImpl {
     this.wire();
     let sdk = opts.sdk ?? null;
     if (!sdk && typeof window !== 'undefined') {
+      // Before the SDK replays its outbox: drop queued earns that can never be delivered.
+      this.reach = 'pending';
+      await repairOutbox(this.save);
       try {
         sdk = createHubSdk({ serverUrl: '', serverKey: opts.serverKey ?? __NAKAMA_SERVER_KEY__, hubUrl: this.hubUrl });
       } catch (err) {
@@ -229,7 +242,7 @@ class HubClientImpl {
     }
     const runId = this.save.currentRunId();
     const existing = this.save.earnRecord(runId);
-    const amount = existing ? existing.amount : tickets;
+    const amount = existing ? existing.amount : Math.min(tickets, EARN_MAX_PER_ACT);
     if (!this.save.commitEarn(runId, amount)) {
       console.warn('[Hub] earn left pending; could not save the idempotency key, so earnTickets was not sent');
       return;
@@ -242,7 +255,12 @@ class HubClientImpl {
 
   private resendPendingEarns(): void {
     for (const rec of this.save.unackedEarns()) {
-      if (rec.runId !== '' && rec.amount > 0) this.sendEarn(rec.runId, rec.amount);
+      if (rec.runId === '' || rec.amount <= 0) continue;
+      // Earns saved by older builds may be over the per-act maximum: the server
+      // refused them without storing anything, so the same key can carry the
+      // capped amount.
+      const amount = rec.amount > EARN_MAX_PER_ACT ? this.save.capEarn(rec.runId, EARN_MAX_PER_ACT) : rec.amount;
+      if (amount > 0) this.sendEarn(rec.runId, amount);
     }
   }
 
@@ -258,8 +276,16 @@ class HubClientImpl {
   private onEarn(ok: boolean, payload: Payload, runId: string): void {
     if (!ok) {
       const code = String(payload.code ?? '');
-      // Caps and idempotency mismatches never succeed on retry.
-      if (code === 'idempotency_mismatch' || code.endsWith('_cap')) {
+      if (code === 'amount_over_rule') {
+        // Refused before anything was stored: retry once with the capped amount, same key.
+        const rec = this.save.earnRecord(runId);
+        if (rec && !rec.acked && rec.amount > EARN_MAX_PER_ACT) {
+          this.sendEarn(runId, this.save.capEarn(runId, EARN_MAX_PER_ACT));
+          return;
+        }
+      }
+      // Caps, mismatches and bad requests never succeed on retry.
+      if (code === 'amount_over_rule' || FINAL_EARN_ERRORS.includes(code) || code.endsWith('_cap')) {
         this.save.ackEarn(runId);
         console.warn(`[Hub] dropped earn ${runId} (${code}): ${String(payload.message ?? '')}`);
         if (code.endsWith('_cap')) this.earnCapped = true;

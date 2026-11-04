@@ -271,13 +271,13 @@ describe('hub earns', () => {
       const idB = tabB.currentRunId();
       if (aFirst) {
         c.true(tabA.commitEarn(idA, 11), 'tab A commitEarn');
-        c.true(tabB.commitEarn(idB, 22), 'tab B commitEarn');
+        c.true(tabB.commitEarn(idB, 19), 'tab B commitEarn');
       } else {
-        c.true(tabB.commitEarn(idB, 22), 'tab B commitEarn');
+        c.true(tabB.commitEarn(idB, 19), 'tab B commitEarn');
         c.true(tabA.commitEarn(idA, 11), 'tab A commitEarn');
       }
       c.eq(Number(earnRow(idA).amount), 11, `${order}: tab A's earn key kept with its amount`);
-      c.eq(Number(earnRow(idB).amount), 22, `${order}: tab B's earn key kept with its amount`);
+      c.eq(Number(earnRow(idB).amount), 19, `${order}: tab B's earn key kept with its amount`);
       const sdk = await boot();
       const sent = sdk.earns();
       const byKey = new Map<string, number>();
@@ -295,8 +295,8 @@ describe('hub earns', () => {
         await reply(row.call, true, { balance: serverBalance, capped: false });
       }
       c.eq(credited.get(idA), 11, `${order}: attempt A credited once`);
-      c.eq(credited.get(idB), 22, `${order}: attempt B credited once`);
-      c.eq(HubClient.ticketBalance, 33, `${order}: client balance is the two credits, not a double charge`);
+      c.eq(credited.get(idB), 19, `${order}: attempt B credited once`);
+      c.eq(HubClient.ticketBalance, 30, `${order}: client balance is the two credits, not a double charge`);
       c.eq(pendingEarnKeys().join(), '', `${order}: both earns acked`);
       const sendsAfter = sdk.earns().length;
       await reinit(sdk);

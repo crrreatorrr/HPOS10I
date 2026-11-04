@@ -323,7 +323,16 @@ Web Audio, unlocked by the first key press, click or tap.
 - Every fresh act start mints a run id (UUIDv7, saved first); every clear
   banks the act's tickets with `earnTickets(n, 'level_end', runId)`, so a
   retry, a reload or a second tab never pays twice. Unacked earns are resent
-  after the next successful init. Caps and key mismatches are final.
+  after the next successful init. Caps, key mismatches and bad requests are final.
+- One `level_end` earn carries at most **20** Tickets (`EARN_MAX_PER_ACT`, the
+  hub's `event_rule.max_amount`): the server refuses more with
+  `amount_over_rule` and stores nothing, so an over-cap earn saved by an older
+  build is resent capped with the same key. Before the SDK starts, queued earns
+  that can never be delivered are cleared from its outbox (`outbox_repair.ts`),
+  so one refused write can't keep every later launch offline.
+- `npm run e2e:hub` checks the web build against a running hub server (the hub
+  repo's `server/docker-compose.yml`): ticket redeem, earn once per attempt,
+  reloads, the Relic, the board, outbox recovery and Exit to Hub.
 - Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
   key unique to that attempt (the server grants the HPOS10I Core and pets).
 - Only Zone 1 Act 1 posts to `hpos10i_act_time` (the server keeps one time
