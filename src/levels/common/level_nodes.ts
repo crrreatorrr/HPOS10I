@@ -145,7 +145,7 @@ export class TileLayer extends Node2D implements Configurable {
 
   private atlasPath(): string {
     const zone = this.artZone || this.tilesetId;
-    return `levels/common/tiles/${zone}_tiles.png`;
+    return `assets/tiles/${zone}_tiles.png`;
   }
 
   private chunkIndex: Map<string, [number, number, number, number][]> | null = null;

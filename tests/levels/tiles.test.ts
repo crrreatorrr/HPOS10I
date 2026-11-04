@@ -19,7 +19,7 @@ const LIP_LEVELS = 3;
 const BLOCK_COLUMNS = 6;
 const PLANK_THICKNESS = 6;
 
-// --- The tile catalogue (levels/common/tiles/terrain_tiles.gd) ------------------------
+// --- The tile catalogue (from the original terrain_tiles.gd) ------------------------
 
 enum Kind {
   FLOOR,

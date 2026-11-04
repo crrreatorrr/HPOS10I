@@ -43,7 +43,7 @@ export async function preload(urls: readonly string[]): Promise<void> {
 }
 
 /** Every PNG under assets/ (hashed URLs), keyed by repository path ("/assets/sprites/..."). */
-export const ASSET_URLS = import.meta.glob(['/assets/**/*.png', '/levels/common/tiles/*.png'], {
+export const ASSET_URLS = import.meta.glob(['/assets/**/*.png'], {
   query: '?url',
   import: 'default',
   eager: true,

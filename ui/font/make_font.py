@@ -2,13 +2,10 @@
 """Builds the Sproto Pixel bitmap fonts: an original, hand-drawn early-90s
 console-style typeface in two weights.
 
-  python3 ui/font/make_font.py            (run from anywhere; needs `godot`)
+  python3 ui/font/make_font.py            (run from anywhere; needs Pillow)
 
-Writes PNG glyph sheets plus BMFont descriptors (.fnt) to ui/font/src/ (a
-.gdignore'd folder: never imported), then has Godot turn each one into a
-ready-made FontFile, ui/font/<name>.res. The game and theme load those .res
-files directly, with no import step, so a fresh checkout's first import is
-clean.
+Writes PNG glyph sheets plus BMFont descriptors (.fnt) to ui/font/src/. The
+game loads those directly (src/runtime/font.ts).
 
 Fonts:
   sproto_small.png/.fnt          5x7 glyphs, 1 px strokes, plain white (menus)
@@ -24,7 +21,6 @@ Every glyph below was drawn for this project; '#' is ink, '.' is empty.
 """
 
 import os
-import subprocess
 
 from PIL import Image
 
@@ -239,14 +235,6 @@ def build(glyphs, name, face, outline, ramp, space_advance):
     return rects
 
 
-def convert_with_godot():
-    """BMFont sources -> ui/font/<name>.res FontFiles (src/build_fonts.gd).
-    On the very first build Godot reports the theme's missing .res fonts while
-    it starts up; that is expected and harmless."""
-    cmd = ["godot", "--headless", "--path", PROJECT, "-s", "res://ui/font/src/build_fonts.gd"]
-    subprocess.run(cmd, check=True)
-
-
 def main():
     validate(SMALL, "small")
     validate(BOLD, "bold")
@@ -256,7 +244,6 @@ def main():
     build(BOLD, "sproto_bold", "Sproto Pixel Bold", True, WHITE_SHADE, 5)
     build(BOLD, "sproto_bold_gold", "Sproto Pixel Bold Gold", True, GOLD_RAMP, 5)
     print("font sources written to", SRC)
-    convert_with_godot()
 
 
 if __name__ == "__main__":

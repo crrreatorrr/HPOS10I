@@ -3,21 +3,15 @@
 #
 # Director decision 2026-10-28: the act-clear emerald keeps the director's
 # chosen display name (denylist term #155). Only the NAME constant in
-# core/emeralds.gd may hold it; everything else shows it through
+# src/core/emeralds.ts may hold it; everything else shows it through
 # Emeralds.NAME. Scoped to that single line, so a second use in the same file
 # (or the constant moving) is flagged and re-reviewed.
-core/emeralds.gd:13
 src/core/emeralds.ts:12
 
 # Owner decision 2026-11-02: the vendored hub SDK names another hub game by its
 # server game id (denylist term #425). It is an id the SDK compares against, never
 # shown to players. Scoped to these lines, so a re-vendor that moves them is
 # flagged and re-reviewed.
-web/hub-sdk/createHubSdk.js:351
-web/hub-sdk/createHubSdk.js:376
-web/hub-sdk/events.js:33
-web/hub-sdk/types.js:2
-web/hub-sdk/types.js:7
 vendor/hub-sdk/README.md:133
 vendor/hub-sdk/dist/createHubSdk.js:403
 vendor/hub-sdk/dist/createHubSdk.js:428

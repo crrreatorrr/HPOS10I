@@ -1,4 +1,4 @@
-{"texture":"levels/common/tiles/z1_retro_rush_hills_tiles.png","cells":{
+{"texture":"assets/tiles/z1_retro_rush_hills_tiles.png","cells":{
 "0,0":{"solid":[[-8,-8,8,-8,8,8,-8,8]]},
 "1,0":{"solid":[[-8,-8,8,-8,8,8,-8,8]]},
 "2,0":{"solid":[[-8,-8,8,-8,8,8,-8,8]]},

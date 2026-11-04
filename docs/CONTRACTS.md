@@ -11,7 +11,7 @@ Each agent works on its own branch and only touches its own folders.
 |---|---|
 | Lead | `package.json`, `vite.config.ts`, `vitest.config.ts`, `tsconfig.json`, `index.html`, `public/`, `.github/`, `src/main.ts`, `src/runtime/`, `src/core/`, `src/hub/`, `src/levels/content.ts`, `src/levels/scenes.ts`, `docs/`, `README.md`, `AGENTS.md`, `tools/lead/`, `tests/core/`, `tests/hub/`, `tests/gameplay/`, `tests/helpers/` |
 | Physics agent | `src/player/`, `src/camera/`, `src/terrain/`, `src/levels/playground/`, `tests/physics/`, `tests/player/` |
-| Level agent | `src/levels/` (except the lead's files above), `tests/levels/`, `tools/levels/` |
+| Level agent | `src/levels/` (except the lead's files above), `tests/levels/` |
 | Boss agent | `src/bosses/`, `tests/bosses/` |
 | Art agent | `assets/`, `tools/art/`, `prompts.md` |
 | UI/audio agent | `src/ui/`, `audio/`, `ui/font/`, `tests/ui/` |
@@ -44,7 +44,7 @@ in your final report.
   image loads or when it doesn't exist: draw the placeholder then. A stage
   missing from the scene registry falls back to the dev menu.
 - **What ships:** `src/` (and `audio/`, `assets/`, `ui/font/src/`,
-  `levels/common/tiles/*.png`, `public/`). `tests/`, `tools/`, `qa/` and
+  `public/`). `tests/`, `tools/`, `qa/` and
   `docs/` never ship (`tools/qa/web_check.mjs` fails the build if they do).
 - **Placeholders:** until art is approved, draw simple shapes in `draw(g)`.
   Keep them readable and on-model (docs/DESIGN.md): Sproto blue and yellow,
@@ -174,7 +174,7 @@ exactly the classic model (docs/PHYSICS.md); the tests run that way.
   `LoopGuard`. Levels set the radius.
 - `TileLayer` (`src/levels/common/level_nodes.ts`): 16×16 terrain tiles
   from the zone tileset (`src/levels/data/tilesets/<zone>.json`, atlas
-  `levels/common/tiles/<zone>_tiles.png`), merged collision edges,
+  `assets/tiles/<zone>_tiles.png`), merged collision edges,
   pre-rendered 256 px chunks.
 
 ## Moving terrain
@@ -226,8 +226,8 @@ viewRect()
   `SceneRouter.nextStage()`. `progressAt(x)` (0 at PlayerStart, 1 at the
   goal), `completeLevel()`, `getBounds()`, `LevelRoot.find(node)`.
 - Level data: `src/levels/data/<zone>/<act>.json`, a node list with typed
-  values (converted once from the original scenes by
-  `tools/levels/convert_tscn.mjs`; the JSON is now the source of truth).
+  values, one node (or one row of tiles) per line. It was converted once from
+  the original scene files and is now the source of truth.
   Node types are registered by their original scene path in
   `LevelTypes.register(key, factory)` (`common/level_loader.ts`); new types
   use `hpos://...` keys. A type implements `applyProps(p: Props)`.
