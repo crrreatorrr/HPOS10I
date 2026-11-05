@@ -1,0 +1,28 @@
+{
+  "name": "hpos10i",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HPOS10I: a free, non-commercial 2D momentum platformer for the web. No game engine.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --exclude 'tests/qa/playtest*.test.ts'",
+    "test:watch": "vitest",
+    "smoke": "node tools/qa/smoke.mjs",
+    "check": "npm run typecheck && npm test && tools/qa/originality_scan.sh . && npm run build && npm run smoke",
+    "test:bots": "vitest run tests/qa/playtest",
+    "e2e:hub": "node tools/e2e/hub_e2e.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.12"
+  }
+}

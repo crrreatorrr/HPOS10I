@@ -3,20 +3,22 @@
 #
 # Director decision 2026-10-28: the act-clear emerald keeps the director's
 # chosen display name (denylist term #155). Only the NAME constant in
-# core/emeralds.gd may hold it; everything else shows it through
+# src/core/emeralds.ts may hold it; everything else shows it through
 # Emeralds.NAME. Scoped to that single line, so a second use in the same file
 # (or the constant moving) is flagged and re-reviewed.
-core/emeralds.gd:13
+src/core/emeralds.ts:12
 
 # Owner decision 2026-11-02: the vendored hub SDK names another hub game by its
 # server game id (denylist term #425). It is an id the SDK compares against, never
 # shown to players. Scoped to these lines, so a re-vendor that moves them is
 # flagged and re-reviewed. Re-pinned 2026-11-04 for SDK 0.6.0 and re-reviewed: the
-# same five uses of the same id (two shop-row lookups, the quest relic event, the
-# game id list, the relic-by-game map), one per line, with per-file counts unchanged
-# from the 0.5.0 vendor (2, 1, 2) and none in the new save.js or realtime/ files.
-web/hub-sdk/createHubSdk.js:426
-web/hub-sdk/createHubSdk.js:451
-web/hub-sdk/events.js:35
-web/hub-sdk/types.js:2
-web/hub-sdk/types.js:20
+# same id in the SDK's README, two shop-row lookups, the quest relic event, the game
+# id list (.js and .d.ts) and the relic-by-game map, one per line, with none in the
+# new save.js or realtime/ files.
+vendor/hub-sdk/README.md:137
+vendor/hub-sdk/dist/createHubSdk.js:431
+vendor/hub-sdk/dist/createHubSdk.js:456
+vendor/hub-sdk/dist/events.js:35
+vendor/hub-sdk/dist/types.d.ts:2
+vendor/hub-sdk/dist/types.js:2
+vendor/hub-sdk/dist/types.js:20

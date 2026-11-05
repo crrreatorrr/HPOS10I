@@ -1,26 +1,30 @@
 # HPOS10I
 
-A 2D momentum platformer built with Godot 4.7.2 and GDScript. Read the relevant file in `docs/`
-before changing that area: `DESIGN.md`, `CONTRACTS.md`, `PHYSICS.md` or `LEVELS.md`.
+A 2D momentum platformer for the web, written in TypeScript with no game engine (Vite builds it,
+Vitest tests it). Read the relevant file in `docs/` before changing that area: `DESIGN.md`,
+`CONTRACTS.md`, `PHYSICS.md` or `LEVELS.md`.
 
 - This is a free, non-commercial fan parody that sells nothing. All characters, names, art, music,
   sound and levels must be original, with no existing franchises, real people or brands.
   `tools/qa/originality_scan.sh` enforces this.
 - Every push to `main` redeploys the web build once all checks pass.
 - QA work changes nothing outside `qa/`, `tools/qa/` and `tests/qa/`. See `qa/README.md`.
-- `web/hub-sdk` is the vendored SDK from `metaverse-hub`. `tools/qa/originality_allow.txt` pins some
-  of its line numbers, so update that file when those lines move.
+- `vendor/hub-sdk` is the vendored SDK from `metaverse-hub`, built and copied by that repo's
+  `scripts/vendor-sdk.mjs`. `tools/qa/originality_allow.txt` pins some of its line numbers, so
+  update that file when those lines move.
 
 ## Checks
 
 ```bash
-godot --headless --path . --import
+npm ci
+npm run typecheck
+npm test
 tools/qa/originality_scan.sh .
-godot --headless --fixed-fps 60 --path . -s res://tests/run_tests.gd
-GODOT=godot tools/qa/scene_smoke.sh .
+npm run build && node tools/qa/web_check.mjs build/web && npm run smoke
 ```
 
-`tools/lead/gate.sh` runs the merge gate on a clean checkout of a commit.
+`tools/lead/gate.sh` runs the merge gate on a clean checkout of a commit. The smoke test needs
+Playwright's Chromium (preinstalled in the cloud containers; CI installs it).
 
 ## Art generation
 

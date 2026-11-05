@@ -9,8 +9,7 @@ Vorbis with ffmpeg.
 
 Writes audio/sfx/<name>.ogg for every SFX name in docs/CONTRACTS.md and
 audio/music/<name>.ogg for every music name: seven loops plus the act_clear
-and game_over jingles. Music gets an .import stub (loop=true for loops,
-false for jingles) before Godot first imports it. WAVs only live in a temp folder (the project must hold
+and game_over jingles. WAVs only live in a temp folder (the project must hold
 Ogg only). Uses ffmpeg's libvorbis when present, else its built-in Vorbis
 encoder (stereo-only, so mono is duplicated to two channels).
 
@@ -374,7 +373,33 @@ def sfx_tally_tick():
     return square(midi(96), 0.035, 0.5) * env(0.035, release=0.012)
 
 
+def sfx_item_box():
+    # A crate bursting: a short crunch and a bright two-note pop.
+    d = 0.22
+    crunch = lowpass(noise(d, 14000), 3500) * expdecay(d, 0.05) * 1.1
+    pop = cat(tone(79, 0.05, 0.25, release=0.008), tone(86, 0.12, 0.25, tau=0.05, release=0.03))
+    return mix(crunch, at(pop, 0.02, 0.24))
+
+
+def sfx_shield():
+    # A bubble forming: a rising wobble that settles into a soft hum.
+    d = 0.5
+    f = vibrato(sweep(220, 660, d), d, 11.0, 0.04)
+    swell = triangle(f, d) * env(d, attack=0.02, release=0.2) * 0.9
+    shine = square(midi(96), 0.18, 0.125) * expdecay(0.18, 0.07) * 0.25
+    return mix(swell, at(shine, 0.28, d))
+
+
+def sfx_power_up():
+    # A quick upward arpeggio for speed shoes and invincibility.
+    notes = [72, 76, 79, 84, 88, 91]
+    run = cat(*[tone(n, 0.045, 0.25, release=0.01) for n in notes])
+    ring = square(midi(96), 0.2, 0.125) * expdecay(0.2, 0.08) * 0.35
+    return cat(run, ring)
+
+
 SFX = {
+    "item_box": sfx_item_box, "shield": sfx_shield, "power_up": sfx_power_up,
     "jump": sfx_jump, "roll": sfx_roll, "spindash_charge": sfx_spindash_charge,
     "spindash_release": sfx_spindash_release, "skid": sfx_skid, "ticket": sfx_ticket,
     "ticket_loss": sfx_ticket_loss, "hurt": sfx_hurt, "death": sfx_death,
@@ -869,7 +894,7 @@ def main(names):
             write_wav(wav, y)
             encode(wav, ogg, MUSIC_RATE if loops is not None else None)
             if loops is not None:
-                write_music_import(ogg, loops)
+                pass  # looping is decided by the game (Audio), not a side file
             size = os.path.getsize(ogg)
             total += size
             peak, mean = peak_db(ogg)

@@ -1,7 +1,8 @@
 # HPOS10I
 
 A high-speed 2D momentum platformer starring **Sproto**, a tiny speed demon with a clown nose,
-built in Godot 4 with classic 16-bit physics.
+with classic 16-bit physics. It runs in any modern browser and is written in TypeScript with no
+game engine.
 
 > **Free, non-commercial fan parody.** All characters, names, art, music, sound
 > and levels are original and were made for this project. It is not affiliated
@@ -12,66 +13,85 @@ built in Godot 4 with classic 16-bit physics.
 ## Play
 
 - **In your browser:** https://crrreatorrr.github.io/HPOS10I/
-  - Early build: click **Physics Playground** (or press **1**). Phones: hold
-    the phone sideways; on-screen touch controls are coming.
+  - Phones: hold the phone sideways; on-screen touch controls appear on touch.
   - Every push to `main` redeploys automatically once every check passes
-    (tests, originality scan, scene smoke check, web build check).
-- **From source:** install [Godot 4.7.2](https://godotengine.org/download), then
-  open `project.godot` and press **F5**, or run:
+    (typecheck, tests, originality scan, web build check, browser smoke test).
+- **From source:** install [Node 22](https://nodejs.org/), then:
 
   ```bash
-  godot --path .
+  npm ci
+  npm run dev
   ```
+
+  and open http://127.0.0.1:5180/.
 
 ## Controls
 
 | Action | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Move | Arrow keys / WASD | D-pad / left stick | On-screen pad (coming) |
-| Jump | Z, X, C, Space or K | A / B / X / Y | Jump button (coming) |
+| Move | Arrow keys / WASD | D-pad / left stick | On-screen pad |
+| Jump | Z, X, C, Space or K | A / B / X / Y | Jump button |
 | Roll | Down while running | Down | Pad down |
 | Spin dash | Hold Down, tap Jump, release Down | Same | Same |
+| Charge run | Hold Up, tap Jump, keep Up, release Up | Same | Same |
+| Drop dash | Jump, then press and hold Jump again; land | Same | Same |
+| Shield bounce | Jump, then Jump again with a shield | Same | Same |
 | Look up/down | Hold Up/Down while standing | Same | Same |
-| Pause | P or Enter (Esc too, outside fullscreen) | Start | Pause button (coming) |
+| Pause | P or Enter (Esc too, outside fullscreen) | Start | Pause button |
 | Debug overlay | F1 | | |
 
 Keys are bound by position, so on AZERTY or QWERTZ keyboards the movement keys
-are the ones in the WASD spot.
+are the ones in the WASD spot. The charge run, drop dash and shield bounce can
+be turned off in **Pause → Options**, and are always off in Ranked.
 
 ## Zones
 
-1. **Retro Rush Hills** – bright hills, loops and waterfalls
-2. **Wizard Academy** – a magic school castle with a flying-broom chase
-3. **Capital Mansion** – rooftops, ballrooms and an underground bunker
-4. **Neon Rush Remix** – the hills again, in synthwave neon
+1. **Retro Rush Hills**: bright hills, loops and waterfalls
+2. **Wizard Academy**: a magic school castle with a flying-broom chase
+3. **Capital Mansion**: rooftops, ballrooms and an underground bunker
+4. **Neon Rush Remix**: the hills again, in synthwave neon
 
-Each zone has two acts and a boss.
+Each zone has two acts and a boss. Item boxes along the routes hold a shield,
+speed shoes, invincibility or an extra life (never tickets). Each act has a
+10:00 time limit.
+
+## The hub
+
+HPOS10I is one of the games in the metaverse hub. Opened from a hub portal
+(`#t=<ticket>`), it redeems the ticket, reads your Relics (skins and effects,
+off in Ranked) and banks the tickets you collect in each act as hub Tickets,
+each act once, with retries that can never pay twice. Exit to Hub is in the
+pause menu. Opened directly, it plays standalone.
 
 ## For developers
 
-- **Physics tuning:** the feel-relevant movement constants live in
-  `core/physics_constants.tres`. Values use the classic pixels-per-frame units
-  at 60 fps. Edit it in the Inspector while the game runs and it reloads live.
-- **Debug overlay:** press **F1** in game for speeds, ground angle, collision
-  mode, state and sensor lines.
-- **Tests:**
+- **Layout:** `src/runtime` (node tree, fixed 60 Hz loop, collision, input,
+  drawing, fonts), `src/core` (game state, scene router, zones, difficulty,
+  audio, settings), `src/player`, `src/terrain`, `src/camera`, `src/levels`
+  (level data, objects, enemies, Zone 4), `src/bosses`, `src/ui`, `src/hub`
+  (hub client on the vendored SDK in `vendor/hub-sdk`).
+- **Physics tuning:** the feel-relevant constants are in
+  `src/core/physics_constants.json` (classic pixels-per-frame units at
+  60 fps). The dev server reloads them live.
+- **Checks:**
 
   ```bash
-  godot --headless --fixed-fps 60 --path . -s res://tests/run_tests.gd
+  npm run typecheck
+  npm test
+  tools/qa/originality_scan.sh .
+  npm run build && node tools/qa/web_check.mjs && npm run smoke
   ```
 
-- **Dev menu:** `godot --path . -- --dev` lists every playground, stage and
-  sandbox. Dev flags (`--scene`, `--zone`, `--inputs`, `--touch`, `--overlay`,
-  and others) are listed in [docs/CONTRACTS.md](docs/CONTRACTS.md).
-- **Record a clip with scripted input:** `tools/lead/record_clip.sh`.
-- **Merge gate:** `tools/lead/gate.sh` runs import, the originality scan,
-  tests and the scene smoke check on a clean checkout.
-- **QA tools:** `tools/qa/` holds the scene smoke check, the originality
-  scan, the web build check, the level lint and the playtest bot. See
-  [qa/README.md](qa/README.md).
-- **Design docs:** [docs/DESIGN.md](docs/DESIGN.md) (art direction and
-  characters) and [docs/LEVELS.md](docs/LEVELS.md) (the difficulty curve).
-- **Web build:** GitHub Actions exports a single-threaded web build on every
-  push and deploys `main` to GitHub Pages.
-- **Interfaces between systems:** [docs/CONTRACTS.md](docs/CONTRACTS.md).
+  `tools/lead/gate.sh` runs all of them on a clean checkout of a commit.
+- **Dev options** (URL query): `?dev` (dev menu of every playground and
+  stage), `?scene=level:z1_retro_rush_hills/act1`, `?zone=<id>&stage=<n>`,
+  `?inputs=<timeline>`, `?touch`, `?overlay`, `?mute`. See
+  [docs/CONTRACTS.md](docs/CONTRACTS.md).
+- **Web build:** GitHub Actions builds on every push, keeps it as the
+  `web-build` artifact and deploys `main` to GitHub Pages. Build settings:
+  `HPOS_BASE_PATH`, `HPOS_HUB_URL`, `HPOS_NAKAMA_SERVER_KEY`.
+- **Docs:** [docs/DESIGN.md](docs/DESIGN.md) (art direction and characters),
+  [docs/LEVELS.md](docs/LEVELS.md) (the difficulty curve),
+  [docs/PHYSICS.md](docs/PHYSICS.md) (the physics audit),
+  [docs/CONTRACTS.md](docs/CONTRACTS.md) (interfaces between systems).
 - **Art prompts:** every Higgsfield prompt is logged in [prompts.md](prompts.md).

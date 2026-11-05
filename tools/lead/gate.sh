@@ -12,20 +12,23 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 git -C "$repo" archive "$commit" | tar -x -C "$work"
-mkdir -p "$work/build" && touch "$work/build/.gdignore"
 echo "gate: $(git -C "$repo" rev-parse --short "$commit") in $work"
 
 fail() {
-	echo "gate: FAILED at $1 (log: $work/$1.log kept in $2)" >&2
+	echo "gate: FAILED at $1 (log kept in $2/$1.log)" >&2
 	cp "$work/$1.log" "$2/" 2>/dev/null || true
 	exit 1
 }
 logs="$repo/build/gate"
 mkdir -p "$logs"
 
-godot --headless --path "$work" --import >"$work/import.log" 2>&1 || fail import "$logs"
+(cd "$work" && npm ci --no-audit --no-fund) >"$work/install.log" 2>&1 || fail install "$logs"
+(cd "$work" && npm run typecheck) >"$work/typecheck.log" 2>&1 || fail typecheck "$logs"
 "$repo/tools/qa/originality_scan.sh" "$work" >"$work/originality.log" 2>&1 || fail originality "$logs"
-godot --headless --fixed-fps 60 --path "$work" -s res://tests/run_tests.gd >"$work/tests.log" 2>&1 || fail tests "$logs"
-SMOKE_IMPORT=0 "$repo/tools/qa/scene_smoke.sh" "$work" >"$work/smoke.log" 2>&1 || fail smoke "$logs"
+(cd "$work" && npm test) >"$work/tests.log" 2>&1 || fail tests "$logs"
+(cd "$work" && npm run test:bots) >"$work/bots.log" 2>&1 || fail bots "$logs"
+(cd "$work" && npm run build) >"$work/build.log" 2>&1 || fail build "$logs"
+node "$work/tools/qa/web_check.mjs" "$work/build/web" >"$work/web_check.log" 2>&1 || fail web_check "$logs"
+node "$work/tools/qa/smoke.mjs" "$work/build/web" >"$work/smoke.log" 2>&1 || fail smoke "$logs"
 
-echo "gate: PASS ($(grep -E 'passed' "$work/tests.log" | tail -1); $(tail -1 "$work/smoke.log"); $(tail -1 "$work/originality.log"))"
+echo "gate: PASS ($(grep -E 'Tests' "$work/tests.log" | tail -1 | xargs); $(tail -1 "$work/smoke.log"); $(tail -1 "$work/originality.log"))"

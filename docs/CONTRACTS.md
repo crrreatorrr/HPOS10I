@@ -7,407 +7,363 @@ file. Owned by the lead; agents request changes in their report.
 
 Each agent works on its own branch and only touches its own folders.
 
-| Owner | Branch | Folders |
-|---|---|---|
-| Lead | `main` | `project.godot`, `export_presets.cfg`, `.github/`, `core/`, `docs/`, `README.md`, `icon.svg`, `tools/lead/`, `tests/core/`, `tests/inputs/`, `tests/test_case.gd`, `tests/run_tests.gd` |
-| Physics agent | `physics` | `player/`, `camera/`, `terrain/`, `playground/`, `tests/physics/` |
-| Level agent | `levels` | `levels/`, `tests/levels/` |
-| Boss agent | `bosses` | `bosses/`, `tests/bosses/` |
-| Art agent | `art` | `assets/`, `tools/art/`, `prompts.md` |
-| UI/audio agent | `ui-audio` | `ui/`, `audio/`, `tests/ui/` |
-| QA agent | `qa` | `qa/`, `tools/qa/`, `tests/qa/` |
+| Owner | Folders |
+|---|---|
+| Lead | `package.json`, `vite.config.ts`, `vitest.config.ts`, `tsconfig.json`, `index.html`, `public/`, `.github/`, `src/main.ts`, `src/runtime/`, `src/core/`, `src/hub/`, `src/levels/content.ts`, `src/levels/scenes.ts`, `docs/`, `README.md`, `AGENTS.md`, `tools/lead/`, `tests/core/`, `tests/hub/`, `tests/gameplay/`, `tests/helpers/` |
+| Physics agent | `src/player/`, `src/camera/`, `src/terrain/`, `src/levels/playground/`, `tests/physics/`, `tests/player/` |
+| Level agent | `src/levels/` (except the lead's files above), `tests/levels/` |
+| Boss agent | `src/bosses/`, `tests/bosses/` |
+| Art agent | `assets/`, `tools/art/`, `prompts.md` |
+| UI/audio agent | `src/ui/`, `audio/`, `ui/font/`, `tests/ui/` |
+| QA agent | `qa/`, `tools/qa/`, `tests/qa/` |
 
 Other agents' folders are **read-only** to you. The QA agent reads
 everything and changes nothing outside its folders: bugs go back to the
-owning agent. If you need a shared-file
-change (a physics constant, input action, autoload, collision layer, a change
-to this file), do not edit it. Use a local fallback marked `# LEAD-REQUEST`
-and list the request in your final report.
+owning agent. If you need a shared-file change (a physics constant, an input
+action, a runtime feature, a collision layer, a change to this file), do not
+edit it: write a local fallback marked `// LEAD-REQUEST` and list the request
+in your final report.
 
 ## Conventions
 
-- **Godot 4.7.2**, GDScript, static typing where practical, tabs.
-- **Resolution:** 424×240 viewport, 1 unit = 1 pixel, y points down.
-  Nearest-neighbour filtering everywhere.
-- **Physics tick:** fixed 60 Hz (`_physics_process`). Gameplay speeds in public
-  APIs are **pixels per frame** (classic units). Convert with
-  `PhysicsConstants.speed()` / `accel()` / `frames()`.
-- **Physics constants:** read `Tuning.physics` (a `PhysicsConstants`) every
-  frame; never cache values. Never hard-code a value that belongs there.
-- **Missing pieces never crash.** Check `ResourceLoader.exists()` before
-  loading another agent's scene or asset, and fall back to a placeholder.
-- **What ships:** `playground/` holds playable demo scenes that ship in the
-  web build and show up in the boot menu. `tests/`, `tools/`, `qa/` and
-  `docs/` never ship (CI's web check fails the build if they do).
-- **No `static var` in scripts that reference `Player`** (directly or
-  through a class it loads). A static variable near the player ↔
-  scattered-ticket script cycle kept scripts alive at exit, and the smoke
-  test failed on leak messages.
-- **Placeholders:** until art is approved, draw simple shapes (`Polygon2D`,
-  `_draw()`, `ColorRect`). Keep them readable and on-model (docs/DESIGN.md):
-  Sproto blue and yellow, enemies as pill robots, hazards orange, springs
-  yellow and red, tickets gold.
+- **TypeScript** (strict, ES2022 modules), built by Vite, tested by Vitest.
+  No game engine and no runtime dependencies: the runtime in `src/runtime` is
+  ours. Two-space indent, single quotes, semicolons, no `any`.
+- **Resolution:** 424×240 game pixels, 1 unit = 1 pixel, y points down.
+  Integer scaling on desktop, fractional on touch. Nearest-neighbour
+  everywhere; positions are rounded to whole pixels when drawn.
+- **Physics tick:** fixed 60 Hz (`physicsProcess(delta)`). Gameplay speeds in
+  public APIs are **pixels per frame** (classic units). Convert with
+  `speed()` / `accel()` / `frames()` from `src/core/physics_constants.ts`.
+  Rendering interpolates between ticks; teleports call
+  `resetPhysicsInterpolation()`.
+- **Physics constants:** read `Tuning.physics` every tick; never cache a
+  value. Never hard-code a value that belongs there
+  (`src/core/physics_constants.json`, reloaded live by the dev server).
+- **Missing pieces never crash.** `assetImage(path)` returns null until an
+  image loads or when it doesn't exist: draw the placeholder then. A stage
+  missing from the scene registry falls back to the dev menu.
+- **What ships:** `src/` (and `audio/`, `assets/`, `ui/font/src/`,
+  `public/`). `tests/`, `tools/`, `qa/` and
+  `docs/` never ship (`tools/qa/web_check.mjs` fails the build if they do).
+- **Placeholders:** until art is approved, draw simple shapes in `draw(g)`.
+  Keep them readable and on-model (docs/DESIGN.md): Sproto blue and yellow,
+  enemies as pill robots, hazards orange, springs yellow and red, tickets gold.
+
+## Runtime (`src/runtime`)
+
+- `Node` / `Node2D` / `CanvasLayer` (`node.ts`): children, groups, meta,
+  `queueFree()`; hooks `enterTree()`, `ready()` (children first),
+  `physicsProcess(dt)` and `process(dt)` (tree order, parents first;
+  `processPriority` lower runs earlier), `input(ev)` (menus) and `draw(g)`.
+  `Node2D`: `position`, `globalPosition`, `rotation`, `scale`, `zIndex`,
+  `zAsRelative`, `visible`, `modulate`, `showBehindParent`, `topLevel`,
+  optional `cullRect()`. `ProcessMode` decides what runs while paused.
+- `tree` (`tree.ts`): the scene tree and main loop: `physicsStep()`,
+  `processStep()`, `advance(n)` (tests), `changeScene()`, `callDeferred()`,
+  `getNodesInGroup()`, `paused`, `timeScale`, `hitStop(ticks)`, `camera`.
+- `PhysicsWorld` (`physics.ts`, `tree.physics`): `StaticBody2D`,
+  `AnimatableBody2D`, `Area2D` with rectangle, circle and polygon shapes on
+  collision layers. Rays (`intersectRay`) only hit surfaces facing them;
+  tile edges shared by neighbours are merged away; moving bodies are seen by
+  rays where they were at the end of the last tick. `intersectPoint` for
+  point queries. Areas report `areaEntered` / `areaExited` once per tick.
+- `Input` (`input.ts`), `Gfx` (`gfx.ts`), `Fonts` (`font.ts`), `Color`,
+  `Vec2`, `Rect2`, `Signal`, `Rng`, `assetImage` / `assetUrl`.
 
 ## Collision layers
 
 | Bit | Name | Used for |
 |---|---|---|
-| 1 | `terrain_solid` | Ground/walls/ceilings on both paths |
-| 2 | `terrain_path_a` | Solid only while the player is on path A |
-| 3 | `terrain_path_b` | Solid only while the player is on path B |
-| 4 | `terrain_top_only` | One-way platforms (land from above only) |
-| 5 | `player` | Player hitbox `Area2D` |
-| 6 | `enemies` | Enemy hurtboxes |
-| 7 | `objects` | Tickets, springs, boosters, checkpoints, goal sign |
-| 8 | `hazards` | Spikes, projectiles, crushers |
-| 9 | `boss` | Boss body and weak point |
+| 1 | `TERRAIN_SOLID` | Ground/walls/ceilings on both paths |
+| 2 | `TERRAIN_PATH_A` | Solid only while the player is on path A |
+| 3 | `TERRAIN_PATH_B` | Solid only while the player is on path B |
+| 4 | `TERRAIN_TOP_ONLY` | One-way platforms (land from above only) |
+| 5 | `PLAYER` | Player hitbox area |
+| 6 | `ENEMIES` | Enemy hurtboxes |
+| 7 | `OBJECTS` | Tickets, springs, boosters, checkpoints, goal sign, item boxes |
+| 8 | `HAZARDS` | Spikes, projectiles, crushers |
+| 9 | `BOSS` | Boss body and weak point |
 
-Terrain is static geometry (TileMapLayer collision polygons or
-`StaticBody2D` + `CollisionPolygon2D`). The player never uses
-`move_and_slide`; it raycasts against bits 1–4.
-
+Use `Layers` (`src/core/layers.ts`) instead of numbers. Terrain is static
+geometry: the tile layer (`TileLayer`) and `CurveTerrain` pieces. The player
+never resolves collisions generically; it raycasts against bits 1–4.
 Objects, enemies, hazards and bosses **detect the player** with their own
-`Area2D` (mask bit 5) and call the player API below.
+area (mask bit 5) and call the player API below.
 
-## Core autoloads and helpers (lead: `core/`)
+## Core (`src/core`)
 
 | Name | What other code may use |
 |---|---|
-| `GameState` | **Signals:** `tickets_changed(value)`, `score_changed(value)`, `lives_changed(value)`, `checkpoint_reached(position)`, `level_completed`, `emerald_won(zone_id, act)` (fired inside `complete_level()`, before `level_completed`). **Properties:** `tickets`, `score`, `lives`, `level_time` (seconds, physics-ticked), `timer_running`, `checkpoint_position` (Vector2 or null), `zone_id`, `act`, `emeralds` (won this game), `emerald_just_won` (the act that just ended won a new one). **Methods:** `add_tickets(n)`, `lose_tickets() -> int`, `add_score(n)`, `add_life()`, `set_checkpoint(pos)`, `complete_level()`, `has_emerald(zone_id, act)`, `emerald_count()`. `start_level`, `restart_from_checkpoint`, `reset_game` and `lose_life` belong to SceneRouter. |
-| `Emeralds` (class, `core/emeralds.gd`) | The act-clear emerald: one per act of every zone in `ZoneRegistry.ZONES` (8); the test zone and arenas give none. `NAME` (display name: a director-approved exception to the originality guardrails, allowlisted for this file ONLY, so always show it through `Emeralds.NAME` and never write the word elsewhere: not in code, docs, file names or commit messages), `ICON_PATH` (48 px), `ICON_SMALL_PATH` (16 px), `icon(small := false)` (null until the art exists), `total()`, `all_keys()`, `key(zone_id, act)`, `is_emerald_act(zone_id, act)`. |
-| `SceneRouter` | **Methods:** `go_title()`, `go_zone_select()`, `start_zone(id, stage := 1)`, `next_stage()`, `respawn()` (takes a life, except in free scenes), `restart()` (the pause menu's Restart: from the checkpoint, no life lost), `open_scene(path)` (playgrounds; errors if missing), `in_gameplay() -> bool`, `current_zone() -> Dictionary`. **Properties:** `zone_id`, `stage` (1-based; the boss is acts + 1). **Signal:** `stage_started(zone_id, stage)`. **Constant:** `MENU_SCENES`. Only the first scene change per frame takes effect. |
-| `ZoneRegistry` | **Static:** `all_zones(include_test := false)`, `get_zone(id)`, `stage_path(id, stage)`, `next_zone_id(id)`. **Zone dict keys:** `id`, `name`, `acts` (scene paths), `boss`, `accessory`, `music`. |
-| `Tuning` | `physics: PhysicsConstants`; read it every frame. |
-| `Audio` | `play_sfx(name)`, `play_music(name)`, `stop_music()` (see Audio). |
-| `Dev` | `args` (command-line flags below), `send_action(action, pressed)`, `load_timeline(path)`. |
-| `Display` | `is_touch`, signal `touch_mode_changed(is_touch)`, `choose_stretch()`. It adds the global touch and pause overlays. |
+| `GameState` | **Signals:** `ticketsChanged`, `scoreChanged`, `livesChanged`, `checkpointReached`, `levelCompleted`, `levelStarted(zone, act)` (fresh attempts only), `emeraldWon(zone, act)`. **Fields:** `tickets`, `score`, `lives`, `levelTime` (seconds, physics-ticked), `timerRunning`, `checkpointPosition`, `zoneId`, `act`, `emeralds`, `emeraldJustWon`. **Methods:** `addTickets`, `loseTickets`, `addScore`, `addLife`, `setCheckpoint`, `completeLevel`, `hasEmerald`, `emeraldCount`. `startLevel`, `restartFromCheckpoint`, `resetGame` and `loseLife` belong to SceneRouter. |
+| `Emeralds` | One per act of every zone (8). `Emeralds.NAME` is the display name: a director-approved exception to the originality guardrails, allowlisted for one line of `src/core/emeralds.ts` only, so always show it through `Emeralds.NAME` and never write the word elsewhere. `icon(small)`, `total()`, `allKeys()`, `key()`, `isEmeraldAct()`. |
+| `SceneRouter` | `goTitle()`, `goZoneSelect()`, `startZone(id, stage)`, `nextStage()`, `respawn()` (takes a life, except in free scenes), `restart()`, `openScene(id)`, `inGameplay()`, `currentZone()`; `zoneId`, `stage` (1-based; the boss is acts + 1), `freeScene`, `currentId`; `stageStarted`, `sceneChanged`. Only the first scene change per frame takes effect. |
+| `Scenes` | The scene registry: `register(id, factory)` (factories may be async), `exists`, `ids`. Menu ids: `main` (dev menu), `title`, `zone_select`, `game_over`, `ending`. Stages: `level:<zone>/<act>`, `level:test_zone`, `boss:<id>`, playgrounds `playground:<name>`. |
+| `ZoneRegistry` | `allZones(includeTest)`, `getZone(id)`, `stagePath(id, stage)` (a scene id), `nextZoneId(id)`, `isReleased(id)`. Zone: `id`, `name`, `acts`, `boss`, `accessory`, `music`. |
+| `Tuning` | `physics: PhysicsConstants`; read it every tick. |
+| `Settings` | Player options: `extraMoves`, `itemBoxes`, `screenShake`, `speedEffects`, `muted`. |
+| `Audio` | `playSfx(name)`, `playMusic(name)`, `stopMusic()` (see Audio). |
+| `Dev` | `args` (URL options), `play(timeline)`, `sendAction(action, pressed)`. |
 | `Difficulty` | See "Difficulty". |
-| `InputLabels` | `for_action(action, max_keys := 3)` and `for_physical(key)` give key names as printed on the player's keyboard. Never hard-code key names in UI text. |
-| `Layers` | Collision layer bits (`Layers.TERRAIN_SOLID` …). Use them instead of literal numbers. |
 
-**Input actions** (bound by physical key position; see `tools/lead/setup_input_map.gd`):
+**Input actions** (`src/runtime/input.ts`, bound by physical key position):
 
-| Action | Keyboard | Gamepad | Notes |
+| Action | Keyboard | Gamepad (standard mapping) | Notes |
 |---|---|---|---|
 | `move_left` / `move_right` | Left/Right, A/D | D-pad, left stick | stick deadzone 0.45 |
-| `move_up` / `move_down` | Up/Down, W/S | D-pad, left stick | stick deadzone 0.75, so 45° diagonals read as horizontal |
+| `move_up` / `move_down` | Up/Down, W/S | D-pad, left stick | deadzone 0.75, so 45° diagonals read as horizontal |
 | `jump` | Z, X, C, Space, K | A, B, X, Y | |
-| `pause` | P, Enter, Esc | Start | browsers may keep Esc for leaving fullscreen |
+| `pause` | P, Enter, Esc | Start | |
+| `focus` | F | LB | Time Focus (Duelist cape) |
 | `debug_overlay` | F1 | | |
+| `ui_*` | arrows, Enter, Space, Esc | D-pad, A, B | menus |
 
-**Dev command-line flags** (after `--`):
+"Just pressed" is per consumer clock: the first physics tick after a press
+(gameplay), or the first rendered frame (menus). Key names in UI text come
+from the bindings, never hard-coded.
 
-| Flag | Where | Effect |
-|---|---|---|
-| `--scene=res://…` | everywhere | open a scene directly |
-| `--zone=<id>`, `--stage=<n>` | everywhere | start a zone or stage |
-| `--inputs=res://….json` | everywhere | replay an input timeline. Frame 0 = the first tick the `--scene`/`--zone` target is the current scene (boot when there is none), so a plain launch, the QA bot and `record_clip.sh` replay alike; recorders count from the same tick. Completing a level prints `[Dev] level completed at timeline frame N` |
-| `--dev` | everywhere | show the boot menu even when a title screen exists |
-| `--touch` | everywhere | force touch mode (touch controls, fractional scaling) |
-| `--overlay` | everywhere | start with the F1 debug overlay open |
-| `--trace[=N]`, `--start=X`, `--accessory=<id>`, `--interp`, `--terrain-root=<dir>` | physics playground only | |
+**Dev URL options:** `?scene=<id>`, `?zone=<id>&stage=<n>`, `?inputs=<name>`
+(a timeline from `tests/**/inputs/`, dev server only, or a URL), `?dev`
+(dev menu), `?touch`, `?overlay` (F1 open), `?mute`, `?start=<x>` and
+`?accessory=<id>` (physics playground). Input timeline:
+`{"events": [[frame, action, pressed], ...]}`; frame 0 is the first tick the
+target scene runs. `window.hpos` exposes the tree, router and state for bots
+and the smoke test.
 
-## Player (physics agent: `player/`)
+## Player (`src/player`)
 
-Scene `res://player/player.tscn`, root `Player` (`class_name Player`,
-extends `Node2D`), in group `player`. Its hitbox is an `Area2D` on layer 5.
+`Player` (`player.ts`), in group `player`. Its hitbox is an `Area2D` on
+layer 5. Public API (pixels per frame, Physics Guide degrees):
 
-```gdscript
-static func from_area(area: Area2D) -> Player  # null if area isn't the player's hitbox
-
-# Read-only state (pixels per frame, degrees)
-var ground_speed: float
-var velocity: Vector2           # x/y speed
-var ground_angle: float         # 0 = flat floor, Physics Guide convention
-var grounded: bool
-var collision_mode: int         # FLOOR, RIGHT_WALL, CEILING, LEFT_WALL
-var state: StringName           # &"idle", &"run", &"skid", &"jump", &"roll", &"spindash", &"spring", &"hurt", &"dead"
-var facing: int                 # 1 right, -1 left
-
-signal state_changed(old: StringName, new: StringName)
-signal hurt_taken
-signal died
-
-func is_attacking() -> bool     # jump/roll/spindash: touching an enemy destroys it
-func is_invincible() -> bool
-func hurt(source_position: Vector2) -> void   # knockback, scatter tickets, or die at 0 tickets
-func kill() -> void                           # instant death (pits, crush)
-func bounce_off(target_y: float, reverse_x := false) -> void  # rebound off an enemy; bosses pass reverse_x = true
-func launch(velocity_pf: Vector2) -> void     # airborne launch (springs). Not attacking.
-func push_ground(speed_pf: float, lock_frames := 16) -> void  # horizontal springs, boosters
-func set_control_lock(frames: int) -> void
-func set_collision_path(path: int) -> void    # 0 = A, 1 = B
-func freeze(frozen: bool) -> void             # cutscenes, goal, boss defeat
-func play_pose(pose: StringName) -> void      # e.g. &"victory"
-func respawn_at(position: Vector2) -> void
-var clamp_rect: Rect2           # non-empty: player is kept inside (autoscroll). Crushed against a wall = kill().
-
-# Also available (read-only helpers)
-var collision_path: int         # 0 = A, 1 = B
-var control_lock: int           # frames left
-var crouching: bool
-var spindash_charge: float
-func get_radii() -> Vector2     # current width/height radius
-func can_collect_tickets() -> bool
+```ts
+static fromArea(area): Player | null
+groundSpeed; velocity; groundAngle; grounded; collisionMode; state; facing
+// state: 'idle' | 'run' | 'skid' | 'jump' | 'roll' | 'spindash' | 'spring' | 'hurt' | 'dead' | 'peelout'
+stateChanged; hurtTaken; died; shieldLost
+isAttacking()          // jump/roll/spindash, or invincible: touching an enemy destroys it
+isInvincible()
+hurt(sourcePosition)   // shield absorbs it; else knockback, scatter tickets, or die at 0
+kill()                 // pits, crush, time over
+bounceOff(targetY, reverseX = false)   // bosses pass reverseX = true
+launch(velocity)       // springs; not attacking
+pushGround(speed, lockFrames = 16)     // horizontal springs, boosters
+setControlLock(n); setCollisionPath(p); freeze(b); playPose(p); respawnAt(pos)
+clampRect              // non-empty: kept inside (autoscroll); crushed against a wall = kill()
+collisionPath; controlLock; crouching; spindashCharge; getRadii(); canCollectTickets()
+moves                  // power-ups: give('shield'|'speed_shoes'|'invincibility'), shield,
+                       // speedShoesFrames, invincibilityFrames, peelOutCharge()
 ```
 
-The player reads `SceneRouter.current_zone().accessory` (`""`,
-`"wizard_hat"`, `"sunglasses"`) and draws the accessory overlay.
+The player reads `SceneRouter.currentZone().accessory` (`''`,
+`'wizard_hat'`, `'sunglasses'`) for the accessory overlay. Visuals and the
+ticket scatter attach through `PlayerHooks` (`visuals_setup.ts`).
+Scattered tickets and placed tickets both call `GameState.addTickets(1)`,
+`Audio.playSfx('ticket')` and `Effects.ticketSparkle(at, parent)`.
 
-Scattered tickets (`player/scattered_ticket.tscn`) belong to the physics agent.
-Pickup sparkle: `Effects.ticket_sparkle(at: Vector2, parent: Node = null)`
-(player/effects.gd). Every ticket calls it on collect.
-Placed level tickets (`levels/objects/ticket.tscn`) belong to the level agent.
-Both call `GameState.add_tickets(1)` and `Audio.play_sfx(&"ticket")`.
+**Extra moves** (`moves.ts`): drop dash, charge run and shield bounce, with
+the player's option on and never in Ranked. With them off, the physics are
+exactly the classic model (docs/PHYSICS.md); the tests run that way.
 
-## Terrain helpers (physics agent: `terrain/`)
+## Terrain (`src/terrain`)
 
-- `CurveTerrain` (`@tool`, `StaticBody2D`): builds collision + placeholder
-  visuals for curves: loop, quarter pipe, ramp, or a free `Curve2D`.
-  Exports: which path layer (both / A / B), top-only.
-- `PathSwitcher` (`Area2D`): sets the player's path when crossed.
-- `terrain/loop.tscn`: a ready-to-place full loop with its path switchers.
-  Levels only instance it and set the radius.
+- `CurveTerrain` (static body): collision and placeholder visuals for a
+  loop arc, quarter pipe, ramp, free curve or block; path layer (both / A /
+  B) and top-only.
+- `PathSwitcher`: sets the player's path when his centre crosses it.
+- `TerrainLoop` (`loop.ts`): a ready-made loop with its switchers and the
+  `LoopGuard`. Levels set the radius.
+- `TileLayer` (`src/levels/common/level_nodes.ts`): 16×16 terrain tiles
+  from the zone tileset (`src/levels/data/tilesets/<zone>.json`, atlas
+  `assets/tiles/<zone>_tiles.png`), merged collision edges,
+  pre-rendered 256 px chunks.
 
-## Moving terrain (physics agent: player side; level agent: the objects)
+## Moving terrain
 
-Zones use moving platforms, shifting stairs, bookshelves, conveyors and
-crushers. Each side's responsibilities:
-- **Moving platforms and moving solids:**
-  - Build them as `AnimatableBody2D` (`sync_to_physics = true`) on the
-    usual terrain bits (`Layers.TERRAIN_SOLID` or `Layers.TERRAIN_TOP_ONLY`).
-  - Move them only in `_physics_process`.
-  - Expose `func platform_delta() -> Vector2`, the displacement applied
-    this physics tick. Having the method is what marks a body as moving
-    terrain.
-  - The player carries the body's actual motion over the last physics step
-    (read from the physics server, so it matches what's drawn whatever
-    order the scripts run in) while standing on it, before its own
-    movement. Standing still on a platform moves you with it.
-  - Ground speed is never changed. When a platform stops or reverses, the
-    player keeps its own speed. A jump of more than 64 px in one tick
-    counts as a reset and doesn't carry the player.
-  - **Lift-off:** a platform that drops faster than the player's sink speed
-    + gravity + 4 px in one tick leaves the player falling, to land again
-    later.
-- **Conveyors:** terrain that sets the meta `conveyor_speed` (px/frame,
-  + = right) adds it to the player's motion while grounded on it, not to
-  ground speed.
-- **Crushing:** the player calls `kill()` when any of these happen:
-  - its centre is inside a moving body;
-  - along either axis the free span between the nearest solids (one of
-    them moving) is shorter than its hitbox by more than 1 px. The hitbox
-    is 38×18 standing and 28×14 when rolling or jumping;
-  - a platform lifts it into a ceiling with less room than its height.
+- Moving platforms and solids extend `MovingBody`
+  (`src/levels/common/moving_body.ts`) on the terrain bits, move only in
+  `physicsProcess` by calling `moveTo()` every tick, and expose
+  `platformDelta()` (having it marks a body as moving terrain).
+- The player is carried by the body's motion over the last tick while
+  standing on it; ground speed is never changed. A jump of more than 64 px in
+  one tick is a reset and doesn't carry him.
+- **Lift-off:** a platform that drops faster than his sink speed + gravity +
+  4 px in one tick leaves him falling.
+- **Conveyors:** a static terrain body with meta `conveyor_speed` (px/frame,
+  + is right) adds it to his motion while grounded on it.
+- **Crushing:** `kill()` when his centre is inside a moving body; when the
+  free span between the nearest solids (one of them moving) is shorter than
+  his hitbox by more than 1 px (38×18 standing, 28×14 rolling); or a
+  platform lifts him into a ceiling. Touching is never a crush. Crushers
+  telegraph for `Difficulty.telegraph(base, local)` (never under 0.35 s).
+- Level-building rules (QA-measured): descending ridden platforms ≤ 6
+  px/frame; leave ≥ 39 px vertical (≥ 29 in roll tunnels) and ≥ 19 px
+  horizontal clearance where crushing isn't intended; conveyors show their
+  direction; one-way moving platforms use `TERRAIN_TOP_ONLY`; never a
+  checkpoint or PlayerStart on a moving platform.
 
-  Touching is never a crush. A body short of crushing pushes the player
-  out (up to 10 px sideways). Crushers must telegraph before they close.
-- **Interpolation:** anything that teleports (a platform reset, a respawn)
-  calls `reset_physics_interpolation()`.
-- **Level-building rules** (QA-measured):
-  - Reference implementation: `playground/demo_moving_platform.gd`. Its
-    node position updates after the physics step, so use
-    `target_position()` for where it's heading.
-  - Descending platforms that should be ridden move ≤ 6 px/frame.
-  - Where crushing isn't intended, leave ≥ 39 px vertical clearance
-    (≥ 29 px in roll tunnels) and ≥ 19 px horizontal between a moving body
-    and other terrain.
-  - Crushers telegraph for `Difficulty.telegraph(base, local)` (never under
-    0.35 s), including their first cycle after a respawn.
-  - Conveyors: put the `conveyor_speed` meta on a static terrain body and
-    show the direction with chevrons.
-  - One-way moving platforms use `Layers.TERRAIN_TOP_ONLY`.
-  - Never place a checkpoint or PlayerStart on a moving platform.
+## Camera (`src/camera/game_camera.ts`)
 
-## Camera (physics agent: `camera/`)
+`GameCamera`, in group `game_camera`, follows the `player` group.
 
-Scene `res://camera/game_camera.tscn`, `class_name GameCamera` (extends
-`Camera2D`), in group `game_camera`. Follows the `player` group automatically.
-
-```gdscript
-static func current() -> GameCamera
-func set_level_bounds(rect: Rect2) -> void
-func lock_to(rect: Rect2, transition_seconds := 0.5) -> void   # boss arenas
-func unlock(transition_seconds := 0.5) -> void
-func start_autoscroll(speed_px_per_s: Vector2) -> void         # broom chase
-func stop_autoscroll() -> void
-func shake(strength_px: float, seconds: float) -> void
+```ts
+static current(): GameCamera | null
+setLevelBounds(rect); lockTo(rect, seconds = 0.5); unlock(seconds = 0.5)
+startAutoscroll(speedPxPerSecond); stopAutoscroll()
+shake(strengthPx, seconds)   // off when Settings.screenShake is off
+viewRect()
 ```
 
-## Levels (level agent: `levels/`)
+## Levels (`src/levels`)
 
-Every act scene's root uses `LevelRoot` (`levels/common/level_root.gd`).
-Boss arenas use it too (read-only for the boss agent). Expected children:
+- Every act scene's root is a `LevelRoot` (`common/level_root.ts`) with
+  children `PlayerStart` (marker), `Bounds` (camera limits; below its bottom
+  edge = death pit), and any structure for `Terrain`, `Objects`, `Enemies`.
+  `LevelRoot` spawns the player (at the checkpoint if any), the camera, the
+  HUD (`LevelHooks.hud`) and the backdrop (`LevelHooks.backdrop`); kills him
+  below Bounds; after `Player.died` (about 1 s after `kill()`) waits about 1 s
+  more and calls `SceneRouter.respawn()` once. After the goal sign or a boss
+  it shows the tally (`LevelHooks.tally`, signal `finished`), then
+  `SceneRouter.nextStage()`. `progressAt(x)` (0 at PlayerStart, 1 at the
+  goal), `completeLevel()`, `getBounds()`, `LevelRoot.find(node)`.
+- Level data: `src/levels/data/<zone>/<act>.json`, a node list with typed
+  values, one node (or one row of tiles) per line. It was converted once from
+  the original scene files and is now the source of truth.
+  Node types are registered by their original scene path in
+  `LevelTypes.register(key, factory)` (`common/level_loader.ts`); new types
+  use `hpos://...` keys. A type implements `applyProps(p: Props)`.
+  New acts can be written in code with the level builder
+  (`src/levels/builder/`).
+- Added to every act at runtime (`src/levels/content.ts`): item boxes along
+  the route (off in Ranked and by option), the 10:00 time limit, impact feel.
+- Backdrop: 4 parallax layers (scroll 0.1 / 0.3 / 0.6 / 0.9) from
+  `assets/backgrounds/<zone>/1_far.png` … `4_near.png` when they exist,
+  placeholder layers drawn in code otherwise.
+- Enemy base: `Enemy` (`enemies/enemy_base.ts`). On contact, if
+  `player.isAttacking()` the enemy dies (+100 score, `enemy_pop`) and calls
+  `player.bounceOff(y)`; otherwise `player.hurt(position)`.
 
-- `PlayerStart` (`Marker2D`)
-- `Bounds` (`ReferenceRect`): camera limits; below its bottom edge = death pit
-- `Terrain`, `Objects`, `Enemies` (any structure)
+## Difficulty (`src/core/difficulty.ts`, `docs/LEVELS.md`)
 
-`LevelRoot` spawns the player (at the checkpoint if `GameState` has one) and
-the camera. It also adds these when they exist:
+Every act is built to the curve in docs/LEVELS.md. `Difficulty.current()`
+gives D (0 for the test zone, 1..8 across the acts; a boss its own value).
+Enemies and bosses scale with `speedMult()`, `intervalMult()` and
+`telegraph(seconds)` at their local difficulty
+`Difficulty.local(LevelRoot.progressAt(x))` (the `Enemy` helpers
+`moveSpeed`, `intervalFrames`, `telegraphFrames` do it). Never hard-code a
+per-zone speed. `Enemy.tier` feeds QA's lint. Bosses read
+`Difficulty.boss(zoneId)`.
 
-- `res://ui/hud/hud.tscn`
-- parallax layers from `res://assets/backgrounds/<zone_id>/`
+## Bosses (`src/bosses`)
 
-The touch controls and pause menu are global: the `Display` autoload
-(core/display.gd) adds them once, above every scene. Levels don't add them.
+`Boss` (`boss_base.ts`): 8 hits, phases, hit flash, 1–2 s invincibility
+after each hit, speed-up after hits 4 and 6, a telegraph before every attack,
+the defeat sequence. Weak point area in group `boss_weak_point`, harmful
+body in group `boss_body`; hitting the weak point while attacking counts and
+calls `player.bounceOff(y, true)`. Signals `hitTaken(hitsLeft)`,
+`phaseChanged(phase)`, `defeated`. Each arena (`boss:<id>`) is a `LevelRoot`
+that locks the camera on entry and, on defeat, opens the gate and shows the
+tally.
 
-`Player.died` fires about 1 s after `kill()` (the fall-off animation). On
-it, LevelRoot stops `GameState.timer_running`, waits about 1 s more, then
-calls `SceneRouter.respawn()` once (about 2 s from death to respawn). `respawn()` takes the
-life; nothing else calls `GameState.lose_life()`. Scenes opened directly
-(sandboxes) respawn without losing lives.
-After the goal sign or a boss it shows the tally (`res://ui/tally/score_tally.tscn`,
-signal `finished`), then calls `SceneRouter.next_stage()`.
+## Art (`assets/`)
 
-Parallax: `Parallax2D` layers, files loaded in order, scroll scales
-0.1 / 0.3 / 0.6 / 0.9:
-`1_far.png`, `2_distant.png`, `3_mid.png`, `4_near.png`.
-
-| Layer | Height | Anchoring |
-|---|---|---|
-| far | 240 px | top of the screen |
-| distant | about 180 px | bottom-aligned to the horizon line, with a per-layer y offset in LevelRoot |
-| mid | about 160 px | bottom-aligned to the horizon line, with a per-layer y offset in LevelRoot |
-| near | about 96–120 px, with transparency | bottom-aligned to the horizon line, with a per-layer y offset in LevelRoot |
-
-`repeat_size.x` = texture width. Background folders hold only these four
-files; zone palettes live in `tools/art/palettes/<zone_id>.png`.
-
-Enemy base: `levels/enemies/enemy_base.gd` (`class_name Enemy`). On contact,
-if `player.is_attacking()`, the enemy dies (+100 score, `enemy_pop`) and calls
-`player.bounce_off(global_position.y)`. Otherwise it calls `player.hurt(global_position)`.
-
-## Difficulty (lead: `core/difficulty.gd`, `docs/LEVELS.md`)
-
-Every act is built to the curve in docs/LEVELS.md: enemy tiers and density,
-direction difficulty (R1–R5), checkpoints and tickets.
-- `Difficulty.current()` gives D: 0 for the test zone, 1..8 across the
-  acts; a boss uses its zone's Act 2 value.
-- Every enemy and boss scales with `Difficulty.speed_mult()`,
-  `Difficulty.interval_mult()` and `Difficulty.telegraph(seconds)`. Never
-  hard-code a per-zone speed.
-- Enemy behaviours come from the T1–T4 roster in docs/LEVELS.md, dressed per
-  zone (docs/DESIGN.md).
-- `Enemy` exports `tier: int`, so QA's lint can check each act's tier mix.
-- **Difficulty rises inside every act.** `LevelRoot.progress_at(x) -> float`
-  (0 at PlayerStart, 1 at the goal sign) gives an enemy its progress, and
-  `Difficulty.local(progress)` gives the local difficulty to pass to the
-  multipliers.
-- **Bosses** read `Difficulty.boss(zone_id)`: d, weak_window,
-  attacks_per_cycle, telegraph, escalation, desperation, ticket_refills.
-  The last two bosses are very difficult by design (docs/LEVELS.md).
-
-## Bosses (boss agent: `bosses/`)
-
-`bosses/boss_base.gd` (`class_name Boss`, extends `Node2D`):
-8 hits, phases, hit flash, 1–2 s invincibility after each hit, speed-up after
-hits 4 and 6, telegraph before every attack, defeat sequence.
-Weak-point `Area2D` in group `boss_weak_point`; harmful body `Area2D` in group
-`boss_body`. Hitting the weak point while `player.is_attacking()` counts as a
-hit and calls `player.bounce_off()`.
-
-```gdscript
-signal hit_taken(hits_left: int)
-signal phase_changed(phase: int)
-signal defeated
-```
-
-Each boss lives in `bosses/<boss_id>/` with `arena.tscn` (uses `LevelRoot`
-and `bosses/arena.gd`). On entering, the arena locks the camera. On defeat it
-plays explosions, opens the gate and shows the tally, then goes to the next stage.
-
-## Art (art agent: `assets/`)
-
-- Sprites: `assets/sprites/<zone_id>/<name>/`, where `<zone_id>` is `common`
-  for things used in every zone.
-  - `<name>_sheet.png`: the assembled sheet, nearest filter, lossless
-  - `<name>_frames.tres`: a `SpriteFrames` resource
-  - `anchors.json`: optional per-frame points (for example `head` for accessories)
-- Sproto: `assets/sprites/common/sproto/sproto_frames.tres`.
-  - Animations: `idle`, `run` (4 frames), `jump` (ball), `hurt`.
-  - Code derives the rest when missing: `walk` from `run` played slower,
-    `roll`/`spindash` from `jump`, `dead` from `hurt`.
-  - Frame cells are 64×64. The feet's centre sits at (32, 60) in each cell.
-  - Relic skins, optional, same animations and cells:
-    `golden_sproto_frames.tres` (Golden) and `tidebreaker_sproto_frames.tres`
-    (Tidebreaker) in the same folder. Until they exist the base frames are
-    tinted and the code-drawn placeholder swaps colors (`player/player_visual.gd`).
-- Accessories:
-  - `assets/sprites/z2_wizard_academy/wizard_hat/`
-  - `assets/sprites/z3_capital_mansion/sunglasses/`
-  - Each is positioned using Sproto's `anchors.json` `head` points.
+- Sprites: `assets/sprites/<zone_id>/<name>/`, `<zone_id>` = `common` for
+  shared ones.
+  - `<name>_sheet.png`: 64×64 cells, one animation per row, nearest filter,
+    lossless. Optional `<name>_sheet.json`:
+    `{"cell": 64, "animations": {"run": {"row": 1, "frames": 4, "fps": 12, "loop": true}}}`.
+    Without it the rows are `idle`, `run`, `jump`, `hurt`.
+  - `anchors.json`: optional per-frame points (`head` for accessories).
+- Sproto: `assets/sprites/common/sproto/sproto_sheet.png`; the feet's centre
+  sits at (32, 60) in each cell. Code derives `walk` from `run`,
+  `roll`/`spindash` from `jump`, `dead` from `hurt`. Relic skins:
+  `golden_sproto_sheet.png`, `tidebreaker_sproto_sheet.png` (tinted base
+  until they exist).
+- Accessories: `assets/sprites/z2_wizard_academy/wizard_hat/`,
+  `assets/sprites/z3_capital_mansion/sunglasses/`.
 - Backgrounds: `assets/backgrounds/<zone_id>/1_far.png` … `4_near.png`.
-  Near layers have transparency. Edges are pre-processed to tile seamlessly.
-- Terrain materials: `assets/terrain/<zone_id>/`, all nearest-filtered pixel
-  art in the zone palette:
-  - `fill.png`: patterned dirt or stone, tileable in both directions
-    (64×64 or 128×128).
-  - `top.png`: a grass/edge lip strip, tileable horizontally, transparent
-    below the lip, 16–24 px tall. Its top row sits on the walkable surface.
-  - `side.png` (optional): a cliff/rock face for steep or vertical sides.
-
-  `CurveTerrain` (physics agent) and the level TileSet (level agent) both
-  read these. `LevelRoot.art_zone_id` (defaults to the zone id) chooses
-  the folder for terrain and backgrounds, and LevelRoot calls
-  `CurveTerrain.set_art_zone(id)` on every CurveTerrain in the level. When
-  files are missing, the simple placeholder look stays.
-- Raw generations go in `_raw/` folders. These are git-ignored and contain a
-  `.gdignore` file.
+- Terrain materials: `assets/terrain/<zone_id>/fill.png`, `top.png`,
+  optional `side.png` (read by `CurveTerrain`).
+- Raw generations go in `_raw/` folders (git-ignored).
 
 Zone ids: `test_zone`, `z1_retro_rush_hills`, `z2_wizard_academy`,
 `z3_capital_mansion`, `z4_neon_rush_remix`, `common`.
 
-## Audio (UI/audio agent: `audio/`)
+## Audio (`src/core/audio.ts`)
 
-`Audio.play_sfx(&"name")`, `Audio.play_music(&"name")`, `Audio.stop_music()`.
+`Audio.playSfx('name')`, `Audio.playMusic('name')`, `Audio.stopMusic()`.
 Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
+Web Audio, unlocked by the first key press, click or tap.
 
 - **SFX:** `jump`, `roll`, `spindash_charge`, `spindash_release`, `skid`,
   `ticket`, `ticket_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
   `enemy_pop`, `checkpoint`, `goal_sign`, `boss_hit`, `boss_explode`,
-  `boss_telegraph`, `enemy_telegraph`, `one_up`, `menu_move`, `menu_select`, `pause`, `tally_tick`,
-  `emerald_get`
+  `boss_telegraph`, `enemy_telegraph`, `one_up`, `menu_move`, `menu_select`,
+  `pause`, `tally_tick`, `emerald_get`, `item_box`, `shield`, `power_up`
 - **Music:** `title`, `zone_select`, `z1`, `z2`, `z3`, `z4`, `boss`,
   `act_clear`, `game_over`
 
-## UI (UI/audio agent: `ui/`)
+## UI (`src/ui`)
 
-| Scene | Purpose |
+| Screen | |
 |---|---|
-| `ui/title/title_screen.tscn` | Boot goes here once it exists. Must show the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| `ui/zone_select/zone_select.tscn` | Uses `ZoneRegistry` + `SceneRouter.start_zone()`. Shows the 8 emerald slots (`EmeraldIcon`, small) |
-| `ui/hud/hud.tscn` | `CanvasLayer`; listens to `GameState` signals |
-| `ui/pause/pause_menu.tscn` | Added globally by `Display`. `process_mode = ALWAYS`; toggles `get_tree().paused` on `pause`, only while `SceneRouter.in_gameplay()` |
-| `ui/touch_controls/touch_controls.tscn` | Added globally by `Display` only on touch devices (`Display.is_touch`). It presses the normal input actions |
-| `ui/tally/score_tally.tscn` | Emits `finished`. Shows the emerald moment (big spinning icon, `Emeralds.NAME`, "N / 8", `emerald_get`) when `GameState.emerald_just_won` |
-| `ui/emerald/emerald_icon.tscn` | `EmeraldIcon`: the flat spinning emerald (whole-pixel widths, darker mirrored back face, edge strip edge-on; `small` for 16 px slots); a placeholder gem until the art exists |
-| `ui/game_over/game_over.tscn`, `ui/ending/ending.tscn` | |
+| Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
+| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; Relic skin row; hub Ticket balance |
+| HUD | Score, time, tickets, lives, power-ups |
+| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub, Quit to title |
+| Touch controls | Global overlay in touch mode; presses the normal actions |
+| Tally | Emits `finished`; the emerald moment; "+N Tickets sent to the hub" |
+| Game over, ending, dev menu (`main`), sound hint, rotate hint | |
+
+## Hub (`src/hub`)
+
+`HubClient` on the vendored `@metaverse/hub-sdk` (`vendor/hub-sdk`):
+- `init()` at boot redeems `#t=` (or the tab's saved session) and reads
+  Relics, Ranked and the loadout; without a server key or network the game
+  plays standalone (`reach = 'offline'`).
+- Every fresh act start mints a run id (UUIDv7, saved first); every clear
+  banks the act's tickets with `earnTickets(n, 'level_end', runId)`, so a
+  retry, a reload or a second tab never pays twice. Unacked earns are resent
+  after the next successful init. Caps, key mismatches and bad requests are final.
+- One `level_end` earn carries at most **20** Tickets (`EARN_MAX_PER_ACT`, the
+  hub's `event_rule.max_amount`): the server refuses more with
+  `amount_over_rule` and stores nothing, so an over-cap earn saved by an older
+  build is resent capped with the same key. Before the SDK starts, queued earns
+  that can never be delivered are cleared from its outbox (`outbox_repair.ts`),
+  so one refused write can't keep every later launch offline.
+- `npm run e2e:hub` checks the web build against a running hub server (the hub
+  repo's `server/docker-compose.yml`): ticket redeem, earn once per attempt,
+  reloads, the Relic, the board, outbox recovery and Exit to Hub.
+- Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
+  key unique to that attempt (the server grants the HPOS10I Core and pets).
+- Only Zone 1 Act 1 posts to `hpos10i_act_time` (the server keeps one time
+  per player for this game and ignores unranked runs).
+- The Ticket→Verse exchange is not offered: the server refuses it for this game.
+- `exitToHub()`: flushes the outbox, returns to `<hubUrl>#from=hpos10i`.
+- `RelicLoadout.resolve()` is the only reader of Relic ownership: skins
+  (Golden, Nobu, Tidebreaker), the cape, and their effects (off in Ranked),
+  plus `extras_allowed` for the extra moves and item boxes.
+- Saves: `localStorage` keys `hpos10i/progress.json`,
+  `hpos10i/write_keys.json`, `hpos10i/relic_slots.json`,
+  `hpos10i/settings.json`; imported once from the old Godot build's storage
+  (`godot_migration.ts`).
 
 ## Merge gate
 
 1. The agent finishes and reports.
 2. The QA agent reviews the branch against `qa/checklists/` and writes
-   `qa/reports/<NN>-<branch>.md` with a verdict and bugs by severity:
-   - **blocker:** must fix before merge
-   - **major:** fix this step
-   - **minor:** backlog
+   `qa/reports/<NN>-<branch>.md` with a verdict and bugs by severity
+   (blocker / major / minor).
 3. The owner fixes blockers. QA re-checks them.
-4. The lead runs the game and records a clip, then merges with `--no-ff`.
-   It pushes only after `tools/lead/gate.sh` passes on a clean checkout
-   (import, originality, tests, smoke). CI repeats every check, plus
-   `web_check`, before deploying.
+4. The lead plays the build and merges with `--no-ff` after
+   `tools/lead/gate.sh` passes on a clean checkout (install, typecheck,
+   originality, tests, build, web check, smoke). CI repeats every check
+   before deploying.
 
 ## Before you report back
 
-1. `godot --headless --path <your worktree> --import` completes. Import
-   alone doesn't report script errors, so run steps 2 and 3 too.
-2. `godot --headless --fixed-fps 60 --path <your worktree> -s res://tests/run_tests.gd` passes.
+1. `npm run typecheck` and `npm test` pass.
+2. `tools/qa/originality_scan.sh .` is clean.
 3. `git diff --name-only main...HEAD` lists only your folders.
 4. Commit in small steps with clear messages on your branch.
-5. Report:
-   - what you built
-   - how to run it
-   - what to check by hand
-   - known gaps
-   - any `LEAD-REQUEST`s
+5. Report: what you built, how to run it, what to check by hand, known gaps,
+   any `LEAD-REQUEST`s.

@@ -3,7 +3,7 @@
 The director's rule: **as you pass the levels, it gets harder**, in both
 **enemy difficulty** and **direction difficulty** (how hard it is to find and
 follow the way forward). Every act is built against this file. QA's level
-lint measures each act against the targets in `core/difficulty.gd`. Owned by
+lint measures each act against the targets in `src/core/difficulty.ts`. Owned by
 the lead.
 
 ## Principles
@@ -219,7 +219,7 @@ are deliberately very difficult** (director):
 
 ## How it's checked
 
-- `core/difficulty.gd` holds D and the numeric targets for every stage.
+- `src/core/difficulty.ts` holds D and the numeric targets for every stage.
 - QA's level lint measures each built act and fails if it's off the curve.
   It checks length, enemy density, tier mix, checkpoint count and spacing,
   ticket density, route count per third, vertical screens, leftward
