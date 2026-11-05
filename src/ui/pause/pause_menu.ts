@@ -8,7 +8,10 @@
 //   RESTART        reload the stage from its checkpoint (or the playground),
 //                  without losing a life (SceneRouter.restart())
 //   OPTIONS        the Settings toggles (OptionsMenu below)
-//   EXIT TO HUB    HubClient.exitToHub() (always offered, like the original)
+//   EXIT TO HUB    asks first (this is mid-run: the act's tickets are not
+//                  banked yet), then HubClient.exitToHub(); always offered,
+//                  like the original. The hub chrome's Return to Hub button
+//                  opens the same question (confirmExitToHub()).
 //   QUIT TO TITLE  SceneRouter.goTitle()
 // Arrows/WASD/D-pad move, Enter/Space/any jump button choose, mouse and touch
 // tap. Left/right cycle the Relic skin when there is a choice. The panel also
@@ -47,6 +50,8 @@ const BACKDROP = new Color(0.02, 0.03, 0.09, 0.62);
 const HEADER_ACTIVE = COLORS.gold;
 const HEADER_IDLE = COLORS.idle;
 const OPTION_W = 236;
+/** Under EXIT TO HUB? (tickets bank only when an act is cleared). */
+export const EXIT_CONFIRM_NOTE = 'THIS RUN ENDS HERE. TICKETS FROM THIS ACT ARE NOT BANKED.';
 export const MOVES_LINE = 'DOWN: ROLL   HOLD DOWN + JUMP: SPIN DASH   UP: LOOK';
 
 type Device = 'keyboard' | 'pad' | 'touch';
@@ -92,10 +97,14 @@ export class PauseMenu extends UiLayer {
 
   readonly main: MenuList;
   readonly options: MenuList;
-  /** 'main' or 'options' while open. */
-  page: 'main' | 'options' = 'main';
+  /** EXIT TO HUB / KEEP PLAYING: the question before leaving a run for the hub. */
+  readonly confirm: MenuList;
+  /** 'main', 'options' or 'confirm' while open. */
+  page: 'main' | 'options' | 'confirm' = 'main';
 
   private open = false;
+  /** KEEP PLAYING goes back to the pause list, or (asked from the hub chrome) straight back to the game. */
+  private confirmBack: 'main' | 'resume' = 'main';
   private resumePending = false;
   private quietFrames = 0;
   private relicText = '';
@@ -136,6 +145,13 @@ export class PauseMenu extends UiLayer {
     }));
     rows.push({ label: 'BACK', rect: new Rect2(), onSelect: () => this.showMain() });
     this.options = new MenuList(rows, { onCancel: () => this.showMain(), repeatHorizontal: false });
+    this.confirm = new MenuList(
+      [
+        { label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.leave(() => HubClient.exitToHub()) },
+        { label: 'KEEP PLAYING', rect: new Rect2(), onSelect: () => this.cancelExit() },
+      ],
+      { onCancel: () => this.cancelExit(), repeatHorizontal: false },
+    );
   }
 
   override enterTree(): void {
@@ -164,6 +180,7 @@ export class PauseMenu extends UiLayer {
 
   /** The list now taking input. */
   activeMenu(): MenuList {
+    if (this.page === 'confirm') return this.confirm;
     return this.page === 'options' ? this.options : this.main;
   }
 
@@ -186,7 +203,7 @@ export class PauseMenu extends UiLayer {
     if (this.resumePending) return;
     const menu = this.activeMenu();
     // Enter is pause and accept: in the menu it chooses, it doesn't close it.
-    if (jp('pause') && !jp('ui_accept') && !menu.isSettling() && !(this.page === 'options' && Input.isActionJustPressed('ui_cancel'))) {
+    if (jp('pause') && !jp('ui_accept') && !menu.isSettling() && !(this.page !== 'main' && Input.isActionJustPressed('ui_cancel'))) {
       this.requestResume();
       return;
     }
@@ -266,7 +283,44 @@ export class PauseMenu extends UiLayer {
   }
 
   private onExitHub(): void {
-    this.leave(() => HubClient.exitToHub());
+    this.showConfirm('main');
+  }
+
+  /**
+   * The Return to Hub question mid-run (the hub chrome's button): pauses the
+   * game if needed and asks. KEEP PLAYING then resumes. Outside gameplay
+   * nothing is asked: it goes to the hub at once.
+   */
+  confirmExitToHub(): void {
+    if (!SceneRouter.inGameplay()) {
+      HubClient.exitToHub();
+      return;
+    }
+    const wasOpen = this.open;
+    if (!wasOpen) this.openMenu();
+    if (!this.open) return;
+    this.resumePending = false;
+    this.showConfirm(wasOpen ? 'main' : 'resume');
+  }
+
+  private showConfirm(back: 'main' | 'resume'): void {
+    this.confirmBack = back;
+    this.page = 'confirm';
+    this.layout();
+    // KEEP PLAYING first: a double press never leaves the run by accident.
+    this.confirm.reset(1);
+  }
+
+  private cancelExit(): void {
+    if (this.confirmBack === 'resume') {
+      // The question stays drawn for the two quiet frames; close() resets the page.
+      this.requestResume();
+      return;
+    }
+    this.page = 'main';
+    this.layout();
+    this.main.reset(3);
+    Audio.playSfx('menu_select');
   }
 
   private showOptions(): void {
@@ -340,6 +394,23 @@ export class PauseMenu extends UiLayer {
   /** Places the items for the current page (centred vertically, like the VBox). */
   private layout(): void {
     const titleH = lineHeight('title');
+    if (this.page === 'confirm') {
+      const n = this.confirm.items.length;
+      const noteH = lineHeight('outline');
+      const listH = n * BUTTON_H + (n - 1) * BUTTON_SEP;
+      const total = titleH + LAYOUT_SEP + noteH + LAYOUT_SEP + listH;
+      let y = Math.floor((VIEW_H - total) / 2);
+      this.titleY = y;
+      y += titleH + LAYOUT_SEP;
+      this.relicY = y;
+      y += noteH + LAYOUT_SEP;
+      const x = Math.floor((VIEW_W - BUTTON_W) / 2);
+      for (const it of this.confirm.items) {
+        it.rect = new Rect2(x, y, BUTTON_W, BUTTON_H);
+        y += BUTTON_H + BUTTON_SEP;
+      }
+      return;
+    }
     if (this.page === 'options') {
       const n = this.options.items.length;
       const listH = n * BUTTON_H + (n - 1) * BUTTON_SEP;
@@ -396,6 +467,12 @@ export class PauseMenu extends UiLayer {
     g.rect(0, 0, VIEW_W, VIEW_H, BACKDROP);
     if (this.page === 'options') {
       this.paintOptions(g);
+      return;
+    }
+    if (this.page === 'confirm') {
+      drawCentered(g, 'EXIT TO HUB?', this.titleY, 'title');
+      drawCentered(g, EXIT_CONFIRM_NOTE, this.relicY, 'outline');
+      this.confirm.draw(g);
       return;
     }
     drawCentered(g, 'PAUSED', this.titleY, 'title');

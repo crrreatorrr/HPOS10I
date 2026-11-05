@@ -8,9 +8,10 @@
 // scene.
 //
 // With two or more Relic skins to choose from, a SKIN row cycles the body
-// slot (RelicLoadout.cycleBody: left/right or choose). The hub Ticket balance
-// shows top-right once HubClient knows it. (The old Ticket exchange panel is
-// gone: the hub refuses exchanges for this game.)
+// slot (RelicLoadout.cycleBody: left/right or choose). HUB, beside BACK,
+// returns to the hub at once (a menu: nothing to confirm). The hub Ticket
+// balance is in the hub chrome (src/ui/hub_chrome.ts) on every screen. (The
+// old Ticket exchange panel is gone: the hub refuses exchanges for this game.)
 
 import { Audio } from '../../core/audio';
 import { Emeralds } from '../../core/emeralds';
@@ -84,6 +85,7 @@ export class ZoneSelect extends Node {
   /** Rows of menu indices (-1 where an act can't be played), then the skin row, then [Back]. */
   readonly grid: number[][] = [];
   readonly backIndex: number;
+  readonly hubIndex: number;
   readonly skinIndex: number;
   private readonly layer: ZoneSelectLayer;
   private readonly zones: { zone: Zone; open: boolean; y: number }[] = [];
@@ -155,7 +157,9 @@ export class ZoneSelect extends Node {
     y += BOX_SEP - ROW_SEP;
     this.backIndex = items.length;
     items.push({ label: 'BACK', rect: new Rect2(left, y, BUTTON_W, BUTTON_H), onSelect: () => this.back() });
-    this.grid.push([this.backIndex]);
+    this.hubIndex = items.length;
+    items.push({ label: 'HUB', rect: new Rect2(left + BUTTON_W + COL_SEP, y, BUTTON_W, BUTTON_H), onSelect: () => this.toHub() });
+    this.grid.push([this.backIndex, this.hubIndex]);
     this.menu.focus = this.firstButton();
   }
 
@@ -204,6 +208,13 @@ export class ZoneSelect extends Node {
     this.busy = true;
     Audio.playSfx('menu_select');
     SceneRouter.goTitle();
+  }
+
+  /** Straight to the hub: the zone select is a menu, so nothing is asked. */
+  toHub(): void {
+    if (this.busy) return;
+    this.busy = true;
+    HubClient.exitToHub();
   }
 
   isBusy(): boolean {
@@ -282,13 +293,12 @@ export class ZoneSelect extends Node {
       drawText(g, RelicLoadout.resolve().ranked ? 'RELIC  RANKED' : 'RELIC', left, ty, 'hudLabel');
     }
     this.menu.draw(g);
-    const back = this.menu.items[this.backIndex]!.rect;
+    const hub = this.menu.items[this.hubIndex]!.rect;
     const count = `${Emeralds.NAME.toUpperCase()}  ${GameState.emeraldCount()} / ${Emeralds.total()}`;
-    drawText(g, count, back.right + 10, back.y + Math.floor((BUTTON_H - 11) / 2) + 1, 'hudValue', {
+    drawText(g, count, hub.right + 10, hub.y + Math.floor((BUTTON_H - 11) / 2) + 1, 'hudValue', {
       align: 'right',
-      width: this.panel.right - PANEL_MARGIN_X - back.right - 10,
+      width: this.panel.right - PANEL_MARGIN_X - hub.right - 10,
     });
-    if (HubClient.balanceKnown) drawText(g, `HUB TICKETS ${HubClient.ticketBalance}`, 0, 4, 'outline', { align: 'right', width: 420 });
     drawCentered(g, this.hintText(), 225, 'outline');
   }
 }

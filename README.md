@@ -60,8 +60,11 @@ speed shoes, invincibility or an extra life (never tickets). Each act has a
 HPOS10I is one of the games in the metaverse hub. Opened from a hub portal
 (`#t=<ticket>`), it redeems the ticket, reads your Relics (skins and effects,
 off in Ranked) and banks the tickets you collect in each act as hub Tickets,
-each act once, with retries that can never pay twice. Exit to Hub is in the
-pause menu. Opened directly, it plays standalone.
+each act once, with retries that can never pay twice. The top-right corner
+shows your hub Ticket balance (`--` when there is no hub session) and a RETURN
+TO HUB button on every screen: from the menus it leaves at once, during a run
+it asks first. The zone select's HUB button and the pause menu's EXIT TO HUB do
+the same. Opened directly, it plays standalone.
 
 ## For developers
 

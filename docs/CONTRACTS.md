@@ -307,9 +307,10 @@ Web Audio, unlocked by the first key press, click or tap.
 | Screen | |
 |---|---|
 | Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; Relic skin row; hub Ticket balance |
+| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; Relic skin row; BACK and HUB (straight to the hub) |
 | HUD | Score, time, tickets, lives, power-ups |
-| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub, Quit to title |
+| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title |
+| Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |
 | Tally | Emits `finished`; the emerald moment; "+N Tickets sent to the hub" |
 | Game over, ending, dev menu (`main`), sound hint, rotate hint | |
@@ -339,6 +340,9 @@ Web Audio, unlocked by the first key press, click or tap.
   per player for this game and ignores unranked runs).
 - The Ticket→Verse exchange is not offered: the server refuses it for this game.
 - `exitToHub()`: flushes the outbox, returns to `<hubUrl>#from=hpos10i`.
+- With a session, `init()` reads the Ticket balance once (`getTicketBalance`);
+  earn answers update it after that. `ticketText()` is the balance, or `--`
+  with no session. Read-only: nothing in the game spends or exchanges Tickets.
 - `RelicLoadout.resolve()` is the only reader of Relic ownership: skins
   (Golden, Nobu, Tidebreaker), the cape, and their effects (off in Ranked),
   plus `extras_allowed` for the extra moves and item boxes.

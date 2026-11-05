@@ -409,7 +409,68 @@ describe('PauseMenu', () => {
     const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
     tapAction('ui_up');
     tapAction('jump');
+    // Mid-run, EXIT TO HUB asks first, with KEEP PLAYING focused.
+    expect(exit).not.toHaveBeenCalled();
+    expect(pm.page).toBe('confirm');
+    expect(pm.confirm.items.map((i) => i.label)).toEqual(['EXIT TO HUB', 'KEEP PLAYING']);
+    expect(pm.confirm.focus).toBe(1);
+    expect(tree.paused).toBe(true);
+    tapAction('ui_up');
+    tapAction('jump');
     expect(exit).toHaveBeenCalledTimes(1);
+    expect(tree.paused).toBe(false);
+  });
+
+  it('KEEP PLAYING (or cancel) on the exit question goes back to the pause list', () => {
+    const pm = addOverlay(new PauseMenu());
+    enterGameplay();
+    tapAction('pause');
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    for (let i = 0; i < 3; i++) tapAction('ui_down'); // EXIT TO HUB
+    tapAction('ui_accept');
+    expect(pm.page).toBe('confirm');
+    tapAction('ui_accept'); // KEEP PLAYING
+    expect(pm.page).toBe('main');
+    expect(pm.main.focus).toBe(3);
+    expect(pm.isOpen()).toBe(true);
+    tapAction('ui_accept');
+    expect(pm.page).toBe('confirm');
+    tapAction('ui_cancel');
+    expect(pm.page).toBe('main');
+    expect(pm.isOpen()).toBe(true);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it('the hub chrome asks mid-run: the menu opens on the question, and KEEP PLAYING resumes', () => {
+    const pm = addOverlay(new PauseMenu());
+    enterGameplay();
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    pm.confirmExitToHub();
+    expect(pm.isOpen()).toBe(true);
+    expect(tree.paused).toBe(true);
+    expect(pm.page).toBe('confirm');
+    frames(1);
+    tapAction('ui_accept'); // KEEP PLAYING
+    frames(2);
+    expect(pm.isOpen()).toBe(false);
+    expect(tree.paused).toBe(false);
+    expect(exit).not.toHaveBeenCalled();
+    pm.confirmExitToHub();
+    frames(1);
+    tapAction('ui_up');
+    tapAction('ui_accept'); // EXIT TO HUB
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(tree.paused).toBe(false);
+  });
+
+  it('outside gameplay the hub chrome leaves at once, with no question', () => {
+    const pm = addOverlay(new PauseMenu());
+    SceneRouter.changeTo('title');
+    frames(2);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    pm.confirmExitToHub();
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(pm.isOpen()).toBe(false);
     expect(tree.paused).toBe(false);
   });
 
