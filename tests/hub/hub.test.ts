@@ -504,7 +504,8 @@ describe('hub reports', () => {
     GameState.addTickets(5);
     GameState.completeLevel();
     playAttempt(ZONE_A, 1, 5);
-    expect(sdk.calls.filter((k) => k.method !== 'init')).toEqual([]);
+    // The boot's balance read is not a report.
+    expect(sdk.calls.filter((k) => k.method !== 'init' && k.method !== 'getTicketBalance')).toEqual([]);
   });
 
   it('offline: no SDK, nothing sent, and the earn waits for the next session', async () => {

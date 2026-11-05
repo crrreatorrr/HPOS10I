@@ -26,6 +26,7 @@ import { tree, VIEW_H, VIEW_W } from './runtime/tree';
 import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
 import { Display } from './ui/display';
+import { HubChrome } from './ui/hub_chrome';
 
 /** Ticks the run clock (GameState.levelTime) on physics ticks; pauses with the game. */
 class GameClock extends Node {
@@ -120,7 +121,12 @@ async function boot(): Promise<void> {
   if (Settings.data.muted || Dev.args.mute) Audio.setMuted(true);
   wirePointer(canvas);
   if (Dev.args.touch) Display.setTouch(true);
-  const refit = () => fitCanvas(canvas);
+  // The hub Ticket balance and RETURN TO HUB, over the canvas on every screen.
+  const chrome = new HubChrome(document, canvas, ui.pause);
+  const refit = () => {
+    fitCanvas(canvas);
+    chrome.place();
+  };
   window.addEventListener('resize', refit);
   Display.touchModeChanged.connect(refit);
   refit();

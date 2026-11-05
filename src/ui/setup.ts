@@ -3,6 +3,8 @@
 // overlays the boot code adds with tree.addAutoload(), in this order (later
 // overlays see input first and draw by their layer): sound hint (99), pause
 // menu (101), touch controls (102), rotate hint / display watcher (110).
+// The pause menu is also returned on its own: the hub chrome (a DOM bar the
+// boot code adds, src/ui/hub_chrome.ts) asks its EXIT TO HUB? question mid-run.
 
 import { ENDING_SCENE, GAME_OVER_SCENE, MAIN_SCENE, Scenes, TITLE_SCENE, ZONE_SELECT_SCENE } from '../core/scenes';
 import { LevelHooks } from '../levels/common/level_root';
@@ -28,11 +30,12 @@ export function registerUiScenes(): void {
   Scenes.register(MAIN_SCENE, () => new DevMenu());
 }
 
-export function installUi(): { overlays: Node[] } {
+export function installUi(): { overlays: Node[]; pause: PauseMenu } {
   registerUiScenes();
   LevelHooks.hud = () => new Hud();
   LevelHooks.tally = (zoneId: string) => new ScoreTally(zoneId);
   ScoreTally.watchBanks();
   if (typeof window !== 'undefined') Display.attachDom(window);
-  return { overlays: [new SoundHint(), new PauseMenu(), new TouchControls(), new RotateHint()] };
+  const pause = new PauseMenu();
+  return { overlays: [new SoundHint(), pause, new TouchControls(), new RotateHint()], pause };
 }

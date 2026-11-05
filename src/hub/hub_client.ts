@@ -12,6 +12,9 @@
 // - The act-time board keeps one time per player, so only Zone 1 Act 1 posts
 //   to it (a like-for-like time trial; the server ignores unranked runs).
 // - Exit to Hub flushes the SDK outbox and returns to <hubUrl>#from=hpos10i.
+// - With a session, the Ticket balance is read once after init
+//   (getTicketBalance) and then follows earn answers. ticketText() is what
+//   the hub chrome shows: the balance, or '--' with no session.
 //
 // Writes are fire-and-forget: the SDK's IndexedDB outbox resends each key
 // until it is acked.
@@ -70,6 +73,8 @@ class HubClientImpl {
   revision = 0;
   /** Last banked earn, for the tally ("+N Tickets to the hub"). */
   lastBanked: { amount: number; acked: boolean } | null = null;
+  /** Bumped by every balance source, so a slow balance read never overwrites a newer earn answer. */
+  private balanceStamp = 0;
 
   readonly save = new HubSave();
   private sdk: HubSdk | null = null;
@@ -121,7 +126,37 @@ class HubClientImpl {
     this.serverLoadout = {};
     this.ticketBalance = 0;
     this.balanceKnown = false;
+    this.balanceStamp++;
     this.lastBanked = null;
+    this.changed();
+  }
+
+  /** The hub Ticket balance as shown: the number with a session, '--' without one or before it is known. */
+  ticketText(): string {
+    return this.inSession && this.balanceKnown ? String(Math.max(0, Math.trunc(this.ticketBalance))) : '--';
+  }
+
+  /**
+   * Reads the server Ticket balance (getTicketBalance). Only with a session: a
+   * standalone SDK answers 0, which is not a balance. Read-only; a failure
+   * keeps whatever was shown.
+   */
+  async refreshBalance(): Promise<void> {
+    const sdk = this.sdk;
+    if (!sdk || !this.inSession) return;
+    const stamp = ++this.balanceStamp;
+    let res: { balance?: unknown } | null = null;
+    try {
+      res = (await sdk.getTicketBalance()) as { balance?: unknown } | null;
+    } catch (err) {
+      console.info('[Hub] balance read failed', errorPayload(err));
+      return;
+    }
+    if (stamp !== this.balanceStamp || this.sdk !== sdk || !this.inSession) return;
+    const balance = Number(res?.balance);
+    if (!Number.isFinite(balance)) return;
+    this.ticketBalance = balance;
+    this.balanceKnown = true;
     this.changed();
   }
 
@@ -176,6 +211,7 @@ class HubClientImpl {
     if (this.inSession) {
       this.resendPendingEarns();
       this.startRefresh();
+      void this.refreshBalance();
     }
     this.changed();
   }
@@ -297,6 +333,7 @@ class HubClientImpl {
     if (!this.inSession && !this.readSession()) return;
     this.inSession = true;
     this.save.ackEarn(runId);
+    this.balanceStamp++;
     this.ticketBalance = Number(payload.balance);
     this.balanceKnown = true;
     this.earnCapped = payload.capped === true;
