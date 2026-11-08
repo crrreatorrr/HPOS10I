@@ -19,12 +19,14 @@ import { registerBosses } from './bosses/register';
 import { installPlayerVisuals } from './player/visuals_setup';
 import { TimeFocus } from './player/time_focus';
 import { preload, assetUrl } from './runtime/assets';
+import { crashGuard } from './runtime/crash_guard';
 import { Fonts } from './runtime/font';
 import { Input } from './runtime/input';
 import { Node, ProcessMode } from './runtime/node';
 import { tree, VIEW_H, VIEW_W } from './runtime/tree';
 import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
+import { CrashPanel } from './ui/crash_panel';
 import { Display } from './ui/display';
 import { HubChrome } from './ui/hub_chrome';
 
@@ -89,6 +91,22 @@ function wirePointer(canvas: HTMLCanvasElement): void {
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
+
+/**
+ * Crash safety net: uncaught errors and rejections feed the crash guard, and when it halts
+ * the game (a streak of failing frames) the "Something broke" panel offers a reload.
+ * crashGuard.onCrash(fn) is where an opt-in crash reporter can attach later.
+ */
+const crashPanel = new CrashPanel(document, () => window.location.reload());
+crashGuard.installGlobal(window);
+crashGuard.onHalt((info) => {
+  try {
+    Audio.stopMusic();
+  } catch {
+    // Audio may be what broke; the panel matters more.
+  }
+  crashPanel.show(info.source === 'boot' ? 'retry' : 'reload');
+});
 
 async function boot(): Promise<void> {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -180,7 +198,7 @@ function exposeDebugApi(): void {
 }
 
 boot().catch((err: unknown) => {
-  console.error('[Boot] failed', err);
-  const el = document.getElementById('boot');
-  if (el) el.textContent = 'HPOS10I could not start. Please reload the page.';
+  document.getElementById('boot')?.classList.add('hidden');
+  // Logs once with the stack and shows the panel with RETRY (a stale chunk after a deploy, a failed load).
+  crashGuard.report(err, 'boot');
 });

@@ -62,6 +62,13 @@ in your final report.
 - `tree` (`tree.ts`): the scene tree and main loop: `physicsStep()`,
   `processStep()`, `advance(n)` (tests), `changeScene()`, `callDeferred()`,
   `getNodesInGroup()`, `paused`, `timeScale`, `hitStop(ticks)`, `camera`.
+- `crashGuard` (`crash_guard.ts`, `tree.crash`): the main loop always
+  reschedules; a frame that throws stops its remaining ticks and is counted.
+  `CRASH_HALT_FRAMES` failing frames in a row (or a boot failure) halt the
+  game and show the "Something broke" panel (`src/ui/crash_panel.ts`).
+  Window `error` / `unhandledrejection` feed the same counter; the console
+  gets each distinct error once. `onCrash(fn)` is the hook for an opt-in
+  crash reporter; nothing is sent anywhere by default.
 - `PhysicsWorld` (`physics.ts`, `tree.physics`): `StaticBody2D`,
   `AnimatableBody2D`, `Area2D` with rectangle, circle and polygon shapes on
   collision layers. Rays (`intersectRay`) only hit surfaces facing them;
