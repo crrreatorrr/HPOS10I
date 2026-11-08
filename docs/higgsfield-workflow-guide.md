@@ -11,7 +11,7 @@ Prices checked 2026-11-04 with Higgsfield's live price check, on the Ultra plan.
 | Game | Workflow |
 |---|---|
 | Sproto Duel, NOBU | Rigged 3D character |
-| HPOS10I, Sproto Arena, Sproto Arcade and the other pixel-art games | Sprite sheets |
+| HPOS10I, The People's Bitcoin, Sproto Arena, Sproto Arcade | Sprite sheets |
 | Metaverse Hub | Both |
 
 ## How every task runs

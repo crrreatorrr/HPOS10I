@@ -22,3 +22,10 @@ vendor/hub-sdk/dist/events.js:35
 vendor/hub-sdk/dist/types.d.ts:2
 vendor/hub-sdk/dist/types.js:2
 vendor/hub-sdk/dist/types.js:20
+
+# Owner-approved plan 2026-11-08 (W0 docs batch): docs/higgsfield-workflow-guide.md
+# is a byte-identical copy of the guide shared by all the hub's game repos, and its
+# workflow table names another hub game by its title (denylist term #425). It is an
+# internal art-workflow note, never shown to players. Scoped to that one line, so a
+# guide update that moves it, or a second use, is flagged and re-reviewed.
+docs/higgsfield-workflow-guide.md:14
