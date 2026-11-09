@@ -110,17 +110,33 @@ area (mask bit 5) and call the player API below.
 
 | Action | Keyboard | Gamepad (standard mapping) | Notes |
 |---|---|---|---|
-| `move_left` / `move_right` | Left/Right, A/D | D-pad, left stick | stick deadzone 0.45 |
-| `move_up` / `move_down` | Up/Down, W/S | D-pad, left stick | deadzone 0.75, so 45° diagonals read as horizontal |
+| `move_left` / `move_right` | Left/Right, A/D | D-pad, left stick | stick threshold 0.45 |
+| `move_up` / `move_down` | Up/Down, W/S | D-pad, left stick | threshold 0.75, so 45° diagonals read as horizontal |
 | `jump` | Z, X, C, Space, K | A, B, X, Y | |
 | `pause` | P, Enter, Esc | Start | |
-| `focus` | F | LB | Time Focus (Duelist cape) |
+| `focus` | F | LB, RB | Time Focus (Duelist cape) |
 | `debug_overlay` | F1 | | |
-| `ui_*` | arrows, Enter, Space, Esc | D-pad, A, B | menus |
+| `ui_*` | arrows, Enter, Space, Esc | D-pad, left stick (0.5), A, B | menus |
 
 "Just pressed" is per consumer clock: the first physics tick after a press
-(gameplay), or the first rendered frame (menus). Key names in UI text come
-from the bindings, never hard-coded.
+(gameplay), or the first rendered frame (menus). Key and gamepad button names
+in UI text come from the bindings (`InputHints.actionKeys` / `padKeys`), never
+hard-coded.
+
+**Gamepads** (`src/runtime/gamepad.ts`, the hub's shared controller
+convention): every connected pad is polled once per rendered frame, so
+hot-plug works at any time and any pad drives the single player. Triggers
+count above 0.5 and Home is never read. The left stick has a 0.2 radial
+deadzone; the thresholds above apply to the raw axis on top of it (movement
+is digital). **Latch on connect:** whatever is held when a pad appears (page
+load, arriving from the hub, reconnect) is ignored until released, so the
+hub's confirm press never reaches the title. Unplugging releases what that
+pad held. In menus B is `ui_cancel` and wins over its jump binding: it goes
+back, and on the pause list it resumes. Start opens and closes the pause
+menu; on a `cancelOnPause` menu (the zone select) a gamepad's Start chooses,
+as Enter does, instead of going back. Menu auto-repeat is `MenuList`'s
+(0.4 s, then every 0.09 s) for every device. View and the stick clicks are
+unused (no secondary screen).
 
 **Dev URL options:** `?scene=<id>`, `?zone=<id>&stage=<n>`, `?inputs=<name>`
 (a timeline from `tests/**/inputs/`, dev server only, or a URL), `?dev`

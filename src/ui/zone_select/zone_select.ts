@@ -2,9 +2,10 @@
 // emerald slot (filled once won). Acts whose scene isn't built yet, and every
 // act of an unreleased zone (ZoneRegistry.isReleased), are greyed out and
 // skipped by navigation. Choosing an act calls SceneRouter.startZone(); BACK
-// (pause, Esc or the button) returns to the title. Arrows / WASD / D-pad /
-// stick move (wrapping), Enter, Space or any jump button chooses; mouse and
-// touch tap. Music: `zone_select`. Input only counts while it is the current
+// (P, Esc, the gamepad B or the button) returns to the title. Arrows / WASD / D-pad /
+// stick move (wrapping), Enter, Space, Start or any jump button chooses
+// (except the gamepad's B, which is cancel here: back to the title); mouse
+// and touch tap. Music: `zone_select`. Input only counts while it is the current
 // scene.
 //
 // With two or more Relic skins to choose from, a SKIN row cycles the body
@@ -22,6 +23,7 @@ import { ZoneRegistry, type Zone } from '../../core/zone_registry';
 import { HubClient } from '../../hub/hub_client';
 import { ITEM_GOLDEN, ITEM_NOBU, ITEM_TIDEBREAKER, RelicLoadout } from '../../hub/relic_loadout';
 import type { Gfx } from '../../runtime/gfx';
+import { Input } from '../../runtime/input';
 import { posmod } from '../../runtime/math';
 import { Node, type InputEventLike } from '../../runtime/node';
 import { Rect2, Vec2 } from '../../runtime/vec2';
@@ -47,6 +49,8 @@ const AREA_BOTTOM = 220;
 /** Bottom hint for keys/gamepad, and for touch (follows Display's touch mode). */
 export const HINT_KEYS = 'JUMP: START     PAUSE: BACK TO TITLE';
 export const HINT_TOUCH = 'TAP AN ACT TO START     TAP BACK FOR THE TITLE';
+/** On a gamepad B is a jump button too, but here it goes back (ui_cancel wins). */
+export const HINT_PAD = 'A: START     B: BACK TO TITLE';
 
 export interface ActEntry {
   zoneId: string;
@@ -222,7 +226,8 @@ export class ZoneSelect extends Node {
   }
 
   hintText(): string {
-    return Display.isTouch ? HINT_TOUCH : HINT_KEYS;
+    if (Display.isTouch) return HINT_TOUCH;
+    return Input.lastDevice === 'pad' ? HINT_PAD : HINT_KEYS;
   }
 
   private cycleSkin(step: number, sound = true): boolean {

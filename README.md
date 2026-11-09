@@ -37,8 +37,23 @@ game engine.
 | Drop dash | Jump, then press and hold Jump again; land | Same | Same |
 | Shield bounce | Jump, then Jump again with a shield | Same | Same |
 | Look up/down | Hold Up/Down while standing | Same | Same |
-| Pause | P or Enter (Esc too, outside fullscreen) | Start | Pause button |
+| Time Focus (Duelist cape) | F | LB or RB | |
+| Pause / resume | P or Enter (Esc too, outside fullscreen) | Start | Pause button |
+| Menus: move | Arrow keys / WASD | D-pad / left stick (held: repeats) | Tap |
+| Menus: choose | Enter, Space or Jump | A (also X / Y, and Start on the zone select) | Tap |
+| Menus: back | Esc (P on the zone select) | B (on the pause list: resume) | BACK button |
+| Return to hub | Zone select HUB, pause EXIT TO HUB | Same | Same |
 | Debug overlay | F1 | | |
+
+Any standard controller works with no setup: plug it in (or bring it from the
+hub) and press a button. Jump is on all four face buttons, as on the pads this
+genre grew up on, so the right thumb never hunts for one mid-run; spin dash
+and charge run are Down/Up plus any face button. Time Focus is used once per
+act, so it sits on either bumper. The stick reads as 8-way digital input:
+it has a 0.2 radial deadzone, counts left/right from 0.45 and up/down only
+from 0.75, so a 45-degree push runs instead of rolling or looking up. A button
+already held when the controller appears (the press that chose the hub
+portal) is ignored until it is released. View and the stick clicks are unused.
 
 Keys are bound by position, so on AZERTY or QWERTZ keyboards the movement keys
 are the ones in the WASD spot. The charge run, drop dash and shield bounce can
