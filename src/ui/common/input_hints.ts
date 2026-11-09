@@ -5,8 +5,10 @@
 // pressed, the browser's keyboard layout map where it has one, and the
 // QWERTY name of the position. This also does the hint formatting
 // (InputHints): Esc left out, letters first, "ARROWS / WASD" for movement.
+// Gamepad button names come from PAD_BUTTONS the same way (padKeys).
 
-import { KEY_BINDINGS, type Action } from '../../runtime/input';
+import { PAD_BUTTON_LABELS } from '../../runtime/gamepad';
+import { KEY_BINDINGS, PAD_BUTTONS, type Action } from '../../runtime/input';
 
 /** Esc is bound to pause but browsers keep it for leaving fullscreen, so hints never offer it. */
 export const HIDDEN_KEYS: readonly string[] = ['Escape'];
@@ -129,6 +131,16 @@ export const InputHints = {
     }
     if (hasArrows && letters !== '') return `ARROWS / ${letters}`;
     return hasArrows ? 'ARROWS' : letters;
+  },
+
+  /** "A B X Y": the gamepad buttons bound to an action, in binding order ('' when none). */
+  padKeys(action: Action, separator = ' '): string {
+    return (PAD_BUTTONS[action] ?? []).map((b) => PAD_BUTTON_LABELS[b] ?? `B${b}`).join(separator);
+  },
+
+  /** padKeys() when the player is on a gamepad, else actionKeys(). */
+  keysForDevice(action: Action, device: 'keyboard' | 'pad' | 'touch', separator = ' '): string {
+    return device === 'pad' ? InputHints.padKeys(action, separator) : InputHints.actionKeys(action, separator);
   },
 
   /** The letter key for one move direction ("W"), for the dev menu hint. */
