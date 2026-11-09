@@ -12,12 +12,13 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { HubSdk, HubSessionInfo } from '@hub-sdk';
+import { Emeralds } from '../../src/core/emeralds';
 import { GameState } from '../../src/core/game_state';
 import { SceneRouter } from '../../src/core/scene_router';
 import { MAIN_SCENE, Scenes } from '../../src/core/scenes';
 import { ZoneRegistry } from '../../src/core/zone_registry';
 import { BOARD_ACT_TIME, EARN_REASON, EVENT_LEVEL_COMPLETE, GAME_ID, HubClient } from '../../src/hub/hub_client';
-import { HubSave } from '../../src/hub/hub_save';
+import { HubSave, migrateProgress, PROGRESS_VERSION } from '../../src/hub/hub_save';
 import { memoryStore, SAVE_KEYS, Storage, type KeyValue } from '../../src/hub/storage';
 import { Node } from '../../src/runtime/node';
 import { tree } from '../../src/runtime/tree';
@@ -151,6 +152,7 @@ beforeEach(() => {
   SceneRouter.zoneId = '';
   SceneRouter.stage = 1;
   GameState.resetGame();
+  GameState.clearEmeralds();
 });
 
 afterEach(() => {
@@ -159,6 +161,7 @@ afterEach(() => {
   SceneRouter.zoneId = '';
   SceneRouter.stage = 1;
   GameState.resetGame();
+  GameState.clearEmeralds();
 });
 
 describe('hub earns', () => {
@@ -517,5 +520,103 @@ describe('hub reports', () => {
     const sdk = await boot();
     c.eq(sdk.earns()[0]?.key, key, 'sent after the first successful init');
     c.done();
+  });
+});
+
+// --- Progress save: version 1 and emeralds (HPOS-DEC-02) -------------------------------
+
+function progressData(): Record<string, unknown> {
+  return Storage.readJson(SAVE_KEYS.progress);
+}
+
+describe('progress save (v1, emeralds)', () => {
+  it('migrates an old unversioned blob (v0) to v1 with no emeralds', () => {
+    expect(PROGRESS_VERSION).toBe(1);
+    const old = { cleared: [`${ZONE_A}:1`], best_times: { [`${ZONE_A}:1`]: 42.5 } };
+    expect(migrateProgress(structuredClone(old))).toEqual({ ...old, v: 1, emeralds: [] });
+    // A non-number version reads as v0 too.
+    expect(migrateProgress({ v: 'x', cleared: [] })).toMatchObject({ v: 1, emeralds: [] });
+    Storage.writeJson(SAVE_KEYS.progress, old);
+    const save = new HubSave();
+    save.loadAll();
+    expect(save.isCleared(ZONE_A, 1)).toBe(true);
+    expect(save.bestTime(ZONE_A, 1)).toBe(42.5);
+    expect(save.emeralds.size).toBe(0);
+    // The next write stores it as v1.
+    save.recordClear(ZONE_A, 2, 50);
+    expect(progressData()).toEqual({
+      v: 1,
+      cleared: [`${ZONE_A}:1`, `${ZONE_A}:2`],
+      best_times: { [`${ZONE_A}:1`]: 42.5, [`${ZONE_A}:2`]: 50 },
+      emeralds: [],
+    });
+  });
+
+  it('save and load round trip: emeralds, cleared acts and best times; junk keys are dropped', () => {
+    const save = new HubSave();
+    save.loadAll();
+    save.recordClear(ZONE_A, 1, 30);
+    save.recordEmerald(ZONE_A, 1);
+    save.recordEmerald(ZONE_B, 2);
+    save.recordEmerald('test_zone', 1); // no emerald there: ignored
+    expect(progressData()).toMatchObject({ v: 1, emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort() });
+    const reopened = new HubSave();
+    reopened.loadAll();
+    expect([...reopened.emeralds].sort()).toEqual([Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort());
+    expect(reopened.bestTime(ZONE_A, 1)).toBe(30);
+    Storage.writeJson(SAVE_KEYS.progress, { v: 1, cleared: [], best_times: {}, emeralds: [Emeralds.key(ZONE_A, 2), 'nope:9', 7] });
+    reopened.loadAll();
+    expect([...reopened.emeralds]).toEqual([Emeralds.key(ZONE_A, 2)]);
+  });
+
+  it('a reload keeps the emeralds: they are saved when won and loaded at boot', async () => {
+    await boot();
+    playAttempt(ZONE_A, 1, 5);
+    playAttempt(ZONE_B, 2, 5);
+    expect(GameState.emeraldCount()).toBe(2);
+    expect(progressData().emeralds).toEqual([Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort());
+    // A page reload: memory is gone, the save is not.
+    HubClient.shutdown();
+    GameState.resetGame();
+    GameState.clearEmeralds();
+    expect(GameState.emeraldCount()).toBe(0);
+    await boot();
+    expect(GameState.emeraldCount()).toBe(2);
+    expect(GameState.hasEmerald(ZONE_A, 1)).toBe(true);
+    expect(GameState.hasEmerald(ZONE_B, 2)).toBe(true);
+    // Clearing an act again doesn't win it again.
+    playAttempt(ZONE_A, 1, 5);
+    expect(GameState.emeraldJustWon).toBe(false);
+  });
+
+  it('a new run (game over -> resetGame) keeps the saved emeralds, like cleared acts', async () => {
+    await boot();
+    playAttempt(ZONE_A, 1, 5);
+    GameState.resetGame();
+    expect(GameState.hasEmerald(ZONE_A, 1)).toBe(true);
+    expect(HubClient.save.isCleared(ZONE_A, 1)).toBe(true);
+    expect(progressData().emeralds).toEqual([Emeralds.key(ZONE_A, 1)]);
+  });
+
+  it('two tabs: an emerald won in one is not lost when the other writes', () => {
+    const tabA = new HubSave();
+    const tabB = new HubSave();
+    tabA.loadAll();
+    tabB.loadAll();
+    tabA.recordEmerald(ZONE_A, 1);
+    tabB.recordEmerald(ZONE_B, 1);
+    tabB.recordClear(ZONE_B, 1, 20);
+    expect(progressData().emeralds).toEqual([Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 1)].sort());
+  });
+
+  it('a save from a newer version is read but never downgraded', () => {
+    const future = { v: 2, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [Emeralds.key(ZONE_A, 1)], extra: true };
+    Storage.writeJson(SAVE_KEYS.progress, future);
+    const save = new HubSave();
+    save.loadAll();
+    expect(save.emeralds.has(Emeralds.key(ZONE_A, 1))).toBe(true);
+    save.recordClear(ZONE_A, 2, 10);
+    save.recordEmerald(ZONE_A, 2);
+    expect(progressData()).toEqual(future);
   });
 });

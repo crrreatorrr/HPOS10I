@@ -125,6 +125,7 @@ beforeEach(() => {
   tree.timeScale = 1;
   Display.reset(false);
   GameState.resetGame();
+  GameState.clearEmeralds();
   Settings.reset();
   RelicLoadout.reset();
   HubClient.lastBanked = null;

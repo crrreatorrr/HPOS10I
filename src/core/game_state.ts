@@ -30,7 +30,11 @@ class GameStateStore {
   timerRunning = false;
   checkpointPosition: Vec2 | null = null;
   checkpointTime = 0;
-  /** Emeralds.key -> true for every emerald won this game. */
+  /**
+   * Emeralds.key of every emerald won on this save. The hub save keeps them
+   * (HubClient loads them at boot and saves each one won), so a new run
+   * (resetGame) keeps them, like cleared acts.
+   */
   emeralds = new Set<string>();
   emeraldJustWon = false;
 
@@ -119,6 +123,17 @@ class GameStateStore {
     return this.emeralds.size;
   }
 
+  /** Adds saved emeralds (boot). Never removes one already won. */
+  restoreEmeralds(keys: Iterable<string>): void {
+    for (const key of keys) this.emeralds.add(key);
+  }
+
+  /** Forgets every emerald in memory (tests; a future "new save"). The save is not touched. */
+  clearEmeralds(): void {
+    this.emeralds.clear();
+    this.emeraldJustWon = false;
+  }
+
   resetGame(): void {
     this.goldenLifeActs.clear();
     this.score = 0;
@@ -126,7 +141,6 @@ class GameStateStore {
     this.zoneId = '';
     this.act = 1;
     this.checkpointPosition = null;
-    this.emeralds.clear();
     this.emeraldJustWon = false;
     this.resetLevelCounters();
     this.scoreChanged.emit(this.score);

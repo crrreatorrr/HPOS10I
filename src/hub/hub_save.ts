@@ -1,13 +1,18 @@
 // Progress and idempotency keys (localStorage, one JSON value per former
-// user:// file). Cleared acts and best times live in progress; write_keys
-// holds idempotency keys only. Relic ownership and Ticket balances are
-// server-side and are never written here.
+// user:// file). Cleared acts, best times and won emeralds live in progress;
+// write_keys holds idempotency keys only. Relic ownership and Ticket balances
+// are server-side and are never written here.
+//
+// The progress blob is versioned ({v: PROGRESS_VERSION, ...}); migrateProgress()
+// brings an older one up step by step (no `v` = v0, before emeralds were saved).
+// A blob from a newer build is read for what this build knows, never rewritten.
 //
 // An earn key is the attempt's run id (one UUIDv7 per startLevel). It is
 // saved before earnTickets. A failed save does not mint a replacement.
 // Another tab may have written since this one loaded, so every write folds
 // the stored copy in instead of replacing it, and an ack never comes undone.
 
+import { Emeralds } from '../core/emeralds';
 import { mintUuidV7 } from '../core/uuid_v7';
 import { SAVE_KEYS, Storage } from './storage';
 
@@ -22,9 +27,45 @@ function isObj(v: unknown): v is Json {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
+/** The progress blob version this build writes. */
+export const PROGRESS_VERSION = 1;
+
+/** One step per old version: PROGRESS_MIGRATIONS[n] turns a vn blob into v(n + 1). */
+const PROGRESS_MIGRATIONS: Record<number, (old: Json) => Json> = {
+  // v0 (no `v`): cleared and best_times only. v1 adds the won emeralds (none yet).
+  0: (old) => ({ ...old, v: 1, emeralds: [] }),
+};
+
+function progressVersion(blob: Json): number {
+  const v = blob.v;
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : 0;
+}
+
+/** Brings a stored progress blob up to PROGRESS_VERSION (a newer one is returned as it is). */
+export function migrateProgress(blob: Json): Json {
+  let out = blob;
+  for (let v = progressVersion(out); v < PROGRESS_VERSION; v = progressVersion(out)) {
+    const step = PROGRESS_MIGRATIONS[v];
+    if (!step) break;
+    const next = step(out);
+    if (progressVersion(next) <= v) break;
+    out = next;
+  }
+  return out;
+}
+
+/** Known emerald keys in a stored list (anything else is dropped). */
+function emeraldKeys(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const known = new Set(Emeralds.allKeys());
+  return value.filter((k): k is string => typeof k === 'string' && known.has(k));
+}
+
 export class HubSave {
   cleared = new Set<string>();
   bestTimes = new Map<string, number>();
+  /** Emeralds.key of every emerald won on this save. */
+  emeralds = new Set<string>();
   private keys: Json = {};
   private runId = '';
   private runZone = '';
@@ -32,13 +73,14 @@ export class HubSave {
   private runOnDisk = false;
 
   loadAll(): void {
-    const progress = Storage.readJson(SAVE_KEYS.progress);
+    const progress = migrateProgress(Storage.readJson(SAVE_KEYS.progress));
     this.cleared = new Set();
     this.bestTimes = new Map();
     if (Array.isArray(progress.cleared)) for (const item of progress.cleared) this.cleared.add(String(item));
     if (isObj(progress.best_times)) {
       for (const [id, v] of Object.entries(progress.best_times)) this.bestTimes.set(String(id), Number(v));
     }
+    this.emeralds = new Set(emeraldKeys(progress.emeralds));
     this.keys = Storage.readJson(SAVE_KEYS.writeKeys);
     this.runId = String(this.keys.run_id ?? '');
     this.runZone = String(this.keys.run_zone ?? '');
@@ -63,6 +105,13 @@ export class HubSave {
     this.bestTimes.set(id, best);
     this.writeProgress();
     return best;
+  }
+
+  /** Saves a won emerald (acts without one are ignored). */
+  recordEmerald(zone: string, act: number): void {
+    if (!Emeralds.isEmeraldAct(zone, act)) return;
+    this.emeralds.add(Emeralds.key(zone, act));
+    this.writeProgress();
   }
 
   /** A stored key per id in a bucket; a retry of the same id reuses it. */
@@ -208,8 +257,20 @@ export class HubSave {
   }
 
   private writeProgress(): void {
+    const disk = migrateProgress(Storage.readJson(SAVE_KEYS.progress));
+    if (progressVersion(disk) > PROGRESS_VERSION) {
+      console.warn(`[HubSave] progress is v${progressVersion(disk)} (a newer build); not overwriting it`);
+      return;
+    }
+    // Emeralds are only ever won, so another tab's are folded in, never dropped.
+    for (const key of emeraldKeys(disk.emeralds)) this.emeralds.add(key);
     const list = [...this.cleared].sort();
-    Storage.writeJson(SAVE_KEYS.progress, { cleared: list, best_times: Object.fromEntries(this.bestTimes) });
+    Storage.writeJson(SAVE_KEYS.progress, {
+      v: PROGRESS_VERSION,
+      cleared: list,
+      best_times: Object.fromEntries(this.bestTimes),
+      emeralds: [...this.emeralds].sort(),
+    });
   }
 
   private writeKeys(): boolean {
