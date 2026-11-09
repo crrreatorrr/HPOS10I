@@ -6,7 +6,10 @@
 // toggles it, but only while SceneRouter.inGameplay(). Items:
 //   RESUME         back to the game
 //   RESTART        reload the stage from its checkpoint (or the playground),
-//                  without losing a life (SceneRouter.restart())
+//                  without losing a life (SceneRouter.restart()). Greyed out,
+//                  with a hint line, unless the level is 'playing'
+//                  (LevelRoot.phase()): restarting while dying would skip the
+//                  life the respawn takes (owner decision HPOS-DEC-01).
 //   OPTIONS        the Settings toggles (OptionsMenu below)
 //   EXIT TO HUB    asks first (this is mid-run: the act's tickets are not
 //                  banked yet), then HubClient.exitToHub(); always offered,
@@ -27,6 +30,7 @@ import { Audio } from '../../core/audio';
 import { SceneRouter } from '../../core/scene_router';
 import { Settings, type SettingsData } from '../../core/settings';
 import { HubClient } from '../../hub/hub_client';
+import { LevelRoot } from '../../levels/common/level_root';
 import { RelicLoadout } from '../../hub/relic_loadout';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
@@ -53,6 +57,11 @@ const OPTION_W = 236;
 /** Under EXIT TO HUB? (tickets bank only when an act is cleared). */
 export const EXIT_CONFIRM_NOTE = 'THIS RUN ENDS HERE. TICKETS FROM THIS ACT ARE NOT BANKED.';
 export const MOVES_LINE = 'DOWN: ROLL   HOLD DOWN + JUMP: SPIN DASH   UP: LOOK';
+/** Under the list while RESTART is greyed out: dying (or the respawn is on its way)... */
+export const RESTART_HINT_DYING = 'WAIT FOR RESPAWN';
+/** ...or the act is being cleared. */
+export const RESTART_HINT_FINISHING = 'STAGE CLEAR';
+const RESTART_INDEX = 1;
 
 type Device = 'keyboard' | 'pad' | 'touch';
 const DEVICE_COLUMN: Record<Device, number> = { keyboard: 1, pad: 2, touch: 3 };
@@ -108,6 +117,7 @@ export class PauseMenu extends UiLayer {
   private resumePending = false;
   private quietFrames = 0;
   private relicText = '';
+  private restartText = '';
   private domWired = false;
   private readonly onBlur = () => {
     if (this.pauseOnFocusLoss && !this.open && SceneRouter.inGameplay() && !tree.paused) this.openMenu();
@@ -201,6 +211,7 @@ export class PauseMenu extends UiLayer {
       return;
     }
     if (this.resumePending) return;
+    this.refreshRestart();
     const menu = this.activeMenu();
     // Enter is pause and accept: in the menu it chooses, it doesn't close it.
     if (jp('pause') && !jp('ui_accept') && !menu.isSettling() && !(this.page !== 'main' && Input.isActionJustPressed('ui_cancel'))) {
@@ -237,6 +248,7 @@ export class PauseMenu extends UiLayer {
     PauseMenu.releaseGameInputs();
     this.page = 'main';
     this.refreshRelicLine();
+    this.refreshRestart(false);
     this.layout();
     this.main.reset(0);
     this.visible = true;
@@ -275,7 +287,34 @@ export class PauseMenu extends UiLayer {
   }
 
   private onRestart(): void {
+    // LEAD-REQUEST: SceneRouter.restart() could refuse on its own while the level isn't
+    // 'playing'; until then this menu (its only caller) is the guard.
+    if (!this.canRestart()) return;
     this.leave(() => SceneRouter.restart());
+  }
+
+  /** RESTART is offered only while the level plays (any scene without a LevelRoot: always). */
+  canRestart(): boolean {
+    const level = LevelRoot.find(null);
+    return !level || level.phase() === 'playing';
+  }
+
+  /** The line under the list while RESTART is greyed out ('' when it isn't). */
+  restartHint(): string {
+    return this.restartText;
+  }
+
+  /** Greys RESTART out (never hides it) while the level isn't playing. */
+  private refreshRestart(relayout = true): void {
+    const item = this.main.items[RESTART_INDEX]!;
+    const can = this.canRestart();
+    const phase = LevelRoot.find(null)?.phase();
+    const text = can ? '' : phase === 'finishing' || phase === 'leaving' ? RESTART_HINT_FINISHING : RESTART_HINT_DYING;
+    if (item.enabled === can && text === this.restartText) return;
+    item.enabled = can;
+    this.restartText = text;
+    if (!can && this.main.focus === RESTART_INDEX) this.main.focus = this.main.firstUsable();
+    if (relayout && this.page === 'main') this.layout();
   }
 
   private onQuit(): void {
@@ -388,6 +427,7 @@ export class PauseMenu extends UiLayer {
 
   private titleY = 0;
   private relicY = 0;
+  private hintY = 0;
   private controls = new Rect2();
   private columnX: number[] = [];
 
@@ -430,6 +470,8 @@ export class PauseMenu extends UiLayer {
     const n = this.main.items.length;
     const listH = n * BUTTON_H + (n - 1) * BUTTON_SEP;
     const relicH = this.relicText !== '' ? lineHeight('label') + LAYOUT_SEP : 0;
+    // With the Relic line under it too, the hint sits tight on it so the page still fits 240 px.
+    const hintH = this.restartText !== '' ? lineHeight('label') + (this.relicText !== '' ? 1 : LAYOUT_SEP) : 0;
     // Controls panel: header, the 4-row grid, the moves line.
     const smallH = lineHeight('label');
     const gridH = 4 * smallH + 3;
@@ -440,7 +482,7 @@ export class PauseMenu extends UiLayer {
     const innerW = Math.max(gridW, measure(MOVES_LINE, 'label'), measure('CONTROLS', 'header'));
     const panelH = panelInner + PANEL_MARGIN_Y * 2;
     const panelW = innerW + PANEL_MARGIN_X * 2;
-    const total = titleH + LAYOUT_SEP + listH + LAYOUT_SEP + relicH + panelH;
+    const total = titleH + LAYOUT_SEP + listH + LAYOUT_SEP + hintH + relicH + panelH;
     let y = Math.floor((VIEW_H - total) / 2);
     this.titleY = y;
     y += titleH + LAYOUT_SEP;
@@ -450,6 +492,8 @@ export class PauseMenu extends UiLayer {
       y += BUTTON_H + BUTTON_SEP;
     }
     y += LAYOUT_SEP - BUTTON_SEP;
+    this.hintY = y;
+    y += hintH;
     this.relicY = y;
     y += relicH;
     this.controls = new Rect2(Math.floor((VIEW_W - panelW) / 2), y, panelW, panelH);
@@ -477,6 +521,7 @@ export class PauseMenu extends UiLayer {
     }
     drawCentered(g, 'PAUSED', this.titleY, 'title');
     this.main.draw(g);
+    if (this.restartText !== '') drawCentered(g, this.restartText, this.hintY, 'label', { color: COLORS.soft });
     if (this.relicText !== '') drawCentered(g, this.relicText, this.relicY, 'label');
     const r = this.controls;
     drawPanel(g, r);

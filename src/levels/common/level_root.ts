@@ -10,6 +10,13 @@
 // second and calls SceneRouter.respawn() once. completeLevel() runs the goal
 // sequence: brake, victory pose, tally, then SceneRouter.nextStage(). Every
 // wait counts physics ticks, so pausing pauses them too.
+//
+// phase() is the lifecycle the rest of the game may read (the pause menu
+// greys out RESTART unless it is 'playing'):
+//   playing    -> dying (Sproto died) | finishing (goal reached)
+//   dying      -> respawning (the wait ran out; SceneRouter.respawn() sent once)
+//   finishing  -> leaving (the tally is done; SceneRouter.nextStage() sent once)
+//   respawning and leaving are terminal: the next attempt is a new LevelRoot.
 
 import { Audio, type MusicName } from '../../core/audio';
 import { GameState } from '../../core/game_state';
@@ -37,6 +44,18 @@ const AFTER_TALLY_FRAMES = 30;
 const TALLY_TIMEOUT_FRAMES = 60 * 30;
 const FLOOR_MASK = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY;
 
+/** The level lifecycle (see the header). */
+export type LevelPhase = 'playing' | 'dying' | 'respawning' | 'finishing' | 'leaving';
+
+const NEXT_PHASES: Readonly<Record<LevelPhase, readonly LevelPhase[]>> = {
+  playing: ['dying', 'finishing'],
+  dying: ['respawning'],
+  respawning: [],
+  finishing: ['leaving'],
+  leaving: [],
+};
+
+/** Steps of the finishing phase. */
 enum Finish {
   NONE,
   BRAKE,
@@ -79,13 +98,13 @@ export class LevelRoot extends Node2D implements Configurable {
   private hasBounds = false;
   private progressSpan: [number, number] | null = null;
   private spawn = Vec2.ZERO;
+  private _phase: LevelPhase = 'playing';
+  /** While dying: ticks left before the respawn request (-1 until Player.died). */
   private respawnWait = -1;
-  private respawnSent = false;
   private finish = Finish.NONE;
   private finishFrames = 0;
   private tally: (Node & { finished: Signal }) | null = null;
   private tallyDone = false;
-  private nextSent = false;
 
   constructor(name = 'Level') {
     super(name);
@@ -141,8 +160,24 @@ export class LevelRoot extends Node2D implements Configurable {
     return [from, to];
   }
 
+  /** Where the level is in its lifecycle (read-only; see the header). */
+  phase(): LevelPhase {
+    return this._phase;
+  }
+
+  /** The goal sequence started (finishing or leaving). */
   isFinishing(): boolean {
-    return this.finish !== Finish.NONE;
+    return this._phase === 'finishing' || this._phase === 'leaving';
+  }
+
+  /** The one place the phase changes; illegal moves are refused and logged. */
+  private setPhase(next: LevelPhase): boolean {
+    if (!NEXT_PHASES[this._phase].includes(next)) {
+      console.warn(`[LevelRoot] ignored phase change ${this._phase} -> ${next}`);
+      return false;
+    }
+    this._phase = next;
+    return true;
   }
 
   override ready(): void {
@@ -159,8 +194,9 @@ export class LevelRoot extends Node2D implements Configurable {
 
   /** Goal reached: freeze the timer and Sproto, show the tally, then the next stage. */
   completeLevel(): void {
-    if (this.finish !== Finish.NONE || this.respawnWait >= 0 || this.respawnSent) return;
+    if (this._phase !== 'playing') return;
     if (!this.player || this.player.state === 'dead') return;
+    this.setPhase('finishing');
     this.finish = Finish.BRAKE;
     this.finishFrames = 0;
     GameState.completeLevel();
@@ -171,12 +207,12 @@ export class LevelRoot extends Node2D implements Configurable {
   override physicsProcess(): void {
     const player = this.player;
     if (!player || player.isFreed()) return;
-    if (this.finish !== Finish.NONE) {
+    if (this.isFinishing()) {
       this.finishStep(player);
       return;
     }
     if (this.hasBounds && player.state !== 'dead' && player.globalPosition.y - player.getRadii().y > this.bounds.bottom) player.kill();
-    if (this.respawnWait > 0) {
+    if (this._phase === 'dying' && this.respawnWait > 0) {
       this.respawnWait -= 1;
       if (this.respawnWait === 0) this.requestRespawn();
     }
@@ -207,19 +243,23 @@ export class LevelRoot extends Node2D implements Configurable {
     let at = this.spawn;
     if (hit && hit.position.y < this.spawn.y + radius) at = new Vec2(at.x, hit.position.y - radius);
     player.respawnAt(at);
+    // Dying starts the tick he dies (the death animation), not at Player.died.
+    player.stateChanged.connect((_old, next) => {
+      if (next === 'dead' && this._phase === 'playing') this.setPhase('dying');
+    }, { owner: this });
     player.died.connect(() => this.onPlayerDied(), { owner: this });
     this.playerSpawned.emit(player);
   }
 
   private onPlayerDied(): void {
-    if (this.finish !== Finish.NONE || this.respawnWait >= 0 || this.respawnSent) return;
+    if (this._phase === 'playing') this.setPhase('dying');
+    if (this._phase !== 'dying' || this.respawnWait >= 0) return;
     GameState.timerRunning = false;
     this.respawnWait = RESPAWN_WAIT_FRAMES;
   }
 
   private requestRespawn(): void {
-    if (this.respawnSent) return;
-    this.respawnSent = true;
+    if (!this.setPhase('respawning')) return;
     this.respawnRequested.emit();
     if (this.useSceneRouter) SceneRouter.respawn();
   }
@@ -279,8 +319,7 @@ export class LevelRoot extends Node2D implements Configurable {
   }
 
   private requestNextStage(): void {
-    if (this.nextSent) return;
-    this.nextSent = true;
+    if (!this.setPhase('leaving')) return;
     this.nextStageRequested.emit();
     if (this.useSceneRouter) SceneRouter.nextStage();
   }

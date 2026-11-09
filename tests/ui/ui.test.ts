@@ -8,7 +8,7 @@ import { Settings } from '../../src/core/settings';
 import { ZoneRegistry } from '../../src/core/zone_registry';
 import { HubClient } from '../../src/hub/hub_client';
 import { RelicLoadout } from '../../src/hub/relic_loadout';
-import { LevelHooks } from '../../src/levels/common/level_root';
+import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
 import { Gfx } from '../../src/runtime/gfx';
 import { Input, KEY_BINDINGS, type Action } from '../../src/runtime/input';
 import { Node, Node2D } from '../../src/runtime/node';
@@ -31,6 +31,7 @@ import { ScoreTally } from '../../src/ui/tally/score_tally';
 import { DISCLAIMER, TitleScreen } from '../../src/ui/title/title_screen';
 import { JUMP_CENTER, PAD_CENTER, TouchControls, padActions } from '../../src/ui/touch_controls/touch_controls';
 import { ZoneSelect } from '../../src/ui/zone_select/zone_select';
+import { buildMiniLevel } from '../levels/level_world';
 
 // --- Helpers ---------------------------------------------------------------------------
 
@@ -508,6 +509,121 @@ describe('PauseMenu', () => {
     frames(2);
     expect(pm.isOpen()).toBe(false);
     expect(tree.paused).toBe(false);
+  });
+
+  describe('RESTART while dying (HPOS-DEC-01)', () => {
+    const LEVEL_SCENE = 'test:ui_level';
+
+    function enterLevel(): LevelRoot {
+      Scenes.register(LEVEL_SCENE, () => buildMiniLevel());
+      SceneRouter.openScene(LEVEL_SCENE);
+      frames(3);
+      expect(SceneRouter.inGameplay()).toBe(true);
+      const level = tree.currentScene as LevelRoot;
+      expect(level).toBeInstanceOf(LevelRoot);
+      return level;
+    }
+
+    it('is enabled while playing, greyed out with a hint while dying, and focus skips it', () => {
+      const pm = addOverlay(new PauseMenu());
+      const level = enterLevel();
+      tapAction('pause');
+      expect(pm.isOpen()).toBe(true);
+      expect(pm.canRestart()).toBe(true);
+      expect(pm.main.items[1]!.enabled).toBe(true);
+      expect(pm.main.stateOf(1)).not.toBe('disabled');
+      expect(pm.restartHint()).toBe('');
+      tapAction('pause');
+      frames(2);
+      expect(pm.isOpen()).toBe(false);
+
+      level.player!.kill();
+      frames(5);
+      expect(level.phase()).toBe('dying');
+      tapAction('pause');
+      expect(pm.isOpen()).toBe(true);
+      const restartItem = pm.main.items[1]!;
+      expect(restartItem.visible).not.toBe(false);
+      expect(restartItem.enabled).toBe(false);
+      expect(pm.main.stateOf(1)).toBe('disabled');
+      expect(pm.restartHint()).toBe('WAIT FOR RESPAWN');
+      // Navigation skips it: RESUME -> OPTIONS.
+      expect(pm.main.focus).toBe(0);
+      tapAction('ui_down');
+      expect(pm.main.focus).toBe(2);
+      // Choosing it any way does nothing.
+      const restart = vi.spyOn(SceneRouter, 'restart').mockImplementation(() => undefined);
+      pm.main.activate(1);
+      const r = restartItem.rect;
+      pointer(r.x + 4, r.y + 4, 'down');
+      pointer(r.x + 4, r.y + 4, 'up');
+      frames(1);
+      expect(restart).not.toHaveBeenCalled();
+      expect(pm.isOpen()).toBe(true);
+      expect(tree.paused).toBe(true);
+      // It draws (greyed) without throwing.
+      drawAll(pm, fakeGfx());
+    });
+
+    it('pausing does not take a life or skip the respawn; after it RESTART is enabled again', () => {
+      const pm = addOverlay(new PauseMenu());
+      const level = enterLevel();
+      let requests = 0;
+      level.respawnRequested.connect(() => requests++);
+      const lives = GameState.lives;
+      level.player!.kill();
+      frames(5);
+      tapAction('pause');
+      frames(400);
+      expect(requests).toBe(0);
+      expect(GameState.lives).toBe(lives);
+      expect(pm.canRestart()).toBe(false);
+      tapAction('pause');
+      frames(2);
+      expect(pm.isOpen()).toBe(false);
+      for (let i = 0; i < 300 && requests === 0; i++) frames(1);
+      expect(requests).toBe(1);
+      expect(level.phase()).toBe('respawning');
+      frames(200);
+      expect(requests).toBe(1);
+      // The next attempt (a fresh LevelRoot) plays again: RESTART is back.
+      SceneRouter.openScene(LEVEL_SCENE);
+      frames(3);
+      const next = tree.currentScene as LevelRoot;
+      expect(next).not.toBe(level);
+      expect(next.phase()).toBe('playing');
+      tapAction('pause');
+      expect(pm.canRestart()).toBe(true);
+      expect(pm.main.items[1]!.enabled).toBe(true);
+      expect(pm.restartHint()).toBe('');
+    });
+
+    it('is disabled while the act clear runs', () => {
+      const saved = LevelHooks.tally;
+      LevelHooks.tally = null;
+      try {
+        const pm = addOverlay(new PauseMenu());
+        const level = enterLevel();
+        frames(5);
+        level.completeLevel();
+        frames(2);
+        expect(level.phase()).toBe('finishing');
+        tapAction('pause');
+        expect(pm.canRestart()).toBe(false);
+        expect(pm.main.items[1]!.enabled).toBe(false);
+        expect(pm.restartHint()).toBe('STAGE CLEAR');
+      } finally {
+        LevelHooks.tally = saved;
+      }
+    });
+
+    it('scenes without a LevelRoot keep RESTART', () => {
+      const pm = addOverlay(new PauseMenu());
+      enterGameplay();
+      tapAction('pause');
+      expect(pm.canRestart()).toBe(true);
+      expect(pm.main.items[1]!.enabled).toBe(true);
+    });
   });
 
   it('the controls list offers P and Enter, never Esc, and names keys from the bindings', () => {

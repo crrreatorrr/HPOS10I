@@ -54,8 +54,17 @@ export function enemy<T extends Node2D = Node2D>(scene: string): T {
  * LevelRoot spawns Sproto. Scene changes are off.
  */
 export function miniLevel(start = new Vec2(64, -19), x0 = 0, x1 = 2000, beforeReady?: (root: LevelRoot) => void): LevelRoot {
-  registerAll();
   releaseAll();
+  const level = buildMiniLevel(start, x0, x1);
+  beforeReady?.(level);
+  tree.changeSceneNow(() => level);
+  step(2);
+  return level;
+}
+
+/** The miniLevel() LevelRoot, not yet in the tree (a scene factory for SceneRouter tests). */
+export function buildMiniLevel(start = new Vec2(64, -19), x0 = 0, x1 = 2000): LevelRoot {
+  registerAll();
   const level = new LevelRoot('MiniLevel');
   level.useSceneRouter = false;
   level.zoneId = 'test_zone';
@@ -69,9 +78,6 @@ export function miniLevel(start = new Vec2(64, -19), x0 = 0, x1 = 2000, beforeRe
   addFloor(terrain, x0, x1);
   addRect(terrain, new Rect2(x0 - 32, -400, 32, 600));
   addRect(terrain, new Rect2(x1, -400, 32, 600));
-  beforeReady?.(level);
-  tree.changeSceneNow(() => level);
-  step(2);
   return level;
 }
 

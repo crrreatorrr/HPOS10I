@@ -2,7 +2,7 @@
 // staying inside the bounds, the backdrop, pits, the death flow and
 // respawning at a checkpoint through SceneRouter (docs/CONTRACTS.md, "Levels").
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameState } from '../../src/core/game_state';
 import { SceneRouter } from '../../src/core/scene_router';
 import { Tuning } from '../../src/core/tuning';
@@ -11,10 +11,11 @@ import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
 import { Checkpoint } from '../../src/levels/objects/checkpoint';
 import { registerLevelScenes } from '../../src/levels/scenes';
 import type { Node2D } from '../../src/runtime/node';
+import { PauseMenu } from '../../src/ui/pause/pause_menu';
 import { tree, VIEW_H, VIEW_W } from '../../src/runtime/tree';
 import { Rect2, Vec2 } from '../../src/runtime/vec2';
 import { addRect, press, release, releaseAll, step } from '../helpers/world';
-import { flushPromises, miniLevel, resetRun } from './level_world';
+import { flushPromises, miniLevel, resetRun, waitFor } from './level_world';
 
 const height = (): number => Tuning.physics.height_radius;
 
@@ -188,5 +189,143 @@ describe('LevelRoot', () => {
     expect(reloaded!.getNode<Checkpoint>('Objects/Checkpoint').isActive()).toBe(true);
     reloaded!.useSceneRouter = false;
     SceneRouter.zoneId = '';
+  });
+  // --- Phase (owner decision HPOS-DEC-01: no Restart while dying) ----------------------
+
+  it('phase: playing, then dying from the moment he dies (before Player.died), then respawning once', () => {
+    const level = miniLevel();
+    let requests = 0;
+    level.respawnRequested.connect(() => requests++);
+    expect(level.phase()).toBe('playing');
+    level.player!.kill();
+    expect(level.phase()).toBe('dying');
+    let died = false;
+    level.player!.died.connect(() => (died = true));
+    expect(waitFor(() => died, 200)).toBeGreaterThan(0);
+    expect(level.phase()).toBe('dying');
+    expect(waitFor(() => requests > 0, 200)).toBeGreaterThan(0);
+    expect(level.phase()).toBe('respawning');
+    step(300);
+    expect(requests).toBe(1);
+    expect(level.phase()).toBe('respawning');
+    // Terminal: the goal can't start a finish after the respawn was requested.
+    level.completeLevel();
+    expect(level.phase()).toBe('respawning');
+  });
+
+  it('phase: finishing through the goal sequence, then leaving once', () => {
+    const saved = LevelHooks.tally;
+    LevelHooks.tally = null;
+    try {
+      const level = miniLevel();
+      let next = 0;
+      level.nextStageRequested.connect(() => next++);
+      step(10);
+      level.completeLevel();
+      expect(level.phase()).toBe('finishing');
+      expect(level.isFinishing()).toBe(true);
+      expect(waitFor(() => next > 0, 600)).toBeGreaterThan(0);
+      expect(level.phase()).toBe('leaving');
+      expect(level.isFinishing()).toBe(true);
+      // A death after the finish started changes nothing.
+      level.player!.freeze(false);
+      level.player!.kill();
+      step(300);
+      expect(level.phase()).toBe('leaving');
+      expect(next).toBe(1);
+    } finally {
+      LevelHooks.tally = saved;
+    }
+  });
+
+  it('pausing in the death wait holds the phase and fires the respawn exactly once after resuming', () => {
+    const level = miniLevel();
+    let requests = 0;
+    level.respawnRequested.connect(() => requests++);
+    const lives = GameState.lives;
+    level.player!.kill();
+    step(20);
+    tree.paused = true;
+    step(600);
+    expect(level.phase()).toBe('dying');
+    expect(requests).toBe(0);
+    tree.paused = false;
+    step(20);
+    tree.paused = true;
+    step(600);
+    tree.paused = false;
+    expect(waitFor(() => requests > 0, 300)).toBeGreaterThan(0);
+    step(300);
+    expect(requests).toBe(1);
+    expect(GameState.lives).toBe(lives);
+  });
+
+  it('die -> pause -> Restart is disabled; the respawn still takes exactly one life; after it Restart is enabled', async () => {
+    registerLevelScenes();
+    const pm = tree.addAutoload(new PauseMenu());
+    try {
+      const before = tree.currentScene;
+      SceneRouter.startZone('test_zone', 1);
+      for (let i = 0; i < 50 && (tree.currentScene === before || !(tree.currentScene instanceof LevelRoot)); i++) {
+        await flushPromises();
+        step(1);
+      }
+      const level = tree.currentScene as LevelRoot;
+      expect(level).toBeInstanceOf(LevelRoot);
+      step(5);
+      const lives = GameState.lives;
+      const restart = vi.spyOn(SceneRouter, 'restart');
+
+      pm.openMenu();
+      expect(pm.canRestart()).toBe(true);
+      expect(pm.main.items[1]!.enabled).not.toBe(false);
+      pm.requestResume();
+      step(3);
+      expect(pm.isOpen()).toBe(false);
+
+      level.player!.kill();
+      step(10);
+      pm.openMenu();
+      expect(tree.paused).toBe(true);
+      expect(level.phase()).toBe('dying');
+      expect(pm.canRestart()).toBe(false);
+      expect(pm.main.items[1]!.enabled).toBe(false);
+      expect(pm.restartHint()).toBe('WAIT FOR RESPAWN');
+      pm.main.activate(1);
+      expect(restart).not.toHaveBeenCalled();
+      expect(pm.isOpen()).toBe(true);
+      // A long pause takes nothing and reloads nothing.
+      for (let i = 0; i < 300; i++) {
+        step(1);
+        if (i % 20 === 0) await flushPromises();
+      }
+      expect(GameState.lives).toBe(lives);
+      expect(tree.currentScene).toBe(level);
+      expect(level.phase()).toBe('dying');
+
+      pm.requestResume();
+      let reloaded: LevelRoot | null = null;
+      for (let i = 0; i < 400 && !reloaded; i++) {
+        step(1);
+        await flushPromises();
+        if (tree.currentScene instanceof LevelRoot && tree.currentScene !== level) reloaded = tree.currentScene;
+      }
+      expect(reloaded, 'the act reloaded').not.toBeNull();
+      expect(GameState.lives).toBe(lives - 1);
+      expect(restart).not.toHaveBeenCalled();
+      step(4);
+      expect(reloaded!.phase()).toBe('playing');
+      pm.openMenu();
+      expect(pm.canRestart()).toBe(true);
+      expect(pm.main.items[1]!.enabled).toBe(true);
+      expect(pm.restartHint()).toBe('');
+      pm.requestResume();
+      step(3);
+      reloaded!.useSceneRouter = false;
+      SceneRouter.zoneId = '';
+    } finally {
+      pm.free();
+      tree.paused = false;
+    }
   });
 });
