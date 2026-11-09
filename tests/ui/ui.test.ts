@@ -347,7 +347,7 @@ describe('ZoneSelect', () => {
 
   it('the hint follows touch mode', () => {
     const zs = open();
-    expect(zs.hintText()).toContain('JUMP');
+    expect(zs.hintText()).toBe('JUMP OR ENTER: START     P: BACK TO TITLE');
     Display.setTouch(true);
     expect(zs.hintText()).toContain('TAP');
   });
@@ -856,6 +856,29 @@ describe('screens', () => {
     tapAction('jump');
     expect(go).toHaveBeenCalledTimes(1);
     expect(title.isLeaving()).toBe(true);
+  });
+
+  it('title: Esc never starts the game, P, Enter and a gamepad Start do', () => {
+    const go = vi.spyOn(SceneRouter, 'goZoneSelect').mockImplementation(() => undefined);
+    for (const code of ['Escape', 'KeyP', 'Enter']) {
+      const title = showScene(() => new TitleScreen());
+      frames(20);
+      Input.keyDown(code, false);
+      frames(1);
+      Input.keyUp(code);
+      frames(1);
+      expect(title.isLeaving()).toBe(code !== 'Escape');
+    }
+    expect(go).toHaveBeenCalledTimes(2);
+    const title = showScene(() => new TitleScreen());
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(20);
+    pad.buttons[9] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(title.isLeaving()).toBe(true);
+    Input.feedPads([null]);
   });
 
   it('game over resets the game and goes to the title', () => {

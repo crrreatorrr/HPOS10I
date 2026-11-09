@@ -55,6 +55,13 @@ from 0.75, so a 45-degree push runs instead of rolling or looking up. A button
 already held when the controller appears (the press that chose the hub
 portal) is ignored until it is released. View and the stick clicks are unused.
 
+On a keyboard, WASD and the arrow keys both move and steer every menu,
+Space (or Z, X, C, K) jumps, and there is no run key: speed comes from slopes,
+the roll and the spin dash. In menus Enter or Space chooses and Esc goes back;
+Esc never moves forward, so it does nothing on the title. P (or Enter, or Esc
+outside fullscreen) pauses. Time Focus stays on F, a key of its own beside the
+WASD block, because it is an ability rather than an interaction.
+
 Keys are bound by position, so on AZERTY or QWERTZ keyboards the movement keys
 are the ones in the WASD spot. The charge run, drop dash and shield bounce can
 be turned off in **Pause → Options**, and are always off in Ranked.

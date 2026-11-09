@@ -23,10 +23,11 @@ import { ZoneRegistry, type Zone } from '../../core/zone_registry';
 import { HubClient } from '../../hub/hub_client';
 import { ITEM_GOLDEN, ITEM_NOBU, ITEM_TIDEBREAKER, RelicLoadout } from '../../hub/relic_loadout';
 import type { Gfx } from '../../runtime/gfx';
-import { Input } from '../../runtime/input';
+import { Input, KEY_BINDINGS } from '../../runtime/input';
 import { posmod } from '../../runtime/math';
 import { Node, type InputEventLike } from '../../runtime/node';
 import { Rect2, Vec2 } from '../../runtime/vec2';
+import { InputHints } from '../common/input_hints';
 import { MenuBackdrop } from '../common/menu_backdrop';
 import { MenuList, type Direction, type MenuItem } from '../common/menu';
 import { COLORS, drawCentered, drawPanel, drawText, UiLayer, PANEL_MARGIN_X, PANEL_MARGIN_Y } from '../common/theme';
@@ -46,11 +47,23 @@ const SKIN_W = BUTTON_W * 2 + COL_SEP * 2 + SLOT;
 /** Space between the title and the bottom hint where the panel is centred (zone_select.tscn). */
 const AREA_TOP = 34;
 const AREA_BOTTOM = 220;
-/** Bottom hint for keys/gamepad, and for touch (follows Display's touch mode). */
-export const HINT_KEYS = 'JUMP: START     PAUSE: BACK TO TITLE';
+/**
+ * Bottom hint for the keyboard, from the bindings: Enter (accept) or a jump
+ * key starts, and the pause keys that are not also accept (P; Esc is never
+ * offered) go back. "PAUSE: BACK" read wrong, since Enter is a pause key too.
+ */
+export function hintKeys(): string {
+  const accept = InputHints.firstKey('ui_accept');
+  const back = InputHints.keysFor('pause')
+    .filter((code) => !KEY_BINDINGS.ui_accept.includes(code))
+    .map((code) => InputHints.keyLabel(code))
+    .join(' / ');
+  const start = accept !== '' ? `JUMP OR ${accept}` : 'JUMP';
+  return back !== '' ? `${start}: START     ${back}: BACK TO TITLE` : `${start}: START`;
+}
 export const HINT_TOUCH = 'TAP AN ACT TO START     TAP BACK FOR THE TITLE';
 /** On a gamepad B is a jump button too, but here it goes back (ui_cancel wins). */
-export const HINT_PAD = 'A: START     B: BACK TO TITLE';
+export const HINT_PAD = `${InputHints.padKeys('ui_accept')}: START     ${InputHints.padKeys('ui_cancel')}: BACK TO TITLE`;
 
 export interface ActEntry {
   zoneId: string;
@@ -227,7 +240,7 @@ export class ZoneSelect extends Node {
 
   hintText(): string {
     if (Display.isTouch) return HINT_TOUCH;
-    return Input.lastDevice === 'pad' ? HINT_PAD : HINT_KEYS;
+    return Input.lastDevice === 'pad' ? HINT_PAD : hintKeys();
   }
 
   private cycleSkin(step: number, sound = true): boolean {

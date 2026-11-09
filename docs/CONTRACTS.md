@@ -121,7 +121,8 @@ area (mask bit 5) and call the player API below.
 "Just pressed" is per consumer clock: the first physics tick after a press
 (gameplay), or the first rendered frame (menus). Key and gamepad button names
 in UI text come from the bindings (`InputHints.actionKeys` / `padKeys`), never
-hard-coded.
+hard-coded. Esc (`pause` + `ui_cancel`) only ever goes back, closes or pauses:
+the title ignores it, while P, Enter and a gamepad's Start start the game.
 
 **Gamepads** (`src/runtime/gamepad.ts`, the hub's shared controller
 convention): every connected pad is polled once per rendered frame, so
