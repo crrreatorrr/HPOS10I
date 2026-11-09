@@ -1,7 +1,9 @@
 // The menu helper every screen uses: a list of items with one focused, moved
 // with ui_up/ui_down (arrows, D-pad, stick) and move_up/move_down (WASD),
 // with key repeat while held; ui_accept or any jump key chooses; ui_cancel
-// (and optionally pause) goes back; a pointer or finger taps an item (press
+// (and optionally pause) goes back, except that a gamepad's Start chooses
+// there, as Enter (pause + accept) does on the keyboard, so pressing Start
+// twice from the title never bounces back to it; a pointer or finger taps an item (press
 // and release on the same item, like a Button). Plays menu_move on focus
 // changes and menu_select on choosing.
 //
@@ -54,7 +56,7 @@ export interface MenuItem {
 export interface MenuOptions {
   /** Called on ui_cancel (and pause when cancelOnPause). Null: cancel does nothing. */
   onCancel?: (() => void) | null;
-  /** Pause (but not Enter, which is also ui_accept) goes back too. */
+  /** Pause (but not Enter, which is also ui_accept, nor a gamepad's Start, which chooses) goes back too. */
   cancelOnPause?: boolean;
   /** Every jump key chooses too (default true). */
   acceptOnJump?: boolean;
@@ -183,8 +185,9 @@ export class MenuList {
     const settling = this.isSettling();
     const jp = (a: Action) => Input.isActionJustPressed(a);
     if (!settling) {
-      const accept = jp('ui_accept') || (this.acceptOnJump && jp('jump'));
-      const cancel = jp('ui_cancel') || (this.cancelOnPause && jp('pause') && !jp('ui_accept'));
+      const padStart = this.cancelOnPause && jp('pause') && Input.isActionHeldBy('pause', 'pad');
+      const accept = jp('ui_accept') || (this.acceptOnJump && jp('jump')) || padStart;
+      const cancel = jp('ui_cancel') || (this.cancelOnPause && jp('pause') && !jp('ui_accept') && !padStart);
       if (this.onCancel && cancel) {
         this.onCancel();
         this.syncHeld();

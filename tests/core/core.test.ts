@@ -49,6 +49,7 @@ function sceneId(): string {
 
 beforeEach(() => {
   GameState.resetGame();
+  GameState.clearEmeralds();
   flush();
 });
 
@@ -314,7 +315,9 @@ describe('emeralds and GameState', () => {
       c.eq(won.join(), 'z2_wizard_academy:2', 'one signal');
       GameState.emeraldWon.disconnect(onWon);
       GameState.resetGame();
-      c.eq(GameState.emeraldCount(), 0, 'a new game starts with none');
+      c.eq(GameState.emeraldCount(), 1, 'a new run keeps the emeralds won on this save (HPOS-DEC-02)');
+      GameState.clearEmeralds();
+      c.eq(GameState.emeraldCount(), 0, 'clearEmeralds forgets them');
     }),
   );
 

@@ -85,6 +85,8 @@ class HubClientImpl {
   /** Connects to the hub. Pass an SDK in tests; the browser build creates the real one. */
   async init(opts: { sdk?: HubSdk | null; hubUrl?: string; serverKey?: string } = {}): Promise<void> {
     this.save.loadAll();
+    // Before the first scene (boot doesn't wait for the rest of init).
+    GameState.restoreEmeralds(this.save.emeralds);
     this.hubUrl = opts.hubUrl ?? __HUB_URL__;
     this.wire();
     let sdk = opts.sdk ?? null;
@@ -187,6 +189,7 @@ class HubClientImpl {
     this.wired = true;
     GameState.levelStarted.connect((zone, act) => this.onLevelStarted(zone, act));
     GameState.levelCompleted.connect(() => this.onLevelCompleted());
+    GameState.emeraldWon.connect((zone, act) => this.save.recordEmerald(zone, act));
   }
 
   private onInit(ok: boolean, payload: Payload): void {
