@@ -4,6 +4,7 @@
 // physics ticks so motion stays smooth on 120 Hz screens.
 
 import { Color } from './color';
+import { CrashGuard, crashGuard } from './crash_guard';
 import { Gfx } from './gfx';
 import { Input, InputEvent } from './input';
 import { CanvasLayer, Node, Node2D } from './node';
@@ -66,7 +67,8 @@ export class SceneTree {
   /** Ticks the game holds still for impact (hit-stop); the main loop skips them. */
   hitStopTicks = 0;
 
-  constructor() {
+  /** @param crash Counts frames that throw and halts the loop after a streak (crash_guard.ts). */
+  constructor(readonly crash: CrashGuard = crashGuard) {
     this.root._tree = this;
     this.root._readyDone = true;
   }
@@ -246,26 +248,47 @@ export class SceneTree {
     this.running = true;
     const frame = (now: number) => {
       if (!this.running) return;
-      const t = now / 1000;
-      let real = this.lastTime < 0 ? PHYSICS_DT : t - this.lastTime;
-      this.lastTime = t;
-      // A hidden tab or a breakpoint: don't try to catch up minutes of game.
-      if (real > 0.25) real = 0.25;
-      this.accumulator += real * this.timeScale;
-      let ticks = 0;
-      while (this.accumulator >= PHYSICS_DT && ticks < 8) {
-        if (this.hitStopTicks > 0 && !this.paused) this.hitStopTicks--;
-        else this.physicsStep();
-        this.accumulator -= PHYSICS_DT;
-        ticks++;
+      try {
+        // Halted by the crash guard: the panel is up, the game stays still.
+        // A frame that ran a physics tick without throwing ends a failure streak; a frame
+        // with no tick due (120 Hz screens, hit-stop) proves nothing either way.
+        if (!this.crash.halted && this.frame(now) > 0) this.crash.frameOk();
+      } catch (err) {
+        // A throw in a tick ends this frame (no more ticks on a half-applied state) and
+        // drops the backlog, so the next frame does not try to catch up on it.
+        this.accumulator = 0;
+        this.crash.frameFailed(err);
+      } finally {
+        if (this.running) requestAnimationFrame(frame);
       }
-      if (ticks === 8) this.accumulator = 0;
-      this.lastTicks = ticks;
-      this.processStep(real);
-      this.render(Math.min(1, this.accumulator / PHYSICS_DT));
-      requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
+  }
+
+  /** One rendered frame: catch-up physics ticks, a process pass, then the picture. Returns the physics steps run. */
+  private frame(now: number): number {
+    const t = now / 1000;
+    let real = this.lastTime < 0 ? PHYSICS_DT : t - this.lastTime;
+    this.lastTime = t;
+    // A hidden tab or a breakpoint: don't try to catch up minutes of game.
+    if (real > 0.25) real = 0.25;
+    this.accumulator += real * this.timeScale;
+    let ticks = 0;
+    let steps = 0;
+    while (this.accumulator >= PHYSICS_DT && ticks < 8) {
+      if (this.hitStopTicks > 0 && !this.paused) this.hitStopTicks--;
+      else {
+        this.physicsStep();
+        steps++;
+      }
+      this.accumulator -= PHYSICS_DT;
+      ticks++;
+    }
+    if (ticks === 8) this.accumulator = 0;
+    this.lastTicks = ticks;
+    this.processStep(real);
+    this.render(Math.min(1, this.accumulator / PHYSICS_DT));
+    return steps;
   }
 
   stop(): void {
