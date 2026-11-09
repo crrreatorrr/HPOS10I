@@ -1,7 +1,9 @@
 // Title screen (boot goes here; ?dev still shows the boot menu). The logo,
 // Sproto, a blinking "press jump or tap" prompt and the one-line disclaimer
-// from docs/CONTRACTS.md. Jump, accept, pause (Start), a tap or a click goes
-// to the zone select (once). Music: `title`. Input only counts while it is
+// from docs/CONTRACTS.md. Jump, accept, pause (P, a gamepad's Start), a tap
+// or a click goes to the zone select (once). Esc is back/close everywhere
+// else, so it never starts the game here (it is pause and ui_cancel; the
+// gamepad's B is a jump button too and still starts). Music: `title`. Input only counts while it is
 // the current scene, so a stray copy never acts.
 
 import { Audio } from '../../core/audio';
@@ -58,7 +60,8 @@ export class TitleScreen extends Node {
   override process(delta: number): void {
     this.clock += delta;
     if (!this.accepting()) return;
-    const go = Input.isActionJustPressed('jump') || Input.isActionJustPressed('ui_accept') || Input.isActionJustPressed('pause');
+    const jp = (a: 'jump' | 'ui_accept' | 'pause' | 'ui_cancel') => Input.isActionJustPressed(a);
+    const go = jp('jump') || jp('ui_accept') || (jp('pause') && !jp('ui_cancel'));
     if (go) this.start();
   }
 

@@ -30,7 +30,7 @@ import { SoundHint } from '../../src/ui/sound_hint/sound_hint';
 import { ScoreTally } from '../../src/ui/tally/score_tally';
 import { DISCLAIMER, TitleScreen } from '../../src/ui/title/title_screen';
 import { JUMP_CENTER, PAD_CENTER, TouchControls, padActions } from '../../src/ui/touch_controls/touch_controls';
-import { ZoneSelect } from '../../src/ui/zone_select/zone_select';
+import { HINT_PAD, ZoneSelect } from '../../src/ui/zone_select/zone_select';
 import { buildMiniLevel } from '../levels/level_world';
 
 // --- Helpers ---------------------------------------------------------------------------
@@ -56,6 +56,11 @@ function tapAction(action: Action): void {
   frames(1);
   release(action);
   frames(1);
+}
+
+/** A standard-mapping pad with nothing held (Input.feedPads drives it in node). */
+function fakePad(): { index: number; id: string; connected: boolean; buttons: { pressed: boolean; value: number }[]; axes: number[] } {
+  return { index: 0, id: 'test pad', connected: true, buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), axes: [0, 0, 0, 0] };
 }
 
 function pointer(x: number, y: number, phase: 'down' | 'move' | 'up', id = 1, touch = true): void {
@@ -343,9 +348,70 @@ describe('ZoneSelect', () => {
 
   it('the hint follows touch mode', () => {
     const zs = open();
-    expect(zs.hintText()).toContain('JUMP');
+    expect(zs.hintText()).toBe('JUMP OR ENTER: START     P: BACK TO TITLE');
     Display.setTouch(true);
     expect(zs.hintText()).toContain('TAP');
+  });
+
+  it('on a gamepad the hint names A and B, and B goes back to the title', () => {
+    const zs = open();
+    const back = vi.spyOn(SceneRouter, 'goTitle');
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(30);
+    pad.buttons[1] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(zs.hintText()).toBe(HINT_PAD);
+    Input.feedPads([null]);
+  });
+
+  it('a gamepad reaches HUB with the D-pad and A (return to the hub without the keyboard)', () => {
+    const zs = open();
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(1);
+    const tapButton = (b: number) => {
+      pad.buttons[b] = { pressed: true, value: 1 };
+      Input.feedPads([pad]);
+      frames(1);
+      pad.buttons[b] = { pressed: false, value: 0 };
+      Input.feedPads([pad]);
+      frames(1);
+    };
+    tapButton(12); // up wraps to the BACK / HUB row
+    tapButton(15); // right: HUB
+    expect(zs.menu.focus).toBe(zs.hubIndex);
+    tapButton(0);
+    expect(exit).toHaveBeenCalledTimes(1);
+    Input.feedPads([null]);
+  });
+
+  it('gamepad Start chooses the focused act (as Enter does), P still goes back', () => {
+    const zs = open();
+    const start = vi.spyOn(SceneRouter, 'startZone').mockImplementation(() => undefined);
+    const back = vi.spyOn(SceneRouter, 'goTitle');
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(1);
+    pad.buttons[9] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(back).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(zs.isBusy()).toBe(true);
+    pad.buttons[9] = { pressed: false, value: 0 };
+    Input.feedPads([pad]);
+    frames(1);
+    Input.feedPads([null]);
+    const zs2 = open();
+    Input.keyDown('KeyP', false);
+    frames(1);
+    Input.keyUp('KeyP');
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(zs2.isBusy()).toBe(true);
   });
 });
 
@@ -626,6 +692,41 @@ describe('PauseMenu', () => {
     });
   });
 
+  it('gamepad B on the main page resumes instead of choosing the focused item', () => {
+    const pm = addOverlay(new PauseMenu());
+    const quit = vi.spyOn(SceneRouter, 'goTitle');
+    enterGameplay();
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(1);
+    pad.buttons[9] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    pad.buttons[9] = { pressed: false, value: 0 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(pm.isOpen()).toBe(true);
+    pm.main.setFocus(4, true); // QUIT TO TITLE
+    pad.buttons[1] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(quit).not.toHaveBeenCalled();
+    expect(pm.isResumePending()).toBe(true);
+    pad.buttons[1] = { pressed: false, value: 0 };
+    Input.feedPads([pad]);
+    frames(3);
+    expect(pm.isOpen()).toBe(false);
+    expect(SceneRouter.inGameplay()).toBe(true);
+    Input.feedPads([null]);
+  });
+
+  it('the controls list names gamepad buttons from the bindings', () => {
+    const pm = addOverlay(new PauseMenu());
+    const rows = pm.controlsRows();
+    expect(rows[2]![2]).toBe('A B X Y');
+    expect(rows[3]![2]).toBe('START');
+  });
+
   it('the controls list offers P and Enter, never Esc, and names keys from the bindings', () => {
     const pm = addOverlay(new PauseMenu());
     const rows = pm.controlsRows();
@@ -873,6 +974,29 @@ describe('screens', () => {
     expect(title.isLeaving()).toBe(true);
   });
 
+  it('title: Esc never starts the game, P, Enter and a gamepad Start do', () => {
+    const go = vi.spyOn(SceneRouter, 'goZoneSelect').mockImplementation(() => undefined);
+    for (const code of ['Escape', 'KeyP', 'Enter']) {
+      const title = showScene(() => new TitleScreen());
+      frames(20);
+      Input.keyDown(code, false);
+      frames(1);
+      Input.keyUp(code);
+      frames(1);
+      expect(title.isLeaving()).toBe(code !== 'Escape');
+    }
+    expect(go).toHaveBeenCalledTimes(2);
+    const title = showScene(() => new TitleScreen());
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(20);
+    pad.buttons[9] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(title.isLeaving()).toBe(true);
+    Input.feedPads([null]);
+  });
+
   it('game over resets the game and goes to the title', () => {
     const go = vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);
     GameState.lives = 0;
@@ -894,6 +1018,19 @@ describe('screens', () => {
     expect(go).not.toHaveBeenCalled();
     frames(60 * 5);
     expect(go).toHaveBeenCalledTimes(1);
+  });
+
+  it('a gamepad Start skips the ending roll, as it starts the title', () => {
+    vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);
+    const end = showScene(() => new EndingScreen());
+    const pad = fakePad();
+    Input.feedPads([pad]);
+    frames(40);
+    pad.buttons[9] = { pressed: true, value: 1 };
+    Input.feedPads([pad]);
+    frames(1);
+    expect(end.isRolled()).toBe(true);
+    Input.feedPads([null]);
   });
 
   it('the dev menu lists registered stages and starts them', () => {
