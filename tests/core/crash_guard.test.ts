@@ -5,10 +5,18 @@
 // spammed. requestAnimationFrame is a stand-in that the test pumps by hand.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CRASH_HALT_FRAMES, CRASH_LOG_LIMIT, CrashGuard, type CrashEventTarget, type CrashInfo } from '../../src/runtime/crash_guard';
+import {
+  CRASH_HALT_FRAMES,
+  CRASH_LOG_LIMIT,
+  CrashGuard,
+  isBenignError,
+  isBenignRejection,
+  type CrashEventTarget,
+  type CrashInfo,
+} from '../../src/runtime/crash_guard';
 import { Node } from '../../src/runtime/node';
 import { PHYSICS_DT, SceneTree } from '../../src/runtime/tree';
-import { CRASH_PANEL_ID, CrashPanel } from '../../src/ui/crash_panel';
+import { CRASH_PANEL_ID, CrashPanel } from '../../src/runtime/crash_panel';
 
 // --- A hand-pumped requestAnimationFrame and a do-nothing canvas -----------------------
 
@@ -49,7 +57,7 @@ class Thrower extends Node {
 
 function startTree(failOn: (call: number) => boolean) {
   const log = vi.fn();
-  const guard = new CrashGuard(CRASH_HALT_FRAMES, CRASH_LOG_LIMIT, log);
+  const guard = new CrashGuard(CRASH_HALT_FRAMES, CRASH_LOG_LIMIT, log, null);
   const tree = new SceneTree(guard);
   const node = new Thrower(failOn);
   tree.root.addChild(node);
@@ -120,7 +128,8 @@ describe('main loop survives exceptions', () => {
       if (tree.crash.halted) tree.crash.resume();
     }
     expect(tree.crash.total).toBeGreaterThan(500);
-    expect(log.mock.calls.length).toBeLessThanOrEqual(CRASH_LOG_LIMIT + 2 + 600 / CRASH_HALT_FRAMES);
+    // Every line the guard writes (errors, the halt line, the "further errors" note) fits the cap.
+    expect(log.mock.calls.length).toBeLessThanOrEqual(CRASH_LOG_LIMIT);
     tree.stop();
   });
 
@@ -136,7 +145,7 @@ describe('main loop survives exceptions', () => {
 
   it('a throw from process() or render is caught too', () => {
     const log = vi.fn();
-    const guard = new CrashGuard(CRASH_HALT_FRAMES, CRASH_LOG_LIMIT, log);
+    const guard = new CrashGuard(CRASH_HALT_FRAMES, CRASH_LOG_LIMIT, log, null);
     const tree = new SceneTree(guard);
     class BadProcess extends Node {
       override process(): void {
@@ -185,30 +194,180 @@ describe('CrashGuard', () => {
     expect(halted).toBe(1);
   });
 
-  it('window error and unhandledrejection feed the same counter', () => {
+  it('window error and unhandledrejection are counted, never preventDefault-ed', () => {
     const log = vi.fn();
-    const g = new CrashGuard(3, 5, log);
-    const listeners: Record<string, ((e: Event) => void)[]> = {};
-    const target: CrashEventTarget = {
-      addEventListener: (type, fn) => (listeners[type] ??= []).push(fn),
-      removeEventListener: (type, fn) => (listeners[type] = (listeners[type] ?? []).filter((f) => f !== fn)),
-    };
-    g.installGlobal(target);
-    const prevented: string[] = [];
-    const ev = (type: string, extra: object) => ({ type, preventDefault: () => prevented.push(type), ...extra }) as unknown as Event;
-    listeners.error![0]!(ev('error', { error: new Error('handler threw'), message: 'handler threw' }));
-    listeners.unhandledrejection![0]!(ev('unhandledrejection', { reason: new Error('rejected') }));
-    listeners.error![0]!(ev('error', { error: new Error('handler threw'), message: 'handler threw' }));
+    const g = new CrashGuard(3, 5, log, null);
+    const { fire, listeners, prevented } = fakeWindow(g);
+    fire('error', { error: new Error('handler threw'), message: 'handler threw' });
+    fire('unhandledrejection', { reason: new Error('rejected') });
+    fire('error', { error: new Error('handler threw'), message: 'handler threw' });
     expect(g.total).toBe(3);
-    expect(g.halted).toBe(true);
-    expect(prevented).toEqual(['error', 'unhandledrejection', 'error']);
-    // Logged once each (two distinct errors) plus the halt line, not three times.
-    expect(log.mock.calls.filter((c) => String(c[0]).startsWith('[Crash] error') || String(c[0]).startsWith('[Crash] unhandled')).length).toBe(2);
+    // The browser keeps logging them itself (past our log cap, too).
+    expect(prevented).toEqual([]);
     g.uninstallGlobal();
     expect(listeners.error!.length).toBe(0);
     expect(listeners.unhandledrejection!.length).toBe(0);
   });
+
+  it('global errors alone never halt the game (async preload, a hidden tab)', () => {
+    const g = new CrashGuard(3, 5, () => undefined, null);
+    const { fire } = fakeWindow(g);
+    for (let i = 0; i < 10; i++) fire('unhandledrejection', { reason: new Error(`fetch ${i}`) });
+    expect(g.total).toBe(10);
+    expect(g.halted).toBe(false);
+    // One failing frame after them is a streak of one, not eleven.
+    g.frameFailed(new Error('frame'));
+    expect(g.halted).toBe(false);
+  });
+
+  it('global errors can tip the halt once the streak has a failing frame', () => {
+    const g = new CrashGuard(3, 5, () => undefined, null);
+    const { fire } = fakeWindow(g);
+    g.frameFailed(new Error('frame'));
+    fire('error', { error: new Error('a'), message: 'a' });
+    expect(g.halted).toBe(false);
+    fire('error', { error: new Error('b'), message: 'b' });
+    expect(g.halted).toBe(true);
+  });
+
+  it('resetStreak (boot done, tab visible again) clears the streak but not a halt', () => {
+    const g = new CrashGuard(3, 5, () => undefined, null);
+    g.frameFailed(new Error('a'));
+    g.frameFailed(new Error('a'));
+    g.resetStreak();
+    g.frameFailed(new Error('a'));
+    expect(g.halted).toBe(false);
+    g.frameFailed(new Error('a'));
+    g.frameFailed(new Error('a'));
+    expect(g.halted).toBe(true);
+    g.resetStreak();
+    expect(g.halted).toBe(true);
+  });
+
+  it('ignores browser noise and other origins', () => {
+    const g = new CrashGuard(3, 5, () => undefined, null);
+    const { fire } = fakeWindow(g, 'https://game.example');
+    fire('error', { message: 'ResizeObserver loop completed with undelivered notifications.', error: null });
+    fire('error', { message: 'ResizeObserver loop limit exceeded', error: null });
+    fire('error', { message: 'Script error.', error: null, filename: '' });
+    fire('error', { message: 'Uncaught Error: ext', error: new Error('ext'), filename: 'chrome-extension://abc/content.js' });
+    fire('error', { message: 'Uncaught Error: ad', error: new Error('ad'), filename: 'https://ads.example/x.js' });
+    fire('unhandledrejection', { reason: Object.assign(new Error('The play() request was interrupted'), { name: 'AbortError' }) });
+    fire('unhandledrejection', { reason: { name: 'NotAllowedError', message: 'play() failed because the user did not interact' } });
+    expect(g.total).toBe(0);
+    // Our own scripts (and errors with no file, e.g. eval) still count.
+    fire('error', { message: 'Uncaught Error: ours', error: new Error('ours'), filename: 'https://game.example/assets/index.js' });
+    fire('error', { message: 'Uncaught Error: nofile', error: new Error('nofile'), filename: '' });
+    expect(g.total).toBe(2);
+  });
+
+  it('isBenignError / isBenignRejection', () => {
+    const origin = 'https://game.example';
+    expect(isBenignError({ message: 'Script error.' }, origin)).toBe(true);
+    expect(isBenignError({ message: 'Script error.', error: new Error('x') }, origin)).toBe(false);
+    expect(isBenignError({ message: 'x', error: new Error('x'), filename: 'https://game.example/a.js' }, origin)).toBe(false);
+    expect(isBenignError({ message: 'x', error: new Error('x'), filename: 'https://cdn.example/a.js' }, origin)).toBe(true);
+    expect(isBenignError({ message: 'x', error: new Error('x'), filename: '/a.js' }, origin)).toBe(false);
+    expect(isBenignRejection(Object.assign(new Error('a'), { name: 'AbortError' }))).toBe(true);
+    expect(isBenignRejection(new Error('a'))).toBe(false);
+    expect(isBenignRejection(undefined)).toBe(false);
+  });
+
+  it('hands each new frame error to reportError once, without counting it twice', () => {
+    const surfaced: unknown[] = [];
+    let fire!: ReturnType<typeof fakeWindow>['fire'];
+    // Like the browser's reportError: it dispatches a window "error" event for the same object.
+    const g = new CrashGuard(10, 5, () => undefined, (err) => {
+      surfaced.push(err);
+      fire('error', { error: err, message: (err as Error).message });
+    });
+    fire = fakeWindow(g).fire;
+    const throwAt = (msg: string) => {
+      try {
+        throw new Error(msg);
+      } catch (err) {
+        return err;
+      }
+    };
+    const a1 = throwAt('a');
+    g.frameFailed(a1);
+    g.frameFailed(a1); // the same object again
+    g.frameFailed(throwAt('b'));
+    expect(surfaced).toEqual([a1, expect.objectContaining({ message: 'b' })]);
+    expect(g.total).toBe(3); // three frame failures, no extra count from the re-dispatched events
+    // Global errors are not re-surfaced.
+    fire('error', { error: new Error('c'), message: 'c' });
+    expect(surfaced.length).toBe(2);
+  });
+
+  it('the main loop surfaces its error so page-error checks still see it', () => {
+    const surfaced: unknown[] = [];
+    const guard = new CrashGuard(CRASH_HALT_FRAMES, CRASH_LOG_LIMIT, () => undefined, (err) => surfaced.push(err));
+    const tree = new SceneTree(guard);
+    tree.root.addChild(new Thrower((call) => call === 2));
+    tree.start(fakeCanvas());
+    pump(4);
+    expect(surfaced.length).toBe(1);
+    expect((surfaced[0] as Error).message).toBe('boom from a node');
+    tree.stop();
+  });
+
+  it('dedupes by message and stack, not message alone', () => {
+    const log = vi.fn();
+    const g = new CrashGuard(100, 5, log, null);
+    const e1 = new Error('same');
+    e1.stack = 'Error: same\n    at a (game.js:1:1)';
+    const e2 = new Error('same');
+    e2.stack = 'Error: same\n    at b (game.js:9:9)';
+    const e3 = new Error('same');
+    e3.stack = e1.stack;
+    g.frameFailed(e1);
+    g.frameFailed(e2);
+    g.frameFailed(e3);
+    expect(log).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the "further errors" note and the halt line inside the log cap', () => {
+    const log = vi.fn();
+    const g = new CrashGuard(3, 5, log, null);
+    for (let i = 0; i < 20; i++) g.frameFailed(new Error(`distinct ${i}`));
+    expect(log.mock.calls.length).toBe(5);
+    expect(String(log.mock.calls[4]![0])).toContain('further errors are counted but not logged');
+    expect(log.mock.calls.some((c) => String(c[0]).includes('halted'))).toBe(true);
+    expect(g.suppressed).toBeGreaterThan(0);
+  });
+
+  it('describes non-Error rejection reasons usefully', () => {
+    const g = new CrashGuard(3, 5, () => undefined, null);
+    const seen: string[] = [];
+    g.onCrash((info) => seen.push(info.message));
+    const img = { tagName: 'IMG', src: 'https://game.example/a.png' };
+    g.report({ type: 'error', isTrusted: true, target: img }, 'unhandledrejection');
+    g.report({ name: 'NetworkError', message: 'offline' }, 'unhandledrejection');
+    g.report({ code: 7 }, 'unhandledrejection');
+    g.report(undefined, 'unhandledrejection');
+    expect(seen[0]).toBe('Event "error" on <img src="https://game.example/a.png">');
+    expect(seen[1]).toBe('NetworkError: offline');
+    expect(seen[2]).toBe('{"code":7}');
+    expect(seen[3]).toBe('undefined');
+  });
 });
+
+/** A stand-in window: install the guard, then fire events at its listeners. */
+function fakeWindow(g: CrashGuard, origin = 'https://game.example') {
+  const listeners: Record<string, ((e: Event) => void)[]> = {};
+  const prevented: string[] = [];
+  const target: CrashEventTarget = {
+    addEventListener: (type, fn) => (listeners[type] ??= []).push(fn),
+    removeEventListener: (type, fn) => (listeners[type] = (listeners[type] ?? []).filter((f) => f !== fn)),
+  };
+  g.installGlobal(target, origin);
+  const fire = (type: 'error' | 'unhandledrejection', extra: object) => {
+    const ev = { type, preventDefault: () => prevented.push(type), ...extra } as unknown as Event;
+    for (const fn of (listeners[type] ?? []).slice()) fn(ev);
+  };
+  return { fire, listeners, prevented };
+}
 
 // --- The panel, on a stand-in DOM ------------------------------------------------------
 

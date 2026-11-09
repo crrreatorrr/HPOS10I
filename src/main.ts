@@ -20,13 +20,13 @@ import { installPlayerVisuals } from './player/visuals_setup';
 import { TimeFocus } from './player/time_focus';
 import { preload, assetUrl } from './runtime/assets';
 import { crashGuard } from './runtime/crash_guard';
+import { CrashPanel } from './runtime/crash_panel';
 import { Fonts } from './runtime/font';
 import { Input } from './runtime/input';
 import { Node, ProcessMode } from './runtime/node';
 import { tree, VIEW_H, VIEW_W } from './runtime/tree';
 import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
-import { CrashPanel } from './ui/crash_panel';
 import { Display } from './ui/display';
 import { HubChrome } from './ui/hub_chrome';
 
@@ -99,6 +99,10 @@ function wirePointer(canvas: HTMLCanvasElement): void {
  */
 const crashPanel = new CrashPanel(document, () => window.location.reload());
 crashGuard.installGlobal(window);
+// Errors while the tab was hidden (no frames ran) must not count toward a halt once it is back.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') crashGuard.resetStreak();
+});
 crashGuard.onHalt((info) => {
   try {
     Audio.stopMusic();
@@ -197,8 +201,12 @@ function exposeDebugApi(): void {
   };
 }
 
-boot().catch((err: unknown) => {
-  document.getElementById('boot')?.classList.add('hidden');
-  // Logs once with the stack and shows the panel with RETRY (a stale chunk after a deploy, a failed load).
-  crashGuard.report(err, 'boot');
-});
+boot().then(
+  // Loading is over: whatever went wrong during it does not count toward a halt.
+  () => crashGuard.resetStreak(),
+  (err: unknown) => {
+    document.getElementById('boot')?.classList.add('hidden');
+    // Logs once with the stack and shows the panel with RETRY (a stale chunk after a deploy, a failed load).
+    crashGuard.report(err, 'boot');
+  },
+);
