@@ -1,6 +1,7 @@
 // The ending (scene id 'ending', after the last zone's boss): a short credits
-// roll over the hills, music `ending`, then the title. Jump, accept or a tap
-// skips to the end of the roll; pressing again (or waiting) goes on. Every
+// roll over the hills, music `ending`, then the title. Jump, accept, pause
+// (a gamepad's Start, as on the title and game over) or a tap skips to the
+// end of the roll; pressing again (or waiting) goes on. Every
 // name here is the game's own.
 
 import { Audio } from '../../core/audio';
@@ -102,7 +103,7 @@ export class EndingScreen extends Node {
       this.holdClock += delta;
       if (this.holdClock >= HOLD_SECONDS) this.finish();
     }
-    if (this.accepting() && (Input.isActionJustPressed('jump') || Input.isActionJustPressed('ui_accept'))) this.skip();
+    if (this.accepting() && (Input.isActionJustPressed('jump') || Input.isActionJustPressed('ui_accept') || Input.isActionJustPressed('pause'))) this.skip();
   }
 
   override input(ev: InputEventLike): void {

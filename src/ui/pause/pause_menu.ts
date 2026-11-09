@@ -13,10 +13,12 @@
 //                  like the original. The hub chrome's Return to Hub button
 //                  opens the same question (confirmExitToHub()).
 //   QUIT TO TITLE  SceneRouter.goTitle()
-// Arrows/WASD/D-pad move, Enter/Space/any jump button choose, mouse and touch
-// tap. Left/right cycle the Relic skin when there is a choice. The panel also
-// lists the controls for every device; key names come from the bindings
-// (InputHints), and Esc is never offered for pause.
+// Arrows/WASD/D-pad/stick move, Enter/Space/any jump button choose, mouse and
+// touch tap. Esc or the gamepad's B goes back: on the main page it resumes,
+// like Start (B is also a jump button, so without this it would choose the
+// focused item). Left/right cycle the Relic skin when there is a choice. The
+// panel also lists the controls for every device; key and button names come
+// from the bindings (InputHints), and Esc is never offered for pause.
 //
 // Pausing releases every held game input. Resuming waits for two physics
 // frames without a fresh jump press, so the key that closed the menu never
@@ -131,7 +133,7 @@ export class PauseMenu extends UiLayer {
       { label: 'QUIT TO TITLE', rect: new Rect2(), onSelect: () => this.onQuit() },
     ];
     for (const it of items) it.onStep = (step) => this.cycleSkin(step);
-    this.main = new MenuList(items, { repeatHorizontal: false });
+    this.main = new MenuList(items, { onCancel: () => this.requestResume(), repeatHorizontal: false });
     const rows: MenuItem[] = OPTION_ROWS.map((row) => ({
       label: row.label,
       rect: new Rect2(),
@@ -357,7 +359,7 @@ export class PauseMenu extends UiLayer {
     if (choices.length > 0 || body !== '') parts.push(`SKIN ${skinLabel(body)}`);
     if (state.cape) parts.push('CAPE DUELIST');
     if (state.time_focus) {
-      const key = InputHints.actionKeys('focus');
+      const key = InputHints.keysForDevice('focus', Input.lastDevice);
       if (key !== '') parts.push(`FOCUS ${key}`);
     }
     if (choices.length >= 2) parts.push('LEFT RIGHT');
@@ -373,8 +375,8 @@ export class PauseMenu extends UiLayer {
     return [
       ['', 'KEYS', 'GAMEPAD', 'TOUCH'],
       ['MOVE', InputHints.moveKeys(), 'D-PAD / STICK', 'LEFT PAD'],
-      ['JUMP', InputHints.actionKeys('jump'), 'A B X Y', 'JUMP BUTTON'],
-      ['PAUSE', InputHints.actionKeys('pause', ' / '), 'START', 'II BUTTON'],
+      ['JUMP', InputHints.actionKeys('jump'), InputHints.padKeys('jump'), 'JUMP BUTTON'],
+      ['PAUSE', InputHints.actionKeys('pause', ' / '), InputHints.padKeys('pause', ' / '), 'II BUTTON'],
     ];
   }
 

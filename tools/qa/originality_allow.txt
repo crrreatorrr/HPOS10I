@@ -11,17 +11,23 @@ src/core/emeralds.ts:12
 # Owner decision 2026-11-02: the vendored hub SDK names another hub game by its
 # server game id (denylist term #425). It is an id the SDK compares against, never
 # shown to players. Scoped to these lines, so a re-vendor that moves them is
-# flagged and re-reviewed. Re-pinned 2026-11-04 for SDK 0.6.0 and re-reviewed: the
+# flagged and re-reviewed. Re-pinned 2026-11-09 for SDK 0.6.3 and re-reviewed: the
 # same id in the SDK's README, two shop-row lookups, the quest relic event, the game
-# id list (.js and .d.ts) and the relic-by-game map, one per line, with none in the
-# new save.js or realtime/ files.
-vendor/hub-sdk/README.md:137
+# id list (.js and .d.ts) and the relic-by-game map, one per line. The classic-script
+# bundle repeats those five code uses (id list, relic map, quest event, two shop
+# lookups) and adds no others. None in save.js or realtime/.
+vendor/hub-sdk/README.md:162
 vendor/hub-sdk/dist/createHubSdk.js:431
 vendor/hub-sdk/dist/createHubSdk.js:456
-vendor/hub-sdk/dist/events.js:35
+vendor/hub-sdk/dist/events.js:38
+vendor/hub-sdk/dist/hub-sdk.iife.js:84
+vendor/hub-sdk/dist/hub-sdk.iife.js:102
+vendor/hub-sdk/dist/hub-sdk.iife.js:175
+vendor/hub-sdk/dist/hub-sdk.iife.js:1526
+vendor/hub-sdk/dist/hub-sdk.iife.js:1546
 vendor/hub-sdk/dist/types.d.ts:2
-vendor/hub-sdk/dist/types.js:2
-vendor/hub-sdk/dist/types.js:20
+vendor/hub-sdk/dist/types.js:5
+vendor/hub-sdk/dist/types.js:30
 
 # Shared guide sync, pending owner confirmation (W0 docs batch, 2026-11-08): docs/higgsfield-workflow-guide.md
 # is a byte-identical copy of the guide shared by all the hub's game repos, and its

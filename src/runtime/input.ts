@@ -1,6 +1,7 @@
 // Input actions, bound by physical key position (KeyboardEvent.code), so the
 // WASD block works on AZERTY and QWERTZ keyboards too. Gamepads use the
-// browser's standard mapping. Touch controls and scripted timelines press the
+// browser's standard mapping, read by PadReader (gamepad.ts: deadzone,
+// triggers, latch on connect). Touch controls and scripted timelines press the
 // same actions.
 //
 // "Just pressed" is counted per consumer clock: a press is seen as just
@@ -10,6 +11,7 @@
 
 import { Vec2 } from './vec2';
 import type { InputEventLike } from './node';
+import { PadReader, sourceName, type PadLike } from './gamepad';
 
 export type Action =
   | 'move_left'
@@ -62,7 +64,13 @@ export const KEY_BINDINGS: Record<Action, readonly string[]> = {
   ui_right: ['ArrowRight'],
 };
 
-/** Standard-mapping gamepad buttons per action. */
+/**
+ * Standard-mapping gamepad buttons per action (PAD in gamepad.ts names them).
+ * Jump is on every face button, as on the classic pads this genre grew up on,
+ * so the right thumb never has to find a particular one mid-run. Time Focus
+ * (rare, once per act) is on either bumper. View, the sticks' clicks and
+ * Home are unused.
+ */
 export const PAD_BUTTONS: Partial<Record<Action, readonly number[]>> = {
   move_left: [14],
   move_right: [15],
@@ -70,7 +78,7 @@ export const PAD_BUTTONS: Partial<Record<Action, readonly number[]>> = {
   move_down: [13],
   jump: [0, 1, 2, 3],
   pause: [9],
-  focus: [4],
+  focus: [4, 5],
   ui_accept: [0],
   ui_cancel: [1],
   ui_up: [12],
@@ -79,7 +87,10 @@ export const PAD_BUTTONS: Partial<Record<Action, readonly number[]>> = {
   ui_right: [15],
 };
 
-/** Stick axes per action: [axis, direction, deadzone]. */
+/**
+ * Left-stick directions per action: [axis, direction, threshold on the raw
+ * axis]. Applied after the radial deadzone (LEFT_STICK_DEADZONE).
+ */
 export const PAD_AXES: Partial<Record<Action, readonly [number, number, number]>> = {
   move_left: [0, -1, 0.45],
   move_right: [0, 1, 0.45],
@@ -161,6 +172,7 @@ export class InputManager {
   private states = new Map<Action, ActionState>();
   private eventQueue: InputEvent[] = [];
   private padSnapshot = new Map<string, boolean>();
+  private readonly pads = new PadReader(PAD_BUTTONS, PAD_AXES, ACTIONS);
   /** True while the tree runs physics (selects the clock for just-pressed). */
   inPhysics = false;
   /** Set when any device was used, for hints (key names vs pad glyphs). */
@@ -195,6 +207,13 @@ export class InputManager {
   /** Raw state right now (ignores the clocks). */
   isActionHeldNow(action: Action): boolean {
     return this.states.get(action)!.down;
+  }
+
+  /** True while a gamepad (or a key) is one of the things holding `action` down right now. */
+  isActionHeldBy(action: Action, device: 'pad' | 'key'): boolean {
+    const prefix = `${device}:`;
+    for (const src of this.states.get(action)!.sources) if (src.startsWith(prefix)) return true;
+    return false;
   }
 
   // --- Feeding ------------------------------------------------------------------
@@ -286,36 +305,20 @@ export class InputManager {
 
   private pollGamepads(): void {
     if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
-    const pads = navigator.getGamepads();
-    const seen = new Map<string, boolean>();
-    for (const pad of pads) {
-      if (!pad || !pad.connected) continue;
-      for (const action of ACTIONS) {
-        for (const b of PAD_BUTTONS[action] ?? []) {
-          const btn = pad.buttons[b];
-          const key = `pad:${pad.index}:b${b}:${action}`;
-          seen.set(key, !!btn && btn.pressed);
-        }
-        const axis = PAD_AXES[action];
-        if (axis) {
-          const value = pad.axes[axis[0]] ?? 0;
-          const key = `pad:${pad.index}:a${axis[0]}${axis[1]}:${action}`;
-          seen.set(key, value * axis[1] >= axis[2]);
-        }
-      }
-    }
+    this.feedPads(navigator.getGamepads());
+  }
+
+  /** Feeds one frame of pad states (the browser's list, or fakes in tests). */
+  feedPads(pads: Iterable<PadLike | null | undefined>): void {
+    const seen = this.pads.poll(pads);
+    if (this.pads.activity) this.lastDevice = 'pad';
     for (const [key, down] of seen) {
       const was = this.padSnapshot.get(key) ?? false;
       if (was === down) continue;
-      const action = key.slice(key.lastIndexOf(':') + 1) as Action;
-      if (down) this.lastDevice = 'pad';
-      this.setSource(action, key, down, 'pad');
+      this.setSource(sourceName(key) as Action, key, down, 'pad');
     }
     for (const [key, was] of this.padSnapshot) {
-      if (was && !seen.has(key)) {
-        const action = key.slice(key.lastIndexOf(':') + 1) as Action;
-        this.setSource(action, key, false, 'pad');
-      }
+      if (was && !seen.has(key)) this.setSource(sourceName(key) as Action, key, false, 'pad');
     }
     this.padSnapshot = seen;
   }
