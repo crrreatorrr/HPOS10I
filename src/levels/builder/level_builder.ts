@@ -58,9 +58,13 @@ export const KEYS = {
   VANISHING_PLATFORM: 'hpos://setpieces/vanishing_platform',
   TIMED_PLATFORM: 'hpos://setpieces/timed_platform',
   VOID_ZONE: 'hpos://setpieces/void_zone',
+  FLUID_WELL: 'hpos://hazards/fluid_well',
+  LAVA_VENT: 'hpos://hazards/lava_vent',
+  CEILING_RAM: 'hpos://hazards/ceiling_ram',
+  BURROWER: 'hpos://hazards/burrower',
 } as const;
 
-export type EnemyKind = 'walker' | 'hopper' | 'chaser' | 'floater' | 'pellet' | 'armored' | 'spike' | 'diver' | 'sniper' | 'dropper';
+export type EnemyKind = 'walker' | 'hopper' | 'chaser' | 'floater' | 'pellet' | 'armored' | 'spike' | 'diver' | 'sniper' | 'dropper' | 'burrower';
 
 /** Tier of each base enemy (docs/LEVELS.md roster). */
 export const ENEMY_TIER: Record<EnemyKind, number> = {
@@ -74,6 +78,7 @@ export const ENEMY_TIER: Record<EnemyKind, number> = {
   diver: 3,
   sniper: 4,
   dropper: 4,
+  burrower: 3,
 };
 
 const E = 'res://levels/enemies/';
@@ -88,6 +93,7 @@ export const ENEMY_KEYS: Record<EnemyKind, string> = {
   diver: `${E}diver.tscn`,
   sniper: `${E}sniper.tscn`,
   dropper: `${E}dropper.tscn`,
+  burrower: KEYS.BURROWER,
 };
 
 /** CurveTerrain shapes (src/terrain/curve_terrain.ts CurveShape). */
@@ -391,6 +397,15 @@ export class LevelBuilder {
     this.step('jump', new Vec2(x0, this.ground), new Vec2(this.x, this.ground));
     this.checkJump(x0, width, 0);
     if (tickets > 0) this.arc(x0 + Math.floor(width / 2), this.ground, tickets, Math.max(32, width - 16), 48);
+  }
+
+  /** A short, jumpable pit with a solid bottom so a player with tickets can recover. */
+  fluidPit(width: number, fluid: 'lava' | 'poison'): void {
+    const x = this.x;
+    const y = this.ground;
+    this.pit(width);
+    this.addBlock(x, x + width, y + 44, Math.max(y + 64, this.opts.fillBottom));
+    this.setPiece(KEYS.FLUID_WELL, new Vec2(x + width / 2, y + 14), { width, depth: 30, fluid });
   }
 
   /**

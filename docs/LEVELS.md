@@ -58,6 +58,7 @@ the lead.
 | T2 | Pellet pill | Stands still; telegraphs, then fires a slow pellet along the ground or in an arc | Jump the pellet, or hit it between shots |
 | T3 | Armored pill | Front shield; hit from above or behind, or roll into it at ground speed 4.5 or more | Spin dash or bounce on it |
 | T3 | Spike pill | Spikes pop out on a timer (telegraphed) | Hit while retracted |
+| T3 | Burrower | A lit hatch warns before the pill rises from the floor, waits briefly, and sinks again | Jump or roll into the exposed pill, or cross while retracted |
 | T3 | Diver | Hovers, telegraphs, then swoops at where Sproto was | Move after the telegraph |
 | T4 | Splitter | Pops into two mini pills on the first hit | Chain bounces |
 | T4 | Orbit shield | Two capsule shields orbit it | Hit through the gap |
@@ -146,9 +147,9 @@ blind drops, and every finale starts at a checkpoint.
 
 **Hazards** grow along the same curve:
 - Z1: spikes and the odd pit.
-- Z2: candle flames, falling books, crushing shelves.
-- Z3: security beams, crushers, conveyor belts.
-- Z4: everything, in neon, with vanishing platforms.
+- Z2: candle flames, falling books, crushing shelves, and narrow lava vents and burrower hatches.
+- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
+- Z4: everything, in neon, with vanishing platforms. Short bubbling lava and poison wells have ticket arcs to mark the jump and shallow basins so a player with tickets can recover. Crushers, vents and burrowers also appear on lower routes with upper bypasses.
 
 ## Bosses
 

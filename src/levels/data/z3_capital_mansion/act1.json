@@ -2143,6 +2143,7 @@
 {"name":"DroneDiver9","parent":"Enemies","type":"Area2D","props":{"position":{"v2":[33056,-166]},"collision_layer":32,"collision_mask":16,"tier":3},"scene":"res://levels/enemies/z3/drone_diver.tscn","script":"res://levels/enemies/z3/drone_diver.gd"},
 {"name":"BouncerPill8","parent":"Enemies","type":"Area2D","props":{"position":{"v2":[33344,-16]},"collision_layer":32,"collision_mask":16,"speed":0.5,"direction":1,"tier":3},"scene":"res://levels/enemies/z3/bouncer_pill.tscn","script":"res://levels/enemies/z3/bouncer_pill.gd"},
 {"name":"DronePill17","parent":"Enemies","type":"Area2D","props":{"position":{"v2":[33600,-96]},"collision_layer":32,"collision_mask":16,"tier":2},"scene":"res://levels/enemies/z3/drone_pill.tscn","script":"res://levels/enemies/z3/drone_pill.gd"},
+{"name":"CeilingRam1","parent":"Objects","type":null,"scene":"hpos://hazards/ceiling_ram","props":{"position":{"v2":[19424,-432]},"width":52,"travel":134,"suspension":20,"wake_radius":96,"telegraph_seconds":1.0,"rest_frames":60,"hold_frames":26}},
 {"name":"PlayerStart","parent":".","type":"Marker2D","props":{"position":{"v2":[96,-19]}}},
 {"name":"Bounds","parent":".","type":"ReferenceRect","props":{"offset_top":-1040,"offset_right":34368,"offset_bottom":64,"border_color":{"color":[1,0.3,0.3,1]}}}
 ]}

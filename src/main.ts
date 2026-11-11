@@ -12,6 +12,7 @@ import { HubClient } from './hub/hub_client';
 import { migrateGodotSave } from './hub/godot_migration';
 import { installBackdrop } from './levels/common/backdrop';
 import { registerEnemies } from './levels/registry_enemies';
+import { HAZARD_ATLAS } from './levels/objects/hazards/hazard_art';
 import { registerObjects } from './levels/registry_objects';
 import { registerLevelScenes } from './levels/scenes';
 import { registerNewContent } from './levels/content';
@@ -118,7 +119,11 @@ async function boot(): Promise<void> {
   await migrateGodotSave();
   await Promise.all([
     Fonts.load(),
-    preload([assetUrl('assets/sprites/common/emerald/emerald.png'), assetUrl('assets/sprites/common/emerald/emerald_small.png')].filter((u): u is string => !!u)),
+    preload([
+      assetUrl('assets/sprites/common/emerald/emerald.png'),
+      assetUrl('assets/sprites/common/emerald/emerald_small.png'),
+      assetUrl(HAZARD_ATLAS),
+    ].filter((u): u is string => !!u)),
   ]);
 
   // Types and scenes.

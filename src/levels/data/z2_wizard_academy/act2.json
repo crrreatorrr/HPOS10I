@@ -3318,6 +3318,8 @@
 {"name":"KnightPill7","parent":"Enemies","type":"Area2D","props":{"position":{"v2":[30240,-384]},"collision_layer":32,"collision_mask":16,"speed":0.5,"direction":1,"tier":3},"scene":"res://levels/enemies/z2/knight_pill.tscn","script":"res://levels/enemies/z2/knight_pill.gd"},
 {"name":"SpellbookPill17","parent":"Enemies","type":"Area2D","props":{"position":{"v2":[30464,-448]},"collision_layer":32,"collision_mask":16,"tier":2},"scene":"res://levels/enemies/z2/spellbook_pill.tscn","script":"res://levels/enemies/z2/spellbook_pill.gd"},
 {"name":"Walker9","parent":"Enemies","type":"Area2D","props":{"position":{"v2":[30766,-384]},"collision_layer":32,"collision_mask":16,"patrol_distance":8},"scene":"res://levels/enemies/walker.tscn","script":"res://levels/enemies/walker.gd"},
+{"name":"LavaVent1","parent":"Objects","type":null,"scene":"hpos://hazards/lava_vent","props":{"position":{"v2":[17088,-672]},"height":52,"first_delay":50}},
+{"name":"Burrower1","parent":"Enemies","type":"Area2D","scene":"hpos://hazards/burrower","props":{"position":{"v2":[19024,-832]},"height":40,"first_delay":32,"rest_frames":205,"hold_frames":28,"telegraph_seconds":1.0}},
 {"name":"PlayerStart","parent":".","type":"Marker2D","props":{"position":{"v2":[96,-19]}}},
 {"name":"LeftwardZigzag","parent":".","type":"ReferenceRect","props":{"offset_left":17056,"offset_top":-732,"offset_right":17632,"offset_bottom":-692,"border_color":{"color":[0.3,0.6,1,1]}}},
 {"name":"Bounds","parent":".","type":"ReferenceRect","props":{"offset_top":-1240,"offset_right":32272,"offset_bottom":64,"border_color":{"color":[1,0.3,0.3,1]}}}

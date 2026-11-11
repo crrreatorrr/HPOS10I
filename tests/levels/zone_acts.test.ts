@@ -71,6 +71,7 @@ const B = {
   SECURITY_PILL: `${E}z3/security_pill.tscn`,
   CHANDELIER: `${E}z3/chandelier_pill.tscn`,
   CAMERA: `${E}z3/camera_pill.tscn`,
+  BURROWER: 'hpos://hazards/burrower',
 };
 
 interface Built {
@@ -347,7 +348,7 @@ describe('Zone 2, Wizard Academy', () => {
     [B.CHECKPOINT]: [4, 5],
     [B.GOAL_SIGN]: [1, 1],
   };
-  const ROSTER = [B.WALKER, B.HOPPER, B.CHASER, B.PELLET_PILL, B.SPELLBOOK, B.SPELLBOOK_DIVER, B.KNIGHT, B.LANTERN];
+  const ROSTER = [B.WALKER, B.HOPPER, B.CHASER, B.PELLET_PILL, B.SPELLBOOK, B.SPELLBOOK_DIVER, B.KNIGHT, B.LANTERN, B.BURROWER];
   const acts: Built[] = [];
   beforeAll(async () => {
     for (const stage of [1, 2]) acts.push(await built(file(Z2, stage)));
@@ -433,7 +434,7 @@ describe('Zone 3, Capital Mansion', () => {
     [B.CHECKPOINT]: [5, 6],
     [B.GOAL_SIGN]: [1, 1],
   };
-  const ROSTER = [B.CHASER, B.DRONE, B.DRONE_DIVER, B.CLERK, B.BOUNCER, B.SECURITY_PILL, B.CHANDELIER, B.CAMERA];
+  const ROSTER = [B.CHASER, B.DRONE, B.DRONE_DIVER, B.CLERK, B.BOUNCER, B.SECURITY_PILL, B.CHANDELIER, B.CAMERA, B.BURROWER];
   const acts: LevelRoot[] = [];
   beforeAll(async () => {
     // In the tree, so the switches resolve their doors.

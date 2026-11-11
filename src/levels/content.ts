@@ -108,6 +108,8 @@ function keepOutSpans(root: LevelRoot): [number, number][] {
     if (n instanceof TerrainLoop) {
       const half = n.radius + n.thickness + Math.max(n.floorMargin, Math.min(n.footRadius, n.radius) + 64) + 64;
       spans.push([x - half, x + half]);
+    } else if (n.isInGroup('level_hazard')) {
+      spans.push([x - 128, x + 128]);
     } else if (/Spring|Booster|Launch|Bumper|Tube/.test(name)) {
       spans.push([x - 320, x + 320]);
     }
