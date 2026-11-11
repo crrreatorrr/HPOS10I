@@ -22,6 +22,8 @@
 //                  like the original. The hub chrome's Return to Hub button
 //                  opens the same question (confirmExitToHub()).
 //   QUIT TO TITLE  SceneRouter.goTitle()
+//   SEND FEEDBACK  the hub's feedback window (ui/feedback.ts; N twice does the
+//                  same anywhere). The menu is still open when it closes.
 // Arrows/WASD/D-pad/stick move, Enter/Space/any jump button choose, mouse and
 // touch tap. Esc or the gamepad's B goes back: on the main page it resumes,
 // like Start (B is also a jump button, so without this it would choose the
@@ -54,6 +56,7 @@ import { InputHints } from '../common/input_hints';
 import { MenuList, type MenuItem } from '../common/menu';
 import { COLORS, drawButton, drawCentered, drawPanel, drawText, lineHeight, measure, PANEL_MARGIN_X, PANEL_MARGIN_Y, UiLayer, type ButtonState } from '../common/theme';
 import { Display } from '../display';
+import { Feedback } from '../feedback';
 import { skinLabel } from '../zone_select/zone_select';
 
 export const QUIET_FRAMES_TO_RESUME = 2;
@@ -134,7 +137,8 @@ export class PauseMenu extends UiLayer {
   private restartText = '';
   private domWired = false;
   private readonly onBlur = () => {
-    if (this.pauseOnFocusLoss && !this.open && SceneRouter.inGameplay() && !tree.paused) this.openMenu();
+    // Not under the feedback window (tree.suspended): closing it must leave the game as it was.
+    if (this.pauseOnFocusLoss && !this.open && SceneRouter.inGameplay() && !tree.paused && !tree.suspended) this.openMenu();
   };
   private readonly onVisibility = () => {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') this.onBlur();
@@ -154,6 +158,8 @@ export class PauseMenu extends UiLayer {
       { label: 'OPTIONS', rect: new Rect2(), onSelect: () => this.showOptions() },
       { label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.onExitHub() },
       { label: 'QUIT TO TITLE', rect: new Rect2(), onSelect: () => this.onQuit() },
+      // Last, so the indices above stay put. The window is the hub SDK's DOM overlay.
+      { label: 'SEND FEEDBACK', rect: new Rect2(), onSelect: () => Feedback.open(true) },
     ];
     for (const it of items) it.onStep = (step) => this.cycleSkin(step);
     this.main = new MenuList(items, { onCancel: () => this.requestResume(), repeatHorizontal: false });
@@ -512,9 +518,11 @@ export class PauseMenu extends UiLayer {
     const innerW = Math.max(gridW, measure(MOVES_LINE, 'label'), ...(this.extraMoves ? EXTRA_MOVES_LINES.map((l) => measure(l, 'label')) : []), measure('CONTROLS', 'header'));
     const panelW = innerW + PANEL_MARGIN_X * 2;
     // The page must fit 240 px with the Relic line, the restart hint and the
-    // extra moves all showing: tighten the gaps first, then drop the panel's header.
+    // extra moves all showing: tighten the gaps first, then drop the panel's header,
+    // then use shorter buttons.
     let sep = LAYOUT_SEP;
     let buttonSep = BUTTON_SEP;
+    let buttonH = BUTTON_H;
     this.controlsHeader = true;
     let listH = 0;
     let relicH = 0;
@@ -522,7 +530,7 @@ export class PauseMenu extends UiLayer {
     let panelH = 0;
     let total = 0;
     const measureAll = (): void => {
-      listH = n * BUTTON_H + (n - 1) * buttonSep;
+      listH = n * buttonH + (n - 1) * buttonSep;
       relicH = this.relicText !== '' ? smallH + sep : 0;
       // With the Relic line under it too, the hint sits tight on it.
       hintH = this.restartText !== '' ? smallH + (this.relicText !== '' ? 1 : sep) : 0;
@@ -541,13 +549,17 @@ export class PauseMenu extends UiLayer {
       this.controlsHeader = false;
       measureAll();
     }
+    if (total > VIEW_H - 4) {
+      buttonH = 14;
+      measureAll();
+    }
     let y = Math.floor((VIEW_H - total) / 2);
     this.titleY = y;
     y += titleH + sep;
     const x = Math.floor((VIEW_W - BUTTON_W) / 2);
     for (const it of this.main.items) {
-      it.rect = new Rect2(x, y, BUTTON_W, BUTTON_H);
-      y += BUTTON_H + buttonSep;
+      it.rect = new Rect2(x, y, BUTTON_W, buttonH);
+      y += buttonH + buttonSep;
     }
     y += sep - buttonSep;
     this.hintY = y;
@@ -565,7 +577,8 @@ export class PauseMenu extends UiLayer {
   }
 
   protected override paint(g: Gfx): void {
-    if (!this.open) return;
+    // SEND FEEDBACK: one frame without the menu, so the screenshot shows the game.
+    if (!this.open || Feedback.hidesMenus) return;
     g.rect(0, 0, VIEW_W, VIEW_H, BACKDROP);
     if (this.page === 'options') {
       this.paintOptions(g);
