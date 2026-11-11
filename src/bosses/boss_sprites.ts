@@ -13,9 +13,18 @@ export type BossPoseId = (typeof BossPose)[keyof typeof BossPose];
 const ATLAS_CELL = 96;
 const SEQUENCE_LENGTH = 6;
 const moves: Readonly<Record<string, { boss: number; windup: number; strike: number }>> = moveLayout;
-const attackRows: Readonly<Record<string, number>> = {
-  DustWave: 0, InkDrop: 1, Page: 2, InkWave: 3, Can: 4,
-  MiniCan: 4, Spark: 5, Briefcase: 6, Paper: 2, ChartArrow: 7,
+// Tight source crops keep projectiles legible at the size of their actual hazards.
+const attackArt: Readonly<Record<string, readonly [row: number, x: number, y: number, w: number, h: number]>> = {
+  DustWave: [0, 3, 9, 27, 16],
+  InkDrop: [1, 10, 2, 13, 24],
+  Page: [2, 5, 8, 24, 13],
+  InkWave: [3, 3, 9, 27, 16],
+  Can: [4, 8, 5, 17, 23],
+  MiniCan: [4, 8, 5, 17, 23],
+  Spark: [5, 6, 4, 20, 24],
+  Briefcase: [6, 4, 5, 25, 22],
+  Paper: [2, 5, 8, 24, 13],
+  ChartArrow: [7, 6, 3, 21, 26],
 };
 const ATTACK_CELL = 32;
 
@@ -42,14 +51,14 @@ export function drawBossFrame(
 }
 
 export function drawBossAttack(g: Gfx, name: string, age: number, size: Vec2, velocity: Vec2, opacity: number): boolean {
-  const row = attackRows[name];
-  if (row === undefined) return false;
+  const art = attackArt[name];
+  if (!art) return false;
   const tex = assetImage(`${ART}/attacks_sheet.png`);
   if (!tex) return false;
   const col = Math.floor(age / 3) % 6;
-  const region = new Rect2(col * ATTACK_CELL, row * ATTACK_CELL, ATTACK_CELL, ATTACK_CELL);
-  const scale = Math.max(size.x, size.y) / 19;
-  const drawSize = new Vec2(Math.round(ATTACK_CELL * scale), Math.round(ATTACK_CELL * scale));
+  const [row, x, y, width, height] = art;
+  const region = new Rect2(col * ATTACK_CELL + x, row * ATTACK_CELL + y, width, height);
+  const drawSize = name === 'ChartArrow' ? new Vec2(16, 23) : size.add(new Vec2(2, 2));
   g.texture(tex, Vec2.ZERO, {
     region, size: drawSize, centered: true, flipH: velocity.x < 0,
     flipV: name === 'ChartArrow',
