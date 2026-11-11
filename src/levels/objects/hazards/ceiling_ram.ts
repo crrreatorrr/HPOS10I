@@ -39,7 +39,12 @@ export class CeilingRam extends MovingBody implements Configurable {
   travel = 96;
   /** Distance from the resting ram to the underside of its mount. */
   suspension = 0;
-  /** Optional approach radius. The first cycle begins when a player nears the lane. */
+  /**
+   * Optional approach radius. A cycle begins (from the start of its rest) only
+   * while a player is this near the lane, and a ram at rest stops counting
+   * when the player leaves, so the timing depends on the player's approach,
+   * never on the clock. 0: the ram cycles on a fixed timer.
+   */
   wakeRadius = 0;
   private armed = false;
   readonly cycle = new HazardCycle();
@@ -78,13 +83,19 @@ export class CeilingRam extends MovingBody implements Configurable {
   }
 
   override physicsProcess(): void {
-    if (!this.armed) {
+    if (this.wakeRadius > 0 && (!this.armed || this.cycle.phase === 'rest')) {
       const floor = this.plate.globalPosition;
-      this.armed = tree.getNodesInGroup<Node2D>('player').some((p) => {
+      const near = tree.getNodesInGroup<Node2D>('player').some((p) => {
         const at = p.globalPosition;
         return Math.abs(at.x - floor.x) <= this.wakeRadius && Math.abs(at.y - floor.y) < 80;
       });
-      if (!this.armed) return;
+      if (!near) {
+        // Nobody near while at rest: wait, and count the rest again from its start.
+        if (this.armed) this.cycle.reset();
+        this.armed = false;
+        return;
+      }
+      this.armed = true;
     }
     this.cycle.step(this, this.travel);
     const offset = this.cycle.amount * this.travel;

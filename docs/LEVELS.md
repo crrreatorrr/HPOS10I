@@ -148,7 +148,7 @@ blind drops, and every finale starts at a checkpoint.
 **Hazards** grow along the same curve:
 - Z1: spikes and the odd pit.
 - Z2: candle flames, falling books, crushing shelves, and narrow lava vents and burrower hatches.
-- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
+- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A ceiling ram on a route starts its rest and warning only when Sproto comes near (`wake_radius`), and counts again from the start if he leaves, so a crush is never decided by arrival time. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
 - Z4: everything, in neon, with vanishing platforms. Short bubbling lava and poison wells have ticket arcs to mark the jump and shallow basins so a player with tickets can recover. Crushers, vents and burrowers also appear on lower routes with upper bypasses.
 
 ## Bosses

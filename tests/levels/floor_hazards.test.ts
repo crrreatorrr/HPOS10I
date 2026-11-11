@@ -4,10 +4,16 @@ import { CeilingRam } from '../../src/levels/objects/hazards/ceiling_ram';
 import { Burrower, LavaVent } from '../../src/levels/objects/hazards/floor_hazards';
 import { FluidWell } from '../../src/levels/objects/hazards/fluid_well';
 import { Enemy } from '../../src/levels/enemies/enemy_base';
+import { SceneRouter } from '../../src/core/scene_router';
+import { buildLevel } from '../../src/levels/common/level_loader';
+import type { LevelRoot } from '../../src/levels/common/level_root';
+import { buildAct1 } from '../../src/levels/z4/act1';
+import { registerZone4Types } from '../../src/levels/z4/register';
+import { tree } from '../../src/runtime/tree';
 import type { Node2D } from '../../src/runtime/node';
 import { Vec2 } from '../../src/runtime/vec2';
 import { addFloor, newWorld, press, release, releaseAll, spawnPlayer, step } from '../helpers/world';
-import { loadAct, MIN_TELEGRAPH_FRAMES, place, waitFor } from './level_world';
+import { loadAct, MIN_TELEGRAPH_FRAMES, place, registerAll, waitFor } from './level_world';
 
 beforeEach(() => GameState.resetGame());
 afterEach(releaseAll);
@@ -167,6 +173,71 @@ describe('floor hazards', () => {
   });
 });
 
+
+describe('the Zone 4 Act 1 ceiling ram (player-triggered)', () => {
+  it('counts its rest again from the start when the player leaves and comes back', () => {
+    const world = newWorld();
+    addFloor(world);
+    const player = spawnPlayer(world, new Vec2(-400, 0));
+    const ram = place(world, new CeilingRam(), new Vec2(0, -100), { ...fast, rest_frames: 40, height: 20, travel: 80, wake_radius: 96 });
+    step(5);
+    player.respawnAt(new Vec2(-72, -19));
+    step(20);
+    expect(ram.cycle.phase).toBe('rest');
+    expect(ram.cycle.elapsed).toBeGreaterThan(10);
+    player.respawnAt(new Vec2(-400, -19));
+    step(100);
+    expect(ram.cycle.phase).toBe('rest');
+    expect(Math.abs(ram.cycle.elapsed)).toBe(0);
+    player.respawnAt(new Vec2(-72, -19));
+    expect(waitFor(() => ram.cycle.phase === 'warning', 60)).toBeGreaterThanOrEqual(30);
+  });
+
+  it('never crushes a player who crosses the lane at 2 to 12 px/frame starting with the plate unlit', async () => {
+    registerAll();
+    registerZone4Types();
+    const saved = { zone: SceneRouter.zoneId, stage: SceneRouter.stage };
+    SceneRouter.zoneId = 'z4_neon_rush_remix';
+    SceneRouter.stage = 1;
+    try {
+      const root = (await buildLevel(buildAct1().build())) as LevelRoot;
+      root.useSceneRouter = false;
+      tree.changeSceneNow(() => root);
+      step(2);
+      for (const enemy of root.findChildren((n) => n instanceof Enemy)) enemy.queueFree();
+      step(1);
+      const ram = root.findChildren<CeilingRam>((n) => n instanceof CeilingRam)[0]!;
+      expect(ram.wakeRadius).toBe(160);
+      const plate = ram.getNode<Node2D>('WarningPlate').globalPosition;
+      const player = root.player!;
+      const speeds = Array.from({ length: 20 }, (_, i) => 2 + (i * 10) / 19);
+      for (const speed of speeds) {
+        // Far from the lane: the ram waits at rest, unlit.
+        player.respawnAt(new Vec2(plate.x - 400, plate.y - 19));
+        step(4);
+        expect(player.grounded, `on the low deck at speed ${speed}`).toBe(true);
+        // A cycle the last crossing started runs out; then the ram waits for the next approach.
+        expect(waitFor(() => ram.cycle.phase === 'rest' && Math.abs(ram.cycle.elapsed) === 0, 400)).toBeGreaterThanOrEqual(0);
+        expect(ram.cycle.phase).toBe('rest');
+        expect(ram.warningLit()).toBe(false);
+        let frames = 0;
+        while (player.globalPosition.x < plate.x + 200 && frames < 600 && player.state !== 'dead') {
+          player.groundSpeed = speed;
+          step(1);
+          frames++;
+        }
+        expect(player.state, `crossing at ${speed.toFixed(2)} px/frame`).not.toBe('dead');
+        expect(player.globalPosition.x).toBeGreaterThanOrEqual(plate.x + 200);
+      }
+      // The same lane still kills a player who waits under the flashing ram.
+      player.respawnAt(new Vec2(plate.x, plate.y - 19));
+      expect(waitFor(() => player.state === 'dead', 400)).toBeGreaterThanOrEqual(0);
+    } finally {
+      SceneRouter.zoneId = saved.zone;
+      SceneRouter.stage = saved.stage;
+    }
+  }, 60000);
+});
 
 describe('optional hazard routes', () => {
   it.each([
