@@ -9,6 +9,7 @@ import { clamp } from '../runtime/math';
 import { Node, Node2D } from '../runtime/node';
 import { Rect2, Vec2 } from '../runtime/vec2';
 import { Effects } from '../player/effects';
+import { drawBossExplosion } from './boss_sprites';
 
 export const OUTLINE = new Color(0.12, 0.1, 0.18);
 export const WARN = new Color(1.0, 0.3, 0.2);
@@ -36,6 +37,7 @@ class Explosion extends Node2D {
     const t = this.age / Explosion.FRAMES;
     const r = (6 + 14 * Math.sqrt(t)) * this.size;
     const fade = clamp(1.6 - 1.6 * t, 0, 1);
+    if (drawBossExplosion(g, this.age, this.size, fade)) return;
     g.circle(Vec2.ZERO, r, new Color(0.95, 0.35, 0.12, fade * 0.9));
     g.circle(Vec2.ZERO, r * 0.7, new Color(1.0, 0.7, 0.2, fade));
     g.circle(Vec2.ZERO, r * 0.4 * (1 - t), new Color(1, 1, 0.85, fade));
@@ -51,6 +53,21 @@ export const BossFx = {
     const e = new Explosion();
     e.size = size;
     Effects.spawn(parent, e, at, 45);
+  },
+
+  /** Four bright corners trace the weak-point rectangle as it opens. */
+  weakPoint(g: Gfx, world: Rect2 | null, origin: Vec2, frame: number): void {
+    if (!world) return;
+    const r = world.translated(origin.neg()).grow(2);
+    const color = blink(frame) ? WARN_PALE : Color.rgb8(255, 191, 92);
+    for (const x of [r.x, r.right]) {
+      for (const y of [r.y, r.bottom]) {
+        const dx = x === r.x ? 1 : -1;
+        const dy = y === r.y ? 1 : -1;
+        g.rect(Math.round(x + Math.min(0, 5 * dx)), Math.round(y), 6, 1, color);
+        g.rect(Math.round(x), Math.round(y + Math.min(0, 5 * dy)), 1, 6, color);
+      }
+    }
   },
 
   /** A spinning ring with a cross where an aimed attack will land. */

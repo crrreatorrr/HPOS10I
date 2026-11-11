@@ -1,0 +1,98 @@
+{
+  "cell": [
+    64,
+    64
+  ],
+  "animations": {
+    "idle": {
+      "row": 0,
+      "frames": 4,
+      "fps": 5,
+      "loop": true
+    },
+    "walk": {
+      "row": 1,
+      "frames": 4,
+      "fps": 10,
+      "loop": true
+    },
+    "run": {
+      "row": 2,
+      "frames": 6,
+      "fps": 15,
+      "loop": true
+    },
+    "jump": {
+      "row": 3,
+      "frames": 8,
+      "fps": 15,
+      "loop": true
+    },
+    "roll": {
+      "row": 4,
+      "frames": 8,
+      "fps": 15,
+      "loop": true
+    },
+    "spindash": {
+      "row": 5,
+      "frames": 8,
+      "fps": 20,
+      "loop": true
+    },
+    "airdash": {
+      "row": 6,
+      "frames": 8,
+      "fps": 20,
+      "loop": true
+    },
+    "skid": {
+      "row": 7,
+      "frames": 4,
+      "fps": 12,
+      "loop": true
+    },
+    "crouch": {
+      "row": 8,
+      "frames": 2,
+      "fps": 5,
+      "loop": false
+    },
+    "look_up": {
+      "row": 9,
+      "frames": 3,
+      "fps": 5,
+      "loop": true
+    },
+    "spring": {
+      "row": 10,
+      "frames": 4,
+      "fps": 10,
+      "loop": false
+    },
+    "hurt": {
+      "row": 11,
+      "frames": 3,
+      "fps": 10,
+      "loop": false
+    },
+    "dead": {
+      "row": 12,
+      "frames": 4,
+      "fps": 9,
+      "loop": false
+    },
+    "peelout": {
+      "row": 13,
+      "frames": 6,
+      "fps": 18,
+      "loop": true
+    },
+    "victory": {
+      "row": 14,
+      "frames": 4,
+      "fps": 7,
+      "loop": false
+    }
+  }
+}

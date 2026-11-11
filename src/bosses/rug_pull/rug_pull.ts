@@ -14,6 +14,7 @@
 // into its edge hurts. After a hit it floats back up out of reach.
 // Phase 1: sweep / drop. Phase 2: sweep / dust / drop. Phase 3: faster.
 
+import { BossSprite } from '../boss_sprites';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Rect2, Vec2 } from '../../runtime/vec2';
@@ -230,6 +231,13 @@ export class RugPull extends Boss {
   override draw(g: Gfx): void {
     const shake = this.shaking > 0 ? Math.sin(this.frame * 1.7) * 1.5 : 0;
     const flat = this.pose === 'flat';
+    // Shadow on the floor (shows where it is above the ground).
+    const floorLocal = this.arena.floorY - this.position.y;
+    if (floorLocal > 8) g.ellipse(new Vec2(0, floorLocal), HALF * Math.max(0.4, 1 - floorLocal / 260), 3, new Color(0, 0, 0, 0.25));
+    if (this.drawBossSprite(g, BossSprite.rug, 8, flat ? 0.84 : 1, flat)) {
+      if (this.isWeakOpen()) BossFx.weakPoint(g, this.weakRect(), this.globalPosition, this.frame);
+      return;
+    }
     const wave = (x: number): number => (flat ? 0 : Math.sin(x * 0.12 + this.frame * 0.18) * 2.2);
     const top: Vec2[] = [];
     const bottom: Vec2[] = [];
@@ -238,9 +246,6 @@ export class RugPull extends Boss {
       bottom.push(new Vec2(x + shake - 4, 4 + wave(x)));
     }
     const face = [...top, ...[...bottom].reverse()];
-    // Shadow on the floor (shows where it is above the ground).
-    const floorLocal = this.arena.floorY - this.position.y;
-    if (floorLocal > 8) g.ellipse(new Vec2(0, floorLocal), HALF * Math.max(0.4, 1 - floorLocal / 260), 3, new Color(0, 0, 0, 0.25));
     g.polygon(face.map((p) => p.add(new Vec2(0, 0))), OUTLINE);
     const inner = face.map((p) => p.add(new Vec2(0, 0)).lerp(new Vec2(0, -1), 0.08));
     g.polygon(inner, this.tint(RUG));

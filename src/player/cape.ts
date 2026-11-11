@@ -34,7 +34,7 @@ export class Cape extends Node2D {
 
   override process(): void {
     const state = RelicLoadout.resolve();
-    this.visible = this.marks ? state.skin === 'nobu' : state.cape;
+    this.visible = this.marks ? state.skin === 'nobu' && this.visual.drawsPlaceholder() && !this.visual.isBall() : state.cape;
   }
 
   override draw(g: Gfx): void {

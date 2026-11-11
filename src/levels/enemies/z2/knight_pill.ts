@@ -5,6 +5,7 @@
 // Port of levels/enemies/z2/knight_pill.gd (+ .tscn: tier 3, speed 0.5, a
 // 30x18 hurtbox 13 px up).
 
+import { PillSprite } from '../pill_sprite';
 import type { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
@@ -14,6 +15,8 @@ import { Walker } from '../walker';
 import { SpellbookArt } from './spellbook_art';
 
 export class KnightPill extends Armored {
+  protected override readonly spriteRow: number = PillSprite.knight;
+
   constructor(name = 'KnightPill') {
     super(name, new Vec2(30, 18), new Vec2(0, -13));
     this.tier = 3;

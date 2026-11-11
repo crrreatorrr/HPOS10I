@@ -6,7 +6,7 @@
 // butting against tiles or each other don't draw a lip inside the ground.
 
 import { Layers } from '../core/layers';
-import { assetImage } from '../runtime/assets';
+import { assetExists, assetImage } from '../runtime/assets';
 import { Color } from '../runtime/color';
 import type { Gfx, Texture } from '../runtime/gfx';
 import { degToRad } from '../runtime/math';
@@ -47,6 +47,11 @@ export interface Materials {
 
 const patternCache = new WeakMap<object, CanvasPattern | null>();
 
+function materialPath(zone: string, part: 'fill' | 'top' | 'side'): string {
+  const artZone = zone === 'test_zone' ? 'z1_retro_rush_hills' : zone;
+  return `assets/terrain/${artZone}/${part}.png`;
+}
+
 export const TerrainArt = {
   FILL_Z,
   SIDE_Z,
@@ -55,9 +60,9 @@ export const TerrainArt = {
   materials(zone: string): Materials {
     if (!zone) return { fill: null, top: null, side: null };
     return {
-      fill: assetImage(`assets/terrain/${zone}/fill.png`),
-      top: assetImage(`assets/terrain/${zone}/top.png`),
-      side: assetImage(`assets/terrain/${zone}/side.png`),
+      fill: assetImage(materialPath(zone, 'fill')),
+      top: assetImage(materialPath(zone, 'top')),
+      side: assetImage(materialPath(zone, 'side')),
     };
   },
 
@@ -122,7 +127,7 @@ export const TerrainArt = {
     if (piece.pathLayer === 1) tint = tint.lerp(new Color(0.3, 0.45, 0.9), 0.18);
     else if (piece.pathLayer === 2) tint = tint.lerp(new Color(0.9, 0.35, 0.3), 0.18);
     if (piece.topOnly) tint = tint.lightened(0.25).withAlpha(0.85);
-    const mats = TerrainArt.materials(piece.artZone);
+    const hasSideArt = assetExists(materialPath(piece.artZone, 'side'));
     const lips: Chain[] = [];
     const sides: Chain[] = [];
     for (const polygon of piece.polygons) {
@@ -136,7 +141,7 @@ export const TerrainArt = {
         const open = !covered(probe, piece);
         const lip = open && piece.isLipEdge(outline, i, normals[i]!);
         lipSel.push(lip);
-        sideSel.push(open && mats.side !== null && !lip && TerrainArt.isSideFacing(normals[i]!));
+        sideSel.push(open && hasSideArt && !lip && TerrainArt.isSideFacing(normals[i]!));
       }
       lips.push(...TerrainArt.edgeChains(outline, normals, lipSel));
       sides.push(...TerrainArt.edgeChains(outline, normals, sideSel));

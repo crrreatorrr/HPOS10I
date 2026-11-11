@@ -4,6 +4,7 @@
 // (jumping or rolling), which pops it harmlessly. Not an enemy: no score.
 // Layer 8 (hazards), mask 5 (player). Port of levels/enemies/pellet.gd.
 
+import { drawPropSprite, PropSprite } from '../objects/prop_sprite';
 import type { Gfx } from '../../runtime/gfx';
 import { Vec2 } from '../../runtime/vec2';
 import { PillArt } from './pill_art';
@@ -39,6 +40,7 @@ export class Pellet extends EnemyProjectile {
   }
 
   override draw(g: Gfx): void {
+    if (drawPropSprite(g, PropSprite.bolt, Vec2.ZERO, new Vec2(0.78, 0.78))) return;
     g.circle(Vec2.ZERO, Pellet.RADIUS + 1, PillArt.OUTLINE);
     g.circle(Vec2.ZERO, Pellet.RADIUS, PillArt.SPIKE);
     g.circle(new Vec2(-1, -1), 1.5, PillArt.FLASH);

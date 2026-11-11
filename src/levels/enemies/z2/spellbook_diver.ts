@@ -4,6 +4,7 @@
 // beat faster in a swoop. Port of levels/enemies/z2/spellbook_diver.gd
 // (+ .tscn: tier 3, a 24x18 hurtbox 1 px down).
 
+import { drawPillSprite, PillSprite } from '../pill_sprite';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
 import { Diver } from '../diver';
@@ -24,6 +25,7 @@ export class SpellbookDiver extends Diver {
     const HL = Diver.HALF_LENGTH;
     const R = Diver.RADIUS;
     this.drawTarget(g);
+    if (drawPillSprite(g, PillSprite.spellbookDive, 16, this.facing, this.isTelegraphing(), this.isSwooping() ? 3 : 5)) return;
     SpellbookArt.drawBook(g, new Vec2(0, R + 3), this.flap);
     g.setTransform(Vec2.ZERO, 0, new Vec2(this.facing, 1));
     PillArt.drawCapsule(g, HL, R, 1, PillArt.WIZARD);

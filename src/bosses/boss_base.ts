@@ -50,6 +50,7 @@ import { LevelFx } from '../levels/common/level_fx';
 import { PlayerArea } from '../levels/common/player_area';
 import type { CurveTerrain } from '../terrain/curve_terrain';
 import { BossFx } from './boss_fx';
+import { BossPose, drawBossAttack, drawBossFrame, type BossSpriteId, type BossPoseId } from './boss_sprites';
 
 /** A script step per physics tick. */
 export type BossScript = Generator<void, void, void>;
@@ -200,7 +201,8 @@ export class BossHazard extends PlayerArea {
   }
 
   override draw(g: Gfx): void {
-    this.look?.(g, this);
+    const opacity = !this.harmful && this.life > 0 ? clamp((this.life - this.age) / 12, 0, 1) : 1;
+    if (!drawBossAttack(g, this.name, this.age, this.size, this.vel, opacity)) this.look?.(g, this);
   }
 }
 
@@ -279,6 +281,12 @@ export abstract class Boss extends Node2D {
   private graceFrames = 0;
   private flashFrames = 0;
   private playerWasDead = false;
+  private visualAttack: AttackPlan | null = null;
+  private attackStart = 0;
+  private recoveryUntil = 0;
+  private travelSpeed = 0;
+  private spritePose: BossPoseId = BossPose.idle;
+  private poseStart = 0;
   /** Sinking into or rising out of the opening pose: the boss is drained and harmless to touch. */
   private drained = false;
   /** Players it settled onto while drained: its body spares them until they step out. */
@@ -521,6 +529,37 @@ export abstract class Boss extends Node2D {
     this.hazards.clear();
   }
 
+  /** Plays the sprite cycle driven by the same phases as the fight script. */
+  protected drawBossSprite(g: Gfx, art: BossSpriteId, feet: number, squash = 1, exposed = false): boolean {
+    const pose = this.isDefeated ? BossPose.defeat
+      : this.flashFrames > 0 ? BossPose.hit
+      : this.weakOpen || exposed ? BossPose.exposed
+      : this.telegraphNow ? BossPose.windup
+      : this.visualAttack ? BossPose.strike
+      : this.frame < this.recoveryUntil ? BossPose.recovery
+      : this.travelSpeed > 0.7 ? BossPose.travel
+      : BossPose.idle;
+    if (pose !== this.spritePose) {
+      this.spritePose = pose;
+      this.poseStart = this.frame;
+    }
+    const telegraph = this.telegraphNow;
+    let ticks = this.frame - this.poseStart;
+    if (pose === BossPose.strike) ticks = this.frame - this.attackStart;
+    else if (pose === BossPose.windup && telegraph) ticks = telegraph.frames - telegraph.left;
+    return drawBossFrame(g, art, pose, ticks, this.facing, feet, squash, (telegraph?.plan ?? this.visualAttack)?.id);
+  }
+
+  private *animateAttack(plan: AttackPlan, target: Vec2): BossScript {
+    this.visualAttack = plan;
+    this.attackStart = this.frame;
+    yield* this.attack(plan, target);
+    if (this.visualAttack === plan) {
+      this.visualAttack = null;
+      this.recoveryUntil = this.frame + 24;
+    }
+  }
+
   /** Colour for the art: lightened while the hit flash blinks. */
   protected tint(c: Color): Color {
     return this.flashFrames > 0 && Math.floor(this.flashFrames / 3) % 2 === 0 ? c.lerp(Color.WHITE, 0.75) : c;
@@ -538,12 +577,14 @@ export abstract class Boss extends Node2D {
     if (this.invFrames > 0) this.invFrames -= 1;
     if (this.flashFrames > 0) this.flashFrames -= 1;
     this.watchRespawn();
+    const from = this.position;
     if (this.main && this.main.next().done) this.main = null;
     if (this.side.length > 0) {
       const running = this.side.slice();
       this.side = [];
       for (const s of running) if (!s.next().done) this.side.push(s);
     }
+    this.travelSpeed = this.position.sub(from).length();
     this.updateShapes();
     this.contact();
   }
@@ -595,6 +636,8 @@ export abstract class Boss extends Node2D {
     this.weakOpen = false;
     this.invFrames = Boss.HIT_INVINCIBLE_FRAMES;
     this.flashFrames = 36;
+    this.visualAttack = null;
+    this.recoveryUntil = 0;
     this.telegraphNow = null;
     this.lockedTarget = null;
     const weak = this.weakRect();
@@ -664,7 +707,7 @@ export abstract class Boss extends Node2D {
     this.telegraphNow = null;
     this.lockedTarget = null;
     this.attackStarted.emit(plan.id);
-    const script = this.attack(plan, target);
+    const script = this.animateAttack(plan, target);
     if (plan.overlap) this.runBeside(script);
     else yield* script;
     yield* waitFrames(this.gapFrames(plan.gap ?? 12));

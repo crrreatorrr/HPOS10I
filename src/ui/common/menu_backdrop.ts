@@ -5,6 +5,8 @@
 // Everything but the clouds is drawn once into a cached canvas (when there
 // is a DOM); the clouds never overlap the hills, so they go on top.
 
+import { assetImage } from '../../runtime/assets';
+import { BACKGROUND_FILES } from '../../levels/common/backdrop';
 import { Color } from '../../runtime/color';
 import { context2d, Gfx, makeCanvas } from '../../runtime/gfx';
 import { fposmod } from '../../runtime/math';
@@ -12,6 +14,8 @@ import { Node2D } from '../../runtime/node';
 import { VIEW_H, VIEW_W } from '../../runtime/tree';
 import { Vec2 } from '../../runtime/vec2';
 import { pixelDisc } from './pixel_art';
+
+const MENU_ART = BACKGROUND_FILES.map((file) => `assets/backgrounds/z1_retro_rush_hills/${file}`);
 
 const SKY = [
   Color.rgb8(56, 112, 224),
@@ -54,6 +58,7 @@ export class MenuBackdrop extends Node2D {
   private time = 0;
   private cached: HTMLCanvasElement | null = null;
   private cachedGround = -1;
+  private cachedArt = false;
 
   constructor(groundY = 196, dim = 0) {
     super('Backdrop');
@@ -68,44 +73,42 @@ export class MenuBackdrop extends Node2D {
   override draw(g: Gfx): void {
     const w = VIEW_W;
     const h = VIEW_H;
-    const still = this.staticLayer();
+    const layers = MENU_ART.map(assetImage);
+    const hasArt = layers.every((layer) => layer !== null);
+    const still = this.staticLayer(hasArt ? layers : null);
     if (still) g.ctx.drawImage(still, 0, 0);
-    else this.drawStatic(g, w, h);
-    for (const [cx, cy, s] of CLOUDS) {
-      const x = fposmod(cx + this.time * this.cloudSpeed * s, w + 80) - 40;
-      this.cloud(g, Math.round(x), cy, s);
+    else this.drawStatic(g, w, h, hasArt ? layers : null);
+    if (!hasArt) {
+      for (const [cx, cy, s] of CLOUDS) {
+        const x = fposmod(cx + this.time * this.cloudSpeed * s, w + 80) - 40;
+        this.cloud(g, Math.round(x), cy, s);
+      }
     }
     if (this.dim > 0) g.rect(0, 0, w, h, new Color(0.02, 0.03, 0.1, this.dim));
   }
 
-  private staticLayer(): HTMLCanvasElement | null {
-    if (this.cached && this.cachedGround === this.groundY) return this.cached;
+  private staticLayer(art: HTMLImageElement[] | null): HTMLCanvasElement | null {
+    if (this.cached && this.cachedGround === this.groundY && this.cachedArt === !!art) return this.cached;
     const canvas = makeCanvas(VIEW_W, VIEW_H);
     if (!canvas) return null;
-    this.drawStatic(new Gfx(context2d(canvas)), VIEW_W, VIEW_H);
+    this.drawStatic(new Gfx(context2d(canvas)), VIEW_W, VIEW_H, art);
+    this.cachedArt = !!art;
     this.cached = canvas;
     this.cachedGround = this.groundY;
     return canvas;
   }
 
-  private drawStatic(g: Gfx, w: number, h: number): void {
+  private drawStatic(g: Gfx, w: number, h: number, art: HTMLImageElement[] | null): void {
     const groundY = this.groundY;
-    // Sky in flat bands, lighter toward the horizon (atmospheric depth).
-    const band = Math.ceil(groundY / SKY.length);
-    for (let i = 0; i < SKY.length; i++) g.rect(0, i * band, w, band + 1, SKY[i]!);
-    pixelDisc(g, w - 70, 44, 20, SUN);
-    pixelDisc(g, w - 70, 44, 14, SUN_CORE);
-    // Far hills (light, bluish), then near hills (rich green).
-    for (let i = 0; i < 6; i++) {
-      const cx = fposmod(i * 92 - 20, w + 100) - 20;
-      pixelDisc(g, cx, groundY + 26, 70 + (i % 2) * 18, HILL_FAR);
-      pixelDisc(g, cx + 8, groundY + 30, 62 + (i % 2) * 18, HILL_FAR_SHADE);
+    if (art) {
+      for (const [i, layer] of art.entries()) {
+        const y = i === 0 ? 0 : groundY - layer.height;
+        g.texture(layer, new Vec2(-115, y));
+      }
+    } else {
+      this.drawPlaceholder(g, w, groundY);
     }
-    for (let i = 0; i < 5; i++) {
-      const cx = i * 110 + 30;
-      pixelDisc(g, cx, groundY + 34, 52 + (i % 3) * 8, HILL_NEAR);
-      pixelDisc(g, cx + 10, groundY + 40, 46 + (i % 3) * 8, HILL_NEAR_SHADE);
-    }
+
     // Ground: argyle dirt with a shaded bottom, then the grass lip on top.
     const top = groundY;
     g.rect(0, top, w, h - top, DIRT_B);
@@ -125,6 +128,25 @@ export class MenuBackdrop extends Node2D {
     for (let x = 0; x < w; x += 6) {
       // Hanging tufts under the lip.
       g.rect(x + 2, top + 5, 2, 2 + (Math.floor(x / 6) % 2), GRASS_DARK);
+    }
+  }
+
+  private drawPlaceholder(g: Gfx, w: number, groundY: number): void {
+    // Sky in flat bands, lighter toward the horizon (atmospheric depth).
+    const band = Math.ceil(groundY / SKY.length);
+    for (let i = 0; i < SKY.length; i++) g.rect(0, i * band, w, band + 1, SKY[i]!);
+    pixelDisc(g, w - 70, 44, 20, SUN);
+    pixelDisc(g, w - 70, 44, 14, SUN_CORE);
+    // Far hills (light, bluish), then near hills (rich green).
+    for (let i = 0; i < 6; i++) {
+      const cx = fposmod(i * 92 - 20, w + 100) - 20;
+      pixelDisc(g, cx, groundY + 26, 70 + (i % 2) * 18, HILL_FAR);
+      pixelDisc(g, cx + 8, groundY + 30, 62 + (i % 2) * 18, HILL_FAR_SHADE);
+    }
+    for (let i = 0; i < 5; i++) {
+      const cx = i * 110 + 30;
+      pixelDisc(g, cx, groundY + 34, 52 + (i % 3) * 8, HILL_NEAR);
+      pixelDisc(g, cx + 10, groundY + 40, 46 + (i % 3) * 8, HILL_NEAR_SHADE);
     }
   }
 

@@ -24,6 +24,7 @@
 // pause shrinks to 1.1 s, and after each hit he zips to a random side.
 // Ticket refill: after hit 4 only (the arena).
 
+import { BossSprite, drawBossTornado } from '../boss_sprites';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Rect2, Vec2 } from '../../runtime/vec2';
@@ -456,11 +457,15 @@ export class BroccoliHead extends Boss {
 
   override draw(g: Gfx): void {
     if (this.pose === 'tornado') {
-      this.drawTornado(g);
+      if (!drawBossTornado(g, this.frame)) this.drawTornado(g);
       return;
     }
     const f = this.facing;
     const duck = this.pose === 'duck';
+    if (this.drawBossSprite(g, BossSprite.broccoli, 4, duck ? 0.72 : 1, this.pose === 'comb')) {
+      if (this.isWeakOpen()) BossFx.weakPoint(g, this.weakRect(), this.globalPosition, this.frame);
+      return;
+    }
     const bob = duck ? 0 : Math.sin(this.frame * 0.15) * 1;
     if (duck) {
       this.drawBoard(g);

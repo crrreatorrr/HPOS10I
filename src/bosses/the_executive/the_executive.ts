@@ -28,6 +28,7 @@
 // Final hit: slow motion, his tie flies off, Sproto poses.
 // Ticket refill: after hit 4 only (the arena).
 
+import { BossSprite } from '../boss_sprites';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { clamp } from '../../runtime/math';
@@ -597,6 +598,10 @@ export class TheExecutive extends Boss {
   override draw(g: Gfx): void {
     const f = this.facing;
     if (this.pose === 'ride') this.drawArrow(g);
+    if (this.drawBossSprite(g, BossSprite.executive, this.pose === 'ride' ? -2 : 0, this.pose === 'slide' ? 0.55 : 1)) {
+      if (this.isWeakOpen()) BossFx.weakPoint(g, this.weakRect(), this.globalPosition, this.frame);
+      return;
+    }
     if (this.pose === 'slide') {
       this.drawSlide(g, f);
       return;

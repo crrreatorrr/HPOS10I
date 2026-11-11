@@ -6,6 +6,7 @@
 // up (local -y). Rotate the node to point them another way. The hurt area
 // sits on layer 8 (hazards) with mask 5 (player).
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Layers } from '../../core/layers';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
@@ -92,6 +93,14 @@ export class Spikes extends StaticBody2D implements Configurable {
   override draw(g: Gfx): void {
     const width = this._width;
     const half = width / 2;
+    const segments = Math.max(1, Math.round(width / 24));
+    const stepWidth = width / segments;
+    let loaded = false;
+    for (let i = 0; i < segments; i++) {
+      loaded = drawPropSprite(g, PropSprite.spike, new Vec2(-half + (i + 0.5) * stepWidth, -HEIGHT / 2), new Vec2(stepWidth / 48, HEIGHT / 21));
+      if (!loaded) break;
+    }
+    if (loaded) return;
     g.rect(-half, -4, width, 4, OUTLINE);
     g.rect(-half + 1, -3, width - 2, 2, BASE);
     const count = Math.max(1, Math.floor(width / 8));

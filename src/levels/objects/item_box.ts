@@ -10,6 +10,7 @@
 // off in Ranked and when the player turns them off in Options (the level
 // removes them when it starts). The origin is the middle of the base.
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Audio } from '../../core/audio';
 import { GameState } from '../../core/game_state';
 import { Layers } from '../../core/layers';
@@ -49,7 +50,13 @@ export function boxesEnabled(): boolean {
 }
 
 /** Draws the icon of a box's content centred on the origin (also used by the HUD look-alikes). */
+const CONTENT_SPRITE: Record<BoxContent, number> = {
+  shield: PropSprite.shield, speed_shoes: PropSprite.shoe, invincibility: PropSprite.invincible, life: PropSprite.life,
+};
+
 export function drawContentIcon(g: Gfx, content: BoxContent, at: Vec2, t: number): void {
+  const pulse = content === 'invincibility' ? 0.85 + 0.15 * Math.sin(t * 0.16) : 0.9;
+  if (drawPropSprite(g, CONTENT_SPRITE[content], at, new Vec2(pulse, pulse))) return;
   switch (content) {
     case 'shield': {
       g.circle(at, 7, Color.rgb8(90, 190, 255, 200));
@@ -187,6 +194,10 @@ export class ItemBox extends StaticBody2D implements Configurable {
 
   override draw(g: Gfx): void {
     if (this.broken) return;
+    if (drawPropSprite(g, PropSprite.itemBox, new Vec2(0, -SIZE / 2), new Vec2(0.84, 1))) {
+      if (this.frame % 40 < 37) drawContentIcon(g, this.content, new Vec2(0, -SIZE / 2 - 3), this.frame);
+      return;
+    }
     const x = -SIZE / 2;
     const y = -SIZE;
     g.rect(x, y, SIZE, SIZE, OUTLINE);

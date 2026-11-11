@@ -9,6 +9,7 @@
 // the loop). Collision is CurveTerrain's, untouched.
 
 import { Layers } from '../../core/layers';
+import { assetImage } from '../../runtime/assets';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import type { CollisionObject2D } from '../../runtime/physics';
@@ -108,6 +109,7 @@ function drawNeon(g: Gfx, piece: CurveTerrain, built: NeonBuilt, colors: NeonCol
   // The visible part of the piece, in its local space (no scale or rotation in levels).
   const view = new Rect2(-t.tx, -t.ty, VIEW_W, VIEW_H);
   const origin = piece.globalPosition;
+  const panel = assetImage('assets/terrain/z4_neon_rush_remix/fill.png');
   for (const poly of piece.polygons) {
     g.polygon(poly, colors.fill);
     let box = new Rect2(poly[0]!.x, poly[0]!.y, 0, 0);
@@ -119,6 +121,11 @@ function drawNeon(g: Gfx, piece: CurveTerrain, built: NeonBuilt, colors: NeonCol
     poly.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
     ctx.closePath();
     ctx.clip();
+    if (panel) {
+      ctx.globalAlpha = g.alpha * 0.84;
+      g.tiled(panel, area, origin.neg());
+      ctx.globalAlpha = g.alpha;
+    }
     ctx.strokeStyle = GRID.css();
     ctx.lineWidth = 1;
     ctx.beginPath();

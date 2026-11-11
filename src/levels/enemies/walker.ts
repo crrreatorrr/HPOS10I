@@ -5,6 +5,7 @@
 // Its speed scales with the act's difficulty. Port of levels/enemies/walker.gd
 // (+ walker.tscn: a 26x13 hurtbox 13 px above the feet).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import type { Gfx } from '../../runtime/gfx';
 import { rectShape } from '../../runtime/physics';
 import { Vec2 } from '../../runtime/vec2';
@@ -14,6 +15,7 @@ import { Enemy } from './enemy_base';
 import { PillArt, type PillPalette } from './pill_art';
 
 export class Walker extends Enemy {
+  protected readonly spriteRow: number = PillSprite.walker;
   static readonly HALF_LENGTH = 7.0;
   static readonly RADIUS = 7.0;
   static readonly WHEEL = 3.0;
@@ -105,10 +107,19 @@ export class Walker extends Enemy {
   }
 
   override draw(g: Gfx): void {
+    const flip = new Vec2(this.direction, 1);
+    g.setTransform(new Vec2(0, Walker.BODY_Y), 0, flip);
+    this.drawBehindBody(g);
+    g.resetTransform();
+    if (drawPillSprite(g, this.spriteRow, 0, this.direction, this.visorFlash(), 5)) {
+      g.setTransform(new Vec2(0, Walker.BODY_Y), 0, flip);
+      this.drawOverBody(g);
+      g.resetTransform();
+      return;
+    }
     const HL = Walker.HALF_LENGTH;
     const R = Walker.RADIUS;
     const WHEEL = Walker.WHEEL;
-    const flip = new Vec2(this.direction, 1);
     g.setTransform(Vec2.ZERO, 0, flip);
     // Wheels with spokes that turn as it rolls.
     for (const x of [-HL, HL]) {
@@ -120,7 +131,6 @@ export class Walker extends Enemy {
     }
     // Body, facing its direction of travel (mint half in front).
     g.setTransform(new Vec2(0, Walker.BODY_Y), 0, flip);
-    this.drawBehindBody(g);
     PillArt.drawCapsule(g, HL, R, 1, this.palette());
     PillArt.drawVisor(g, new Vec2(HL + 2, -1.5), 6, 2, false, this.visorFlash());
     PillArt.drawAntenna(g, new Vec2(-HL + 1, -R - 1), 5, Math.sin(this.roll * 0.3) * 1.5);

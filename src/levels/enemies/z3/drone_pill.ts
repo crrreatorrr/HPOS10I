@@ -3,6 +3,7 @@
 // cone below it as it drifts. Port of levels/enemies/z3/drone_pill.gd
 // (+ .tscn: tier 2, a 24x18 hurtbox at the origin).
 
+import { drawPillSprite, PillSprite } from '../pill_sprite';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
 import { Floater } from '../floater';
@@ -23,6 +24,7 @@ export class DronePill extends Floater {
     const HL = Floater.HALF_LENGTH;
     const R = Floater.RADIUS;
     MansionArt.drawSearchlight(g, new Vec2(0, R), new Vec2(Math.sin(this.spin * 0.3) * 0.4, 1).normalized(), 56);
+    if (drawPillSprite(g, PillSprite.drone, 11, this.facing, false, 3)) return;
     MansionArt.drawRotor(g, R, this.spin);
     g.setTransform(Vec2.ZERO, 0, new Vec2(this.facing, 1));
     PillArt.drawCapsule(g, HL, R, 1, PillArt.MANSION);

@@ -1,0 +1,92 @@
+{
+  "sweep": {
+    "boss": 0,
+    "windup": 0,
+    "strike": 1
+  },
+  "drop": {
+    "boss": 0,
+    "windup": 2,
+    "strike": 3
+  },
+  "dust": {
+    "boss": 0,
+    "windup": 4,
+    "strike": 5
+  },
+  "ink_rain": {
+    "boss": 1,
+    "windup": 6,
+    "strike": 7
+  },
+  "ink_wave": {
+    "boss": 1,
+    "windup": 8,
+    "strike": 9
+  },
+  "pages": {
+    "boss": 1,
+    "windup": 10,
+    "strike": 11
+  },
+  "zip_low": {
+    "boss": 2,
+    "windup": 12,
+    "strike": 13
+  },
+  "zip_high": {
+    "boss": 2,
+    "windup": 14,
+    "strike": 15
+  },
+  "fakeout": {
+    "boss": 2,
+    "windup": 16,
+    "strike": 17
+  },
+  "cans": {
+    "boss": 2,
+    "windup": 18,
+    "strike": 19
+  },
+  "tornado": {
+    "boss": 2,
+    "windup": 20,
+    "strike": 21
+  },
+  "sparks": {
+    "boss": 2,
+    "windup": 22,
+    "strike": 23
+  },
+  "briefcase": {
+    "boss": 3,
+    "windup": 24,
+    "strike": 25
+  },
+  "double": {
+    "boss": 3,
+    "windup": 26,
+    "strike": 27
+  },
+  "storm": {
+    "boss": 3,
+    "windup": 28,
+    "strike": 29
+  },
+  "crash": {
+    "boss": 3,
+    "windup": 30,
+    "strike": 31
+  },
+  "dash": {
+    "boss": 3,
+    "windup": 32,
+    "strike": 33
+  },
+  "arrow_slide": {
+    "boss": 3,
+    "windup": 34,
+    "strike": 35
+  }
+}

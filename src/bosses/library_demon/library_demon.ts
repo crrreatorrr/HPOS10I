@@ -16,6 +16,7 @@
 // the head (rolling into the book or the smoke hurts). From phase 2 the
 // page fans are wider and the rain heavier.
 
+import { BossSprite } from '../boss_sprites';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Rect2, Vec2 } from '../../runtime/vec2';
@@ -348,6 +349,10 @@ export class LibraryDemon extends Boss {
 
   override draw(g: Gfx): void {
     const slump = this.pose === 'slump';
+    if (this.drawBossSprite(g, BossSprite.demon, 8, 1, slump)) {
+      if (this.isWeakOpen()) BossFx.weakPoint(g, this.weakRect(), this.globalPosition, this.frame);
+      return;
+    }
     const shake = this.shaking ? Math.sin(this.frame * 1.9) * 1.5 : 0;
     const f = this.frame;
     // Smoke torso: stacked puffs that sway.

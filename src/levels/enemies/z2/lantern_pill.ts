@@ -4,6 +4,7 @@
 // glows warmer while it shakes. Port of levels/enemies/z2/lantern_pill.gd
 // (+ .tscn: tier 4, a 16x24 hurtbox at the origin).
 
+import { PillSprite } from '../pill_sprite';
 import { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
@@ -12,6 +13,8 @@ import { PillArt, type PillPalette } from '../pill_art';
 import { SpellbookArt } from './spellbook_art';
 
 export class LanternPill extends Dropper {
+  protected override readonly spriteRow: number = PillSprite.lantern;
+
   static readonly GLOW = new Color(1.0, 0.78, 0.36, 0.35);
 
   constructor(name = 'LanternPill') {
@@ -27,7 +30,7 @@ export class LanternPill extends Dropper {
     const shake = this.shake();
     const glowR = 13 + (this.mode === DropperMode.SHAKING ? 2 : 0);
     g.circle(shake, glowR, LanternPill.GLOW);
-    super.draw(g);
+    if (this.drawHangingSprite(g)) return;
     // The cage: a cap, a base and four bars, in gold.
     const top = -Dropper.HALF_LENGTH - Dropper.RADIUS - 3;
     const bottom = Dropper.HALF_LENGTH + Dropper.RADIUS + 2;

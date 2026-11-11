@@ -6,6 +6,7 @@
 // respawn point never moves it back. A tall trigger catches runs at 16
 // px/frame and jumps over the post. Layer 7 (objects), mask 5 (player).
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Audio } from '../../core/audio';
 import { GameState } from '../../core/game_state';
 import { Color } from '../../runtime/color';
@@ -86,6 +87,11 @@ export class Checkpoint extends PlayerArea {
   override draw(g: Gfx): void {
     const base = FEET;
     const top = FEET - POST_HEIGHT;
+    const glow = this.active && this.litFrames < 40;
+    if (drawPropSprite(g, this.active ? PropSprite.checkpoint : PropSprite.inactiveCheckpoint, new Vec2(0, base - 20))) {
+      if (glow) drawPropSprite(g, PropSprite.sparkle, new Vec2(0, top + 4), Vec2.ONE, 0.45 + 0.45 * Math.abs(Math.sin(this.litFrames * 0.32)));
+      return;
+    }
     g.rect(-6, base - 3, 12, 3, OUTLINE);
     g.rect(-2.5, top + 6, 5, POST_HEIGHT - 8, OUTLINE);
     g.rect(-1.5, top + 6, 3, POST_HEIGHT - 8, POST);

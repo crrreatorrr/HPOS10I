@@ -1,3 +1,4 @@
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 // A candle (Wizard Academy hazard, docs/DESIGN.md "candle-lit halls"): a tall
 // candle in a holder whose flame flares up on a timer. Before a flare the
 // flame sputters and flickers (and the telegraph sound plays) for
@@ -178,6 +179,9 @@ export class Candle extends Node2D implements Configurable {
 
   /** A teardrop flame standing on `base`, `halfWidth` wide and `height` tall. */
   private drawFlame(g: Gfx, base: Vec2, halfWidth: number, height: number, color: Color, core: Color): void {
+    const at = base.add(new Vec2(0, -Math.round(height / 2)));
+    const frame = Math.floor(this.timer / 3) % 6;
+    if (drawPropSprite(g, PropSprite.flameStart + frame, at, new Vec2(halfWidth / 7.5, height / 26))) return;
     const points: Vec2[] = [];
     for (let k = 0; k < 9; k++) {
       const a = (Math.PI * k) / 8;

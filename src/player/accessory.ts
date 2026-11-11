@@ -10,15 +10,12 @@ import { Color } from '../runtime/color';
 import type { Gfx } from '../runtime/gfx';
 import { Node2D } from '../runtime/node';
 import { Vec2 } from '../runtime/vec2';
-import { PlayerVisual, SheetFrames, SheetSprite, spriteJson } from './player_visual';
+import { PlayerVisual, SheetFrames, SheetSprite } from './player_visual';
 
-const ANCHORS_PATH = 'assets/sprites/common/sproto/anchors.json';
 const SHEET_PATHS: Record<string, string> = {
   wizard_hat: 'assets/sprites/z2_wizard_academy/wizard_hat/wizard_hat_sheet.png',
   sunglasses: 'assets/sprites/z3_capital_mansion/sunglasses/sunglasses_sheet.png',
 };
-/** Frame cells are 64x64; anchor points are in cell pixels. */
-const CELL_CENTER = new Vec2(32, 32);
 
 const HAT = new Color(0.5, 0.22, 0.75);
 const HAT_DARK = new Color(0.32, 0.12, 0.5);
@@ -28,14 +25,11 @@ const GLINT = new Color(0.55, 0.6, 0.75);
 
 export class Accessory extends Node2D {
   accessory = '';
-  private anchors: Record<string, unknown> = {};
   private sprite: SheetSprite | null = null;
 
   constructor(private readonly visual: PlayerVisual) {
     super('Accessory');
     this.zIndex = 2;
-    const data = spriteJson(ANCHORS_PATH);
-    if (isRecord(data)) this.anchors = data;
   }
 
   override ready(): void {
@@ -67,44 +61,7 @@ export class Accessory extends Node2D {
 
   override process(): void {
     if (this.accessory === '') return;
-    this.position = this.headPoint().round();
-  }
-
-  /** Head centre in the visual's local space. */
-  private headPoint(): Vec2 {
-    const sprite = this.visual.sprite;
-    if (sprite && sprite.visible && !this.visual.drawsPlaceholder()) {
-      const point = this.anchorFor(sprite.animation, sprite.frame);
-      if (point) return sprite.position.add(point).sub(CELL_CENTER);
-    }
-    return this.visual.headPoint();
-  }
-
-  /**
-   * Reads a "head" point from anchors.json. Accepts the layouts
-   * {anim: [{head: [x, y]}, ...]}, {head: {anim: [[x, y], ...]}} and
-   * {animations|frames: {anim: [{head: ...}]}}; points as [x, y] or {x, y}.
-   */
-  private anchorFor(anim: string, frame: number): Vec2 | null {
-    const candidates: unknown[] = [];
-    for (const root of [this.anchors, this.anchors.animations, this.anchors.frames]) {
-      if (!isRecord(root)) continue;
-      const list = root[anim];
-      if (Array.isArray(list) && frame < list.length) {
-        const entry: unknown = list[frame];
-        if (isRecord(entry)) candidates.push(entry.head);
-      }
-    }
-    const head = this.anchors.head;
-    if (isRecord(head)) {
-      const list = head[anim];
-      if (Array.isArray(list) && frame < list.length) candidates.push(list[frame]);
-    }
-    for (const value of candidates) {
-      if (Array.isArray(value) && value.length >= 2) return new Vec2(Number(value[0]), Number(value[1]));
-      if (isRecord(value) && 'x' in value && 'y' in value) return new Vec2(Number(value.x), Number(value.y));
-    }
-    return null;
+    this.position = this.visual.headPoint().round();
   }
 
   override draw(g: Gfx): void {
@@ -131,8 +88,4 @@ export class Accessory extends Node2D {
         break;
     }
   }
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }

@@ -10,6 +10,7 @@
 // state replaces it). Plays `spring` and a short compress-and-extend
 // animation. Layer 7 (objects), mask 5 (player).
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Audio } from '../../core/audio';
 import type { Player } from '../../player/player';
 import { Color } from '../../runtime/color';
@@ -183,7 +184,10 @@ export class LevelSpring extends PlayerArea implements Configurable {
     // faces the launch direction.
     if (this._kind === SpringKind.DIAGONAL) g.setTransform(new Vec2(-4.0 * f, -9.0), f * Math.PI * 0.25);
     else if (this._kind === SpringKind.SIDE) g.setTransform(new Vec2(-6.0 * f, -WIDTH / 2), f * Math.PI * 0.5);
-    this.drawSpring(g, body, dark);
+    const height = 0.85 + this.extension() * 0.34;
+    if (!drawPropSprite(g, yellow ? PropSprite.goldSpring : PropSprite.spring, new Vec2(0, -Math.round(11 * height)), new Vec2(1, height))) {
+      this.drawSpring(g, body, dark);
+    }
     g.resetTransform();
   }
 

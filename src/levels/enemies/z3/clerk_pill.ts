@@ -6,6 +6,7 @@
 // Port of levels/enemies/z3/clerk_pill.gd (+ .tscn: tier 2, a 20x28 hurtbox
 // 14 px up).
 
+import { drawPillSprite, PillSprite } from '../pill_sprite';
 import type { Gfx } from '../../../runtime/gfx';
 import type { Node2D } from '../../../runtime/node';
 import { Vec2 } from '../../../runtime/vec2';
@@ -55,6 +56,7 @@ export class ClerkPill extends PelletPill {
   }
 
   override draw(g: Gfx): void {
+    if (drawPillSprite(g, PillSprite.clerk, 0, this.facing, this.isTelegraphing())) return;
     const HL = PelletPill.HALF_LENGTH;
     const BODY_Y = PelletPill.BODY_Y;
     const telegraphing = this.isTelegraphing();

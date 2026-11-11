@@ -3,6 +3,7 @@
 // snaps onto the marked spot during the telegraph. Port of
 // levels/enemies/z3/drone_diver.gd (+ .tscn: tier 3, a 24x18 hurtbox at the origin).
 
+import { drawPillSprite, PillSprite } from '../pill_sprite';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
 import { Diver, DiverMode } from '../diver';
@@ -28,6 +29,7 @@ export class DroneDiver extends Diver {
       ? this.target.sub(this.globalPosition).normalized()
       : new Vec2(Math.sin(this.flap * 0.5) * 0.4, 1).normalized();
     MansionArt.drawSearchlight(g, new Vec2(0, R), dir, telegraph ? 64 : 48, this.mode !== DiverMode.REST);
+    if (drawPillSprite(g, PillSprite.droneDive, 11, this.facing, telegraph, 3)) return;
     MansionArt.drawRotor(g, R, this.flap * 2);
     g.setTransform(Vec2.ZERO, 0, new Vec2(this.facing, 1));
     PillArt.drawCapsule(g, HL, R, 1, PillArt.MANSION);

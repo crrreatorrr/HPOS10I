@@ -384,7 +384,8 @@ export class Backdrop extends Node2D {
     this.zIndex = BACKGROUND_Z;
     this.zAsRelative = false;
     this.topLevel = true;
-    const paths = BACKGROUND_FILES.map((file) => `${BACKGROUND_DIR}/${artZone}/${file}`);
+    const fileZone = artZone === 'test_zone' ? 'z1_retro_rush_hills' : artZone;
+    const paths = BACKGROUND_FILES.map((file) => `${BACKGROUND_DIR}/${fileZone}/${file}`);
     this.usesFiles = artZone !== '' && paths.some((p) => assetExists(p));
     if (this.usesFiles) {
       paths.forEach((path, index) => {

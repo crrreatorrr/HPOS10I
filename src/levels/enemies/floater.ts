@@ -6,6 +6,7 @@
 // class. Port of levels/enemies/floater.gd (+ floater.tscn: tier 2, a 24x16
 // hurtbox at the origin).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import type { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { rectShape } from '../../runtime/physics';
@@ -18,6 +19,7 @@ import { PillArt } from './pill_art';
 const TAU = Math.PI * 2;
 
 export class Floater extends Enemy {
+  protected readonly spriteRow: number = PillSprite.floater;
   static readonly HALF_LENGTH = 6.0;
   static readonly RADIUS = 7.0;
 
@@ -87,6 +89,7 @@ export class Floater extends Enemy {
   }
 
   override draw(g: Gfx): void {
+    if (drawPillSprite(g, this.spriteRow, 12, this.facing, false, 4)) return;
     const HL = Floater.HALF_LENGTH;
     const R = Floater.RADIUS;
     // Propeller mast and blades (the blades squash as they spin).

@@ -8,6 +8,7 @@
 // extend this class and draw their own look. Port of
 // levels/enemies/armored.gd (+ armored.tscn: tier 3, speed 0.5, 26x16 hurtbox).
 
+import { PillSprite } from './pill_sprite';
 import type { Player } from '../../player/player';
 import type { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
@@ -16,6 +17,8 @@ import { closed, PillArt } from './pill_art';
 import { Walker } from './walker';
 
 export class Armored extends Walker {
+  protected override readonly spriteRow: number = PillSprite.armored;
+
   static readonly BREAK_SPEED = 4.5;
 
   constructor(name = 'Armored', hurtbox = new Vec2(26, 16), hurtboxAt = new Vec2(0, -13)) {

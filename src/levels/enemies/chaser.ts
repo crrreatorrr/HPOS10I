@@ -6,6 +6,7 @@
 // the rest time and the telegraph scale with the local difficulty.
 // Port of levels/enemies/chaser.gd (+ chaser.tscn: tier 2).
 
+import { PillSprite } from './pill_sprite';
 import type { Gfx } from '../../runtime/gfx';
 import { Vec2 } from '../../runtime/vec2';
 import type { Props } from '../common/props';
@@ -20,6 +21,8 @@ export enum ChaserMode {
 }
 
 export class Chaser extends Walker {
+  protected override readonly spriteRow: number = PillSprite.chaser;
+
   /** How far ahead it notices Sproto (px), and how far above or below. */
   static readonly SIGHT = 212.0;
   static readonly SIGHT_HEIGHT = 48.0;

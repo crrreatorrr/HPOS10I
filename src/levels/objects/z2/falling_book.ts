@@ -1,3 +1,4 @@
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 // A falling book (Wizard Academy hazard): a heavy book floating under a high
 // shelf. When Sproto passes beneath it (within `triggerWidth` and
 // `triggerDepth` below) it shakes, rustles its pages and plays the telegraph
@@ -173,6 +174,12 @@ export class FallingBook extends PlayerArea implements Configurable {
     const shaking = this.state === BookState.SHAKING;
     const shakeX = shaking ? (this.timer % 2) * 2 - 1 : 0;
     const r = new Rect2(-SIZE.x / 2 + shakeX, -SIZE.y / 2, SIZE.x, SIZE.y);
+    if (drawPropSprite(g, PropSprite.book, new Vec2(shakeX, 0))) {
+      if (shaking && Math.trunc(this.timer / 3) % 2 === 0) {
+        drawPropSprite(g, PropSprite.paper, new Vec2(6 + shakeX, -8), new Vec2(0.35, 0.35));
+      }
+      return;
+    }
     g.rectR(r.grow(1), OUTLINE);
     g.rectR(r, COVER);
     g.rect(r.x, r.y, SIZE.x, 2, COVER_LIGHT);

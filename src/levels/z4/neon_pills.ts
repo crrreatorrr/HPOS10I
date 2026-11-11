@@ -14,6 +14,7 @@ import { Chaser } from '../enemies/chaser';
 import { Diver } from '../enemies/diver';
 import { Dropper } from '../enemies/dropper';
 import type { PillPalette } from '../enemies/pill_art';
+import { PillSprite } from '../enemies/pill_sprite';
 import { Sniper } from '../enemies/sniper';
 import { SpikePill } from '../enemies/spike_pill';
 
@@ -33,6 +34,8 @@ function glow(g: Gfx, at: Vec2, r: number): void {
 }
 
 export class NeonChaser extends Chaser {
+  protected override readonly spriteRow: number = PillSprite.neonChaser;
+
   constructor() {
     super('NeonChaser');
   }
@@ -46,6 +49,8 @@ export class NeonChaser extends Chaser {
 }
 
 export class NeonArmored extends Armored {
+  protected override readonly spriteRow: number = PillSprite.neonArmored;
+
   constructor() {
     super('NeonArmored');
   }
@@ -59,6 +64,8 @@ export class NeonArmored extends Armored {
 }
 
 export class NeonSpikePill extends SpikePill {
+  protected override readonly spriteRow: number = PillSprite.neonSpike;
+
   constructor() {
     super('NeonSpikePill');
   }
@@ -72,6 +79,8 @@ export class NeonSpikePill extends SpikePill {
 }
 
 export class NeonDiver extends Diver {
+  protected override readonly spriteRow: number = PillSprite.neonDive;
+
   constructor() {
     super('NeonDiver');
   }
@@ -85,6 +94,8 @@ export class NeonDiver extends Diver {
 }
 
 export class NeonSniper extends Sniper {
+  protected override readonly spriteRow: number = PillSprite.neonSniper;
+
   constructor() {
     super('NeonSniper');
   }
@@ -98,6 +109,8 @@ export class NeonSniper extends Sniper {
 }
 
 export class NeonDropper extends Dropper {
+  protected override readonly spriteRow: number = PillSprite.neonDropper;
+
   constructor() {
     super('NeonDropper');
   }

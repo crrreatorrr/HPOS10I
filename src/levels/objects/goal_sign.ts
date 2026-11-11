@@ -5,6 +5,7 @@
 // floor. In group 'goal_sign' (LevelRoot.progressAt measures to it).
 // Layer 7 (objects), mask 5 (player).
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Audio } from '../../core/audio';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
@@ -90,18 +91,19 @@ export class GoalSign extends PlayerArea {
   }
 
   override draw(g: Gfx): void {
+    const width = Math.cos(this.angle());
+    const front = width >= 0 && !(this.triggered && this.spinFrames >= SPIN_FRAMES);
+    const squash = Math.max(Math.abs(width), 0.08);
+    // The whole sign has a thin post; its face turns to the opposite side after a pass.
+    if (drawPropSprite(g, front ? PropSprite.goal : PropSprite.goalReverse, new Vec2(0, -30), new Vec2(squash * 0.7, 1.43))) return;
     g.rect(-2.5, -POST_HEIGHT, 5, POST_HEIGHT, OUTLINE);
     g.rect(-1.5, -POST_HEIGHT, 3, POST_HEIGHT, POST);
     g.rect(0.5, -POST_HEIGHT, 1, POST_HEIGHT, POST_DARK);
-    const width = Math.cos(this.angle());
     const centre = new Vec2(0, -POST_HEIGHT - PANEL_RADIUS + 2.0);
-    const squash = Math.max(Math.abs(width), 0.08);
     g.setTransform(centre, 0, new Vec2(squash, 1.0));
     g.circle(Vec2.ZERO, PANEL_RADIUS + 1.5, OUTLINE);
     g.circle(Vec2.ZERO, PANEL_RADIUS, RIM);
     // Front (ticket) before the pass; the back face shows Sproto.
-    let front = width >= 0;
-    if (this.triggered && this.spinFrames >= SPIN_FRAMES) front = false;
     if (front) drawTicketEmblem(g, 1.7);
     else this.drawSprotoFace(g);
     g.resetTransform();

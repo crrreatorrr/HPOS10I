@@ -1,3 +1,4 @@
+import { assetImage } from '../../../runtime/assets';
 // A decorative waterfall (Retro Rush Hills): falling water streaks with a
 // shimmer and a foam pool at the bottom. Purely visual, no collision; level
 // builders put it behind the terrain. The origin is its top-left corner.
@@ -48,7 +49,9 @@ export class Waterfall extends Node2D implements Configurable {
   override draw(g: Gfx): void {
     const size = this._size;
     const t = this.shown;
-    g.rect(0, 0, size.x, size.y, WATER);
+    const water = assetImage('assets/sprites/z1_retro_rush_hills/waterfall/water.png');
+    if (water) g.tiled(water, new Rect2(0, 0, size.x, size.y), new Vec2(0, t % water.height));
+    else g.rect(0, 0, size.x, size.y, WATER);
     g.rect(0, 0, 2, size.y, WATER_DARK);
     g.rect(size.x - 2, 0, 2, size.y, WATER_DARK);
     // Streaks falling at two speeds.
