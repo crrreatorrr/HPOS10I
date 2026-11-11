@@ -7,6 +7,9 @@ import { LevelTypes } from './common/level_loader';
 import { BreakableWall } from './objects/breakable_wall';
 import { Checkpoint } from './objects/checkpoint';
 import { GoalSign } from './objects/goal_sign';
+import { CeilingRam } from './objects/hazards/ceiling_ram';
+import { Burrower, LavaVent } from './objects/hazards/floor_hazards';
+import { FluidWell } from './objects/hazards/fluid_well';
 import { DemoConveyor } from './objects/playground/demo_conveyor';
 import { DemoMovingPlatform } from './objects/playground/demo_moving_platform';
 import { DummyEnemy } from './objects/playground/dummy_enemy';
@@ -37,6 +40,10 @@ export function registerObjects(): void {
   LevelTypes.register(`${O}checkpoint.tscn`, () => new Checkpoint());
   LevelTypes.register(`${O}goal_sign.tscn`, () => new GoalSign());
   LevelTypes.register(`${O}spikes.tscn`, () => new Spikes());
+  LevelTypes.register('hpos://hazards/fluid_well', () => new FluidWell());
+  LevelTypes.register('hpos://hazards/lava_vent', () => new LavaVent());
+  LevelTypes.register('hpos://hazards/ceiling_ram', () => new CeilingRam());
+  LevelTypes.register('hpos://hazards/burrower', () => new Burrower());
 
   LevelTypes.register(`${O}z1/waterfall.tscn`, () => new Waterfall());
 

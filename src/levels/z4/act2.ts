@@ -133,6 +133,8 @@ export function buildAct2(): LevelBuilder {
   b.enemy('dropper', new Vec2(d.x0 + 1100, d.high + 12 + 30));
   b.enemy('sniper', new Vec2(d.x0 + 1300, d.high));
   b.enemy('armored', new Vec2(d.x0 + 1520, d.low), { patrol_distance: 48 });
+  b.setPiece(KEYS.LAVA_VENT, new Vec2(d.x0 + 1200, d.low), { height: 44, first_delay: 38 });
+  b.enemy('burrower', new Vec2(d.x0 + 2320, d.low), { height: 44, first_delay: 70 });
   b.enemy('diver', new Vec2(d.x0 + 1720, d.high - 130));
   b.enemy('dropper', new Vec2(d.x0 + 1840, d.mid + 30));
   b.enemy('spike', new Vec2(d.x0 + 2100, d.low), { patrol_distance: 48 });
@@ -142,7 +144,9 @@ export function buildAct2(): LevelBuilder {
   b.enemy('dropper', new Vec2(d.x0 + 2850, d.mid + 30));
   b.setPiece(KEYS.BUMPER, new Vec2(d.x0 + 700, d.high - 72));
   b.setPiece(KEYS.BUMPER, new Vec2(d.x0 + 2000, d.high - 72));
-  b.flat(128);
+  b.flat(240);
+  b.fluidPit(112, 'poison');
+  b.flat(200);
   G('dropper', 140);
   b.timedPits(3, { pit: 256, shuttle: 1 });
   P('armored', 'sniper', 0);

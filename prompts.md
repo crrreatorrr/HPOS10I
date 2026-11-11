@@ -61,3 +61,15 @@ magenta gutters. Same right-facing camera, proportions and base anchor across
 poses. Start with idle, travel, recovery and hurt. Follow with the listed
 anticipation and strike pairs for each boss. Use spare cells for recovery,
 stagger, hit and defeat. Keep effects tight to the body and silhouettes readable.
+
+## Floor hazards, 2026-11-11
+
+Both sheets used **Seedream 5.0 Lite** through the signed-in Higgsfield
+website at **2K (2048 × 2048), 1:1, Unlimited**. The balance stayed at
+**142.6 credits**. The four frames in each row were keyed and aligned
+into a 64 px cell atlas.
+
+| # | Generation ID | Integrated asset path | Prompt |
+|---|---|---|---|
+| 28 | `76c84176-7ecd-4ae5-870e-620a9e01d9c3` | `assets/sprites/common/props/floor_hazards.png`, rows 1–4 | Original 4 × 4 side-view pixel sprites on chroma magenta: four looping volcanic lava surfaces, four lime and teal poison surfaces with bubbles, four rooted lava jets, and four poses of a violet-armored chartreuse burrowing pill. |
+| 29 | `b4151aff-d82d-4df0-9b60-35a1690fb4f7` | `assets/sprites/common/props/floor_hazards.png`, rows 5–8 | Original 4 × 4 side-view pixel sprites on chroma magenta: four lamp states on a warning-striped steel crusher, four ceiling mounts, four glowing vent hatches, and four telescoping piston lengths. |
