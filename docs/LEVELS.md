@@ -42,6 +42,12 @@ the lead.
    - never drop the player onto the foot of an up-hill;
    - give every climb a run-up, a booster or a gentler approach;
    - never put a steep hill right after a checkpoint.
+   - a 1:2 slope tile ramp is only for going DOWN the way the act runs: holding
+     a direction cannot climb one from rest (0.125 x sin 26.6 deg = 0.056 of
+     pull against 0.047 of acceleration), so climbs stay stairs, lifts or
+     gentler curves. `tests/levels/ramps.test.ts` walks every new ramp.
+   - no ground enemy on, or within 112 px past, the top of a climb (lint rule
+     `enemy.crest`): a player knocked back there crawls up and is hit again.
 5. **Readable direction.** When the way forward isn't simply "right":
    - Signal it with level art (lit doors, ticket trails). There is no
      arrow sign object yet; it needs sprite art.
@@ -113,10 +119,10 @@ first draft, with more checkpoints so a death never sends you far back.
 | Z1 Act 1 | 1 | 45 | 1:20 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
 | Z1 Act 2 | 2 | 55 | 1:55 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 6 | 4.5 |
 | Z1 Boss (Rug Pull) | 2.5 | arena | – | – | – | – | – | – | – |
-| Z2 Act 1 | 3 | 55 | 2:00 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves; stone ramps instead of fixed stairs, and a booster run up a long ramp | 5 | 4 |
-| Z2 Act 2 | 4 | 65 | 2:55 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase; hills and ramps in the halls | 7 | 4 |
+| Z2 Act 1 | 3 | 55 | 2:00 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves; the stairs that go down are stone ramps | 5 | 4 |
+| Z2 Act 2 | 4 | 65 | 2:55 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase | 7 | 4 |
 | Z2 Boss (Library Demon) | 4.5 | arena | – | – | – | – | – | – | – |
-| Z3 Act 1 | 5 | 65 | 2:20 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run over pitched roofs into ballrooms; doors and switches that open shortcuts | 6 | 3.5 |
+| Z3 Act 1 | 5 | 65 | 2:20 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run into ballrooms; doors and switches that open shortcuts | 6 | 3.5 |
 | Z3 Act 2 | 6 | 75 | 3:10 | 1.2 | T2 35 / T3 45 / T4 20 | R4 | Underground bunker: vertical shafts up AND down, timed security beams, the exit reached by travelling left | 7 | 3.5 |
 | Z3 Boss (Broccoli Head) | **8** | arena | – | – | – | – | – | – | – |
 | Z4 Act 1 | 7 | 75 | 3:35 | 1.3 | T2 30 / T3 40 / T4 30 | R5 | Zone 1 ideas remixed at speed: reverse runs (right to left), vanishing neon platforms | 6 | 3 |
@@ -184,7 +190,7 @@ blind drops, and every finale starts at a checkpoint.
 **Hazards** grow along the same curve:
 - Z1: spikes and the odd pit.
 - Z2: candle flames, falling books, crushing shelves, and narrow lava vents and burrower hatches.
-- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A ceiling ram on a route starts its rest and warning only when Sproto comes near (`wake_radius`), and counts again from the start if he leaves, so a crush is never decided by arrival time. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
+- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A ceiling ram on a route (`wake_radius`) never drops on the clock. Zone 3's starts its rest and warning when Sproto comes near. Zone 4 Act 1's (`dwell_frames`) flashes for as long as he is near and comes down only on a player who has stayed in its lane for 1.5 s, so walking, running or dashing through is safe at any speed and only waiting under it is crushed. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
 - Z4: everything, in neon, with vanishing platforms. Short bubbling lava and poison wells have ticket arcs to mark the jump and shallow basins so a player with tickets can recover. Crushers, vents and burrowers also appear on lower routes with upper bypasses.
 
 ## Bosses

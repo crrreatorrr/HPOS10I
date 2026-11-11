@@ -39,7 +39,9 @@ const PROGRESS_MIGRATIONS: Record<number, (old: Json) => Json> = {
   0: (old) => ({ ...old, v: 1, emeralds: [] }),
   // v2 adds the best rank per act (none yet: old best times came from the
   // rewinding clock and earn no rank until the act is cleared again).
-  1: (old) => ({ ...old, v: 2, best_ranks: {} }),
+  // unlock_all: every act could be picked before v2, so a save from then keeps
+  // every act open (progress-based unlocking is for saves that start on v2).
+  1: (old) => ({ ...old, v: 2, best_ranks: {}, unlock_all: true }),
 };
 
 function progressVersion(blob: Json): number {
@@ -71,6 +73,8 @@ export class HubSave {
   cleared = new Set<string>();
   bestTimes = new Map<string, number>();
   bestRanks = new Map<string, Rank>();
+  /** True for a save that existed before acts unlocked by progress (v0, v1): every act stays open. */
+  unlockAll = false;
   /** Emeralds.key of every emerald won on this save. */
   emeralds = new Set<string>();
   private keys: Json = {};
@@ -80,7 +84,10 @@ export class HubSave {
   private runOnDisk = false;
 
   loadAll(): void {
-    const progress = migrateProgress(Storage.readJson(SAVE_KEYS.progress));
+    const stored = Storage.readJson(SAVE_KEYS.progress);
+    // No save at all is a new player (v2 rules); anything older is migrated and keeps every act open.
+    const progress = Object.keys(stored).length === 0 ? stored : migrateProgress(stored);
+    this.unlockAll = progress.unlock_all === true;
     this.cleared = new Set();
     this.bestTimes = new Map();
     this.bestRanks = new Map();
@@ -281,7 +288,8 @@ export class HubSave {
   }
 
   private writeProgress(): void {
-    const disk = migrateProgress(Storage.readJson(SAVE_KEYS.progress));
+    const onDisk = Storage.readJson(SAVE_KEYS.progress);
+    const disk = Object.keys(onDisk).length === 0 ? onDisk : migrateProgress(onDisk);
     if (progressVersion(disk) > PROGRESS_VERSION) {
       console.warn(`[HubSave] progress is v${progressVersion(disk)} (a newer build); not overwriting it`);
       return;
@@ -289,6 +297,7 @@ export class HubSave {
     // Progress only ever grows or improves, so another tab's is folded in,
     // never dropped: emeralds, cleared stages, lower times and better ranks.
     for (const key of emeraldKeys(disk.emeralds)) this.emeralds.add(key);
+    if (disk.unlock_all === true) this.unlockAll = true;
     if (Array.isArray(disk.cleared)) for (const item of disk.cleared) this.cleared.add(String(item));
     if (isObj(disk.best_times)) {
       for (const [id, v] of Object.entries(disk.best_times)) {
@@ -309,6 +318,7 @@ export class HubSave {
       best_times: Object.fromEntries(this.bestTimes),
       best_ranks: Object.fromEntries(this.bestRanks),
       emeralds: [...this.emeralds].sort(),
+      ...(this.unlockAll ? { unlock_all: true } : {}),
     });
   }
 

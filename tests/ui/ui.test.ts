@@ -7,6 +7,7 @@ import { Scenes } from '../../src/core/scenes';
 import { Settings } from '../../src/core/settings';
 import { ZoneRegistry } from '../../src/core/zone_registry';
 import { HubClient } from '../../src/hub/hub_client';
+import { memoryStore, SAVE_KEYS, Storage } from '../../src/hub/storage';
 import { RELIC_BELT, RELIC_CONES, RELIC_CROWN, RELIC_GENESIS, RelicLoadout } from '../../src/hub/relic_loadout';
 import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
 import { Gfx } from '../../src/runtime/gfx';
@@ -265,6 +266,7 @@ describe('ZoneSelect', () => {
   afterEach(() => {
     HubClient.save.cleared.clear();
     HubClient.save.bestTimes.clear();
+    HubClient.save.unlockAll = false;
   });
 
   function open(): ZoneSelect {
@@ -365,6 +367,25 @@ describe('ZoneSelect', () => {
     expect(isActUnlocked('z4_neon_rush_remix', 1)).toBe(true);
     expect(isBossUnlocked('z3_capital_mansion')).toBe(true);
     expect(isBossUnlocked('z2_wizard_academy')).toBe(false);
+  });
+
+  it('a save from before the unlock rule (v0 or v1) keeps every act open, whatever it had cleared', () => {
+    for (const old of [
+      { cleared: ['z3_capital_mansion:2'], best_times: {} },
+      { v: 1, cleared: ['z1_retro_rush_hills:1', 'z3_capital_mansion:1'], best_times: {}, emeralds: [] },
+    ]) {
+      Storage.use(memoryStore());
+      Storage.writeJson(SAVE_KEYS.progress, old);
+      HubClient.save.loadAll();
+      const zs = open();
+      expect(zs.acts.every((a) => a.open), JSON.stringify(old)).toBe(true);
+      expect(zs.infoText()).not.toBe(UNLOCK_HINT);
+    }
+    // A new save starts with the first act only.
+    Storage.use(memoryStore());
+    HubClient.save.loadAll();
+    expect(open().acts.filter((a) => a.open).length).toBe(1);
+    HubClient.save.unlockAll = false;
   });
 
   it('BOSS starts the boss arena (stage acts + 1) and says when a replay banks nothing', () => {

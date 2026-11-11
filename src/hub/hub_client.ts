@@ -214,6 +214,11 @@ class HubClientImpl {
     return this.save.bestRank(zone, act);
   }
 
+  /** True for a save from before acts unlocked by progress: every act stays open. */
+  allActsUnlocked(): boolean {
+    return this.save.unlockAll;
+  }
+
   /** True when a stage was cleared on this save (acts 1..n, the boss arena n + 1). */
   isCleared(zone: string, stage: number): boolean {
     return this.save.isCleared(zone, stage);
@@ -333,7 +338,7 @@ class HubClientImpl {
       const rank = par === null ? null : rankFor(timeSec, par, clean).rank;
       const previousBest = this.save.bestTime(zone, act);
       const previousRank = this.save.bestRank(zone, act);
-      const best = this.save.recordClear(zone, act, timeSec, rank);
+      this.save.recordClear(zone, act, timeSec, rank);
       this.lastClear = {
         zone,
         act,
@@ -346,8 +351,9 @@ class HubClientImpl {
         clean,
       };
       // The board takes a clean run's honest time only (and only Zone 1 Act 1).
+      // This run's own time: the saved best may come from an unclean run or the old rewinding clock.
       if (zone === BOARD_ZONE && act === BOARD_ACT && clean) {
-        void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, best, { zone, act }));
+        void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, timeSec, { zone, act }));
       }
       // One key per clear: the attempt's run id is part of the id, so two
       // attempts that clear the same act in the same time are two reports.

@@ -347,7 +347,7 @@ Web Audio, unlocked by the first key press, click or tap.
 | Screen | |
 |---|---|
 | Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; BACK and HUB (straight to the hub). Acts unlock by progress (`isActUnlocked`: the act before it cleared on this save, or already cleared itself); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`) and best rank, and each act button carries its best rank letter. The dev menu and `?zone=` are not gated. |
+| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; BACK and HUB (straight to the hub). Acts unlock by progress on a new save (`isActUnlocked`: the act before it cleared, or already cleared itself); a save that existed before progress v2 keeps every act open (`unlock_all`); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`) and best rank, and each act button carries its best rank letter. The dev menu and `?zone=` are not gated. |
 | HUD | Score, time, tickets, lives, power-ups; speed lines; the teaching prompt line |
 | Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart (from the checkpoint, no life lost; the run is no longer clean), Restart Act (the whole stage as a fresh attempt from 0:00), Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title, Send feedback. The controls panel lists the moves, the extra ones while they are on |
 | Feedback (`feedback.ts`) | N twice, or SEND FEEDBACK in the pause menu, opens the hub SDK's feedback window (a DOM overlay; `installFeedback`, hub repo `docs/feedback.md`). `Feedback.install(canvas)` runs at boot before any other key listener, so the game never sees N or the keys typed in the window. While it is open `tree.suspended` freezes everything and closing restores the exact state. Sends the scene id, mode, player position and state, level time, build id, crash-guard errors and breadcrumbs (act start, checkpoint, death, act clear, boss start/phase/defeat, scene changes). Signed-in hub players only; standalone shows a one-line toast |
@@ -388,7 +388,7 @@ Web Audio, unlocked by the first key press, click or tap.
   save; `lastClear` holds the clear the tally is showing.
 - Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
   key unique to that attempt (the server grants the HPOS10I Core and pets).
-- Only Zone 1 Act 1 posts to `hpos10i_act_time` (the server keeps one time
+- Only Zone 1 Act 1 posts to `hpos10i_act_time`, only from a clean run, and it posts that run's own time (never the saved best) (the server keeps one time
   per player for this game and ignores unranked runs).
 - The Ticket→Verse exchange is not offered: the server refuses it for this game.
 - `exitToHub()`: flushes the outbox, returns to `<hubUrl>#from=hpos10i`.
@@ -400,7 +400,7 @@ Web Audio, unlocked by the first key press, click or tap.
   plus `extras_allowed` for the extra moves and item boxes.
 - `progress.json` is versioned (`PROGRESS_VERSION` 2): `cleared`
   (`zone:stage`, acts and boss arenas), `best_times` (seconds on the attempt
-  clock), `best_ranks` (`S`..`D` per act; added in v2, empty after migration)
+  clock), `best_ranks` (`S`..`D` per act; added in v2, empty after migration), `unlock_all` (set by the migration from v0 or v1, never on a new save: every act stays open)
   and `emeralds`. Every write folds in what another tab saved (clears, lower
   times, better ranks, emeralds). A blob from a newer build is never rewritten.
 - Saves: `localStorage` keys `hpos10i/progress.json`,

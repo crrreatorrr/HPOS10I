@@ -5,8 +5,8 @@
 //
 // Acts unlock by progress: the first act is always open, and every other act
 // opens once the act before it (the last act of the zone before, for an
-// Act 1) has been cleared on this save. An act that was cleared before stays
-// open. BOSS opens once the zone's last act is cleared; it starts the boss
+// Act 1) has been cleared on this save. That is for new saves: a save that
+// existed before this rule keeps every act open, as it always had them. BOSS opens once the zone's last act is cleared; it starts the boss
 // arena (stage acts + 1) for practice, and a boss beaten before banks no hub
 // Tickets (HubClient). The line under the rows shows the focused act's saved
 // best time ("m:ss.cc", or "--:--") and best rank, and each act button
@@ -82,12 +82,13 @@ export const HINT_TOUCH = 'TAP AN ACT TO START     TAP BACK FOR THE TITLE';
 /**
  * Acts unlock by progress: the very first act is open; any other needs the act
  * before it cleared (across zones, bosses not counted), or to have been
- * cleared itself already (saves from before the rule keep what they played).
+ * cleared itself already. A save from before the rule (progress v0 or v1,
+ * when every act could be picked) keeps every act open.
  */
 export function isActUnlocked(zoneId: string, act: number): boolean {
   const zones = ZoneRegistry.allZones(false);
   const zi = zones.findIndex((z) => z.id === zoneId);
-  if (zi < 0) return true;
+  if (zi < 0 || HubClient.allActsUnlocked()) return true;
   if (HubClient.isCleared(zoneId, act)) return true;
   if (act > 1) return HubClient.isCleared(zoneId, act - 1);
   if (zi === 0) return true;

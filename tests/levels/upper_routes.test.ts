@@ -49,12 +49,13 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [11560, -640], deckY: -640, deck: [11840, 13520], jumpAt: 11744, speed: 5 },
   ],
   'src/levels/data/z2_wizard_academy/act2.json': [
-    { from: [2320, -144], deckY: -224, deck: [2368, 3808] },
-    { from: [4656, -272], deckY: -352, deck: [4704, 5360] },
     // Level with the breakable-wall tunnel's roof: a running jump over the 64 px gap.
     { from: [14400, -576], deckY: -576, deck: [14656, 15968], jumpAt: 14560, speed: 5 },
     // Staying on the upper floor where the ramp goes down.
-    { from: [19560, -832], deckY: -832, deck: [19856, 21264], jumpAt: 19760, speed: 5 },
+    { from: [19650, -832], deckY: -832, deck: [19856, 21264], jumpAt: 19760, speed: 5 },
+    // Staying level where the finale's floor drops.
+    { from: [28800, -640], deckY: -640, deck: [29088, 29920], jumpAt: 28990, speed: 5 },
+    { from: [29860, -512], deckY: -512, deck: [30144, 31008], jumpAt: 30046, speed: 5 },
   ],
   // Zone 3: the decks stay level where a roof pitches down; each is a running jump over a 64 px gap.
   'src/levels/data/z3_capital_mansion/act1.json': [

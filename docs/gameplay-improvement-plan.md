@@ -5,15 +5,20 @@
 Implemented on branch `claude/trusting-ramanujan-63h582` (2026-11-11), except as listed here.
 Sections 2 to 10 are the plan as written and describe the game before the work.
 
-- Done: A1 to A7, B1 to B3, C1 to C5, D1, and the level passes (D2 to D5) for Zones 1 to 3.
+- Done: A1 to A7, B1 to B3, C1 to C5, D1, and D4 and D5 for Zones 1 to 3.
 - B2 rides the existing EXTRA MOVES option instead of a row of its own.
 - A6 also keeps item boxes 384 px from pits and 512 px before a climb, and gives Zone 4 no speed
   shoes; with that the Zone 4 route pilot finishes both acts with the shipped hooks on.
-- D2: Zone 2 bumps are fewer than one in three (they cost the bots time before an enemy).
+- A7: the Zone 4 Act 1 ram drops only on a player who stays in its lane for 1.5 s.
+- 4b applies to new saves only: a save from before progress v2 keeps every act open.
+- D2 and D3 were built, failed QA and were cut back. Holding a direction cannot climb a 1:2 slope
+  from rest, and without the hurdle blocks and stairs the runner bots walked into every enemy.
+  What remains: the staircases that go DOWN in Zone 2 are 1:2 ramps (nine in all). Up-stairs,
+  hurdle blocks, lifts and enemy positions are as before. Zone 3 Act 1 has no ramps: with them
+  the bots cleared it faster than Zone 2 Act 2, which the bot test forbids.
 - Not done: Zone 4 checkpoints and the Zone 4 Act 2 route share (D4, D5 for Zone 4), D6, the
   recomputation of the pars (C2 keeps the plan's values) and re-recording `tests/levels/inputs/`.
-- Not reached: the pilot pace targets in Zone 2 and Zone 3 Act 2, and the airborne targets in
-  Zone 3. The QA pilot's time moves 10 to 15 % when one enemy moves, so pace is a noisy measure.
+- Not reached: the sloped-floor, blocking-step and pilot pace targets for Zones 2 and 3.
 - Decisions taken as recommended: 1b, 2b, 3b, 4b, 6. Decision 5 (the emerald's name) is unchanged.
 
 - First audit: 2026-11-09, commit `85fb306`.

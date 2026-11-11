@@ -19,7 +19,7 @@ import { ENEMY_SCENES, registerEnemies } from '../../src/levels/registry_enemies
 import { registerObjects } from '../../src/levels/registry_objects';
 import { registerCoreTypes } from '../../src/levels/scenes';
 import { Node, Node2D, ProcessMode } from '../../src/runtime/node';
-import { StaticBody2D } from '../../src/runtime/physics';
+import { polygonShape, StaticBody2D } from '../../src/runtime/physics';
 import { Rect2, Vec2 } from '../../src/runtime/vec2';
 import * as L from '../../tools/qa/level_lint';
 import { qa } from '../helpers/qa';
@@ -306,6 +306,32 @@ describe('flow and hazard rules self-test (fixtures)', () => {
 });
 
 describe('enemy placement rules (test_enemy_placement_rules.gd)', () => {
+  it('a ground enemy on or just past the top of a climb is an error; one well past it, or at the foot, is not', () => {
+    for (const [dx, flagged] of [
+      [20, true],
+      [100, true],
+      [200, false],
+      [-360, false],
+    ] as const) {
+      SceneRouter.zoneId = 'test_zone';
+      SceneRouter.stage = 1;
+      const w = qa.world();
+      // Flat at y 0, a 1:2 climb of 96 px from x 0 to x 192, then flat at y -96.
+      qa.rect(w, new Rect2(-600, 0, 1400, 300));
+      const hillBody = new StaticBody2D('Hill');
+      hillBody.collisionLayer = 1;
+      hillBody.addShape(polygonShape([new Vec2(0, 0), new Vec2(192, -96), new Vec2(800, -96), new Vec2(800, 0)]));
+      w.addChild(hillBody);
+      const e = ENEMY_SCENES['res://levels/enemies/walker.tscn']!() as Node2D;
+      if (isConfigurable(e)) e.applyProps(Props.of({}));
+      e.position = new Vec2(192 + dx, dx < -192 ? 0 : -96);
+      e.processMode = ProcessMode.DISABLED;
+      w.addChild(e);
+      step(2);
+      expect(rules(L.lint(w), 'error').includes('enemy.crest'), `enemy ${dx} px past the crest`).toBe(flagged);
+    }
+  });
+
   for (const [height, flagged] of [
     [100, true],
     [140, false],

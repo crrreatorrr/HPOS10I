@@ -9,7 +9,8 @@
 // platformDelta()) is taken out of the static scan and stopped.
 //
 // lint(root)            geometry rules from the physics review (loops, spawns,
-//                       tunnels, steps, narrow tops, fillets, momentum, diver posts)
+//                       tunnels, steps, narrow tops, fillets, momentum, diver
+//                       posts, no ground enemy on or just past a crest)
 // measure(root)         the difficulty measures of an act (length in screens,
 //                       enemies and tiers, checkpoints, tickets, direction, the
 //                       opening/middle/finale ramp, safe spots)
@@ -77,6 +78,8 @@ const CLIMB_ANGLE = 22;
 const MIN_RUNUP = 64;
 const CHECKPOINT_REACH = 160;
 const DIVER_MIN_POST = 120;
+/** No ground enemy this close past the top of a climb. */
+const CREST_REACH = 112;
 
 // --- Constants (qa_difficulty.gd) ------------------------------------------------------
 
@@ -622,6 +625,29 @@ function checkMomentum(out: Finding[], columns: Column[], spots: [string, Vec2][
   }
 }
 
+/**
+ * No ground enemy on, or within CREST_REACH px past, the top of a climb: a
+ * player knocked back there lands on the up-slope, crawls up and is hit again.
+ */
+function checkCrests(out: Finding[], root: Node, columns: Column[], bounds: Rect2): void {
+  for (const e of root.findChildren<Enemy>((n) => n instanceof Enemy)) {
+    const at = e.globalPosition;
+    const floor = ray(at.sub(new Vec2(0, 8)), at.add(new Vec2(0, 40)), FLOOR_MASK);
+    if (!floor) continue; // a flyer
+    const fy = floor.position.y;
+    const i = Math.round((at.x - (bounds.x + 1)) / SCAN_STEP);
+    for (let k = 1; k <= CREST_REACH / SCAN_STEP; k++) {
+      const c = columns[i - k];
+      if (!c || c.skipped) break;
+      const slope = c.floors.find((f) => f.angle >= CLIMB_ANGLE && f.angle <= 80 && f.y >= fy - 4 && f.y <= fy + 20);
+      if (slope) {
+        add(out, 'error', 'enemy.crest', at, `${e.name} stands ${f0(at.x - c.x)} px past the top of a ${f0(slope.angle)} deg climb (keep enemies ${CREST_REACH} px clear of a crest)`);
+        break;
+      }
+    }
+  }
+}
+
 /** Diver posts must hang at least 120 px above the floor beneath them (BUG-Z2-01). */
 function checkDiverPosts(out: Finding[], root: Node): void {
   for (const node of root.findChildren<Diver>((n) => n instanceof Diver)) {
@@ -656,6 +682,7 @@ export function lint(root: Node2D): Finding[] {
   checkTunnels(out, columns);
   checkFloors(out, columns);
   checkMomentum(out, columns, spots);
+  checkCrests(out, root, columns, bounds);
   checkDiverPosts(out, root);
   return out;
 }

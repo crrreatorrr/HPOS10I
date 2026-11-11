@@ -3,6 +3,7 @@ import type { Gfx } from '../../../runtime/gfx';
 import { Node2D } from '../../../runtime/node';
 import { tree } from '../../../runtime/tree';
 import { Rect2, Vec2 } from '../../../runtime/vec2';
+import { LevelFx } from '../../common/level_fx';
 import { MovingBody } from '../../common/moving_body';
 import type { Configurable, Props } from '../../common/props';
 import { drawHazardFrame, HazardArt } from './hazard_art';
@@ -11,6 +12,8 @@ import { HazardCycle } from './hazard_cycle';
 const metal = Color.hex('#3b3f57');
 const light = Color.hex('#b4a1b6');
 const warning = Color.hex('#ffbd59');
+/** A player this far past the ram's side is still in its lane (his half width). */
+const LANE_MARGIN = 10;
 
 /** Anchored to the ceiling or floor, even while the parent ram interpolates. */
 class RamFixture extends Node2D {
@@ -46,6 +49,16 @@ export class CeilingRam extends MovingBody implements Configurable {
    * never on the clock. 0: the ram cycles on a fixed timer.
    */
   wakeRadius = 0;
+  /**
+   * With a wake radius: the ram warns for as long as a player is near and
+   * comes down only once a player has stayed in its lane this many frames in
+   * a row. Whatever the speed of the approach, someone who keeps moving is
+   * through before it drops (walking the lane takes under a second); only
+   * waiting under the flashing ram is crushed. 0: the clock decides (rest,
+   * warning, drop).
+   */
+  dwellFrames = 0;
+  private laneFrames = 0;
   private armed = false;
   readonly cycle = new HazardCycle();
   private readonly mount = new RamFixture(this, true);
@@ -68,6 +81,7 @@ export class CeilingRam extends MovingBody implements Configurable {
     this.travel = Math.max(1, p.num('travel', this.travel));
     this.suspension = Math.max(0, p.num('suspension', this.suspension));
     this.wakeRadius = Math.max(0, p.num('wake_radius', this.wakeRadius));
+    this.dwellFrames = Math.max(0, p.int('dwell_frames', this.dwellFrames));
     this.cycle.applyProps(p);
     // A stationary player needs time to accelerate out of a crushing lane.
     this.cycle.warning = Math.max(1, this.cycle.warning);
@@ -83,6 +97,10 @@ export class CeilingRam extends MovingBody implements Configurable {
   }
 
   override physicsProcess(): void {
+    if (this.wakeRadius > 0 && this.dwellFrames > 0) {
+      this.dwellStep();
+      return;
+    }
     if (this.wakeRadius > 0 && (!this.armed || this.cycle.phase === 'rest')) {
       const floor = this.plate.globalPosition;
       const near = tree.getNodesInGroup<Node2D>('player').some((p) => {
@@ -98,6 +116,39 @@ export class CeilingRam extends MovingBody implements Configurable {
       this.armed = true;
     }
     this.cycle.step(this, this.travel);
+    const offset = this.cycle.amount * this.travel;
+    this.moveTo(this.home.add(new Vec2(0, offset)));
+    this.positionFixtures(offset);
+  }
+
+  /** The dwell-triggered cycle: warn while a player is near, drop when one has stayed in the lane. */
+  private dwellStep(): void {
+    const floor = this.plate.globalPosition;
+    const players = tree.getNodesInGroup<Node2D>('player').map((p) => p.globalPosition);
+    const moving = this.cycle.phase === 'extend' || this.cycle.phase === 'hold' || this.cycle.phase === 'retract';
+    if (moving) {
+      this.cycle.step(this, this.travel);
+      this.laneFrames = 0;
+    } else {
+      const near = players.some((at) => Math.abs(at.x - floor.x) <= this.wakeRadius && Math.abs(at.y - floor.y) < 80);
+      if (!near) {
+        if (this.cycle.phase !== 'rest' || this.cycle.elapsed !== 0) this.cycle.reset();
+        this.laneFrames = 0;
+      } else {
+        if (this.cycle.phase !== 'warning') {
+          this.cycle.force('warning');
+          LevelFx.playTelegraph();
+        }
+        this.cycle.elapsed++;
+        const half = this.width / 2 + LANE_MARGIN;
+        const inLane = players.some((at) => Math.abs(at.x - floor.x) <= half && Math.abs(at.y - floor.y) < 80);
+        this.laneFrames = inLane ? this.laneFrames + 1 : 0;
+        if (this.laneFrames >= this.dwellFrames) {
+          this.laneFrames = 0;
+          this.cycle.force('extend');
+        }
+      }
+    }
     const offset = this.cycle.amount * this.travel;
     this.moveTo(this.home.add(new Vec2(0, offset)));
     this.positionFixtures(offset);
