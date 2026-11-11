@@ -113,7 +113,7 @@ const CODE_PREFIX = 'code:';
  * and hard checkpoint gap are errors. An act joins the list when its flow
  * pass lands; elsewhere the same findings are warnings.
  */
-export const FLOW_ENFORCED: ReadonlySet<string> = new Set<string>([]);
+export const FLOW_ENFORCED: ReadonlySet<string> = new Set<string>(['z1_retro_rush_hills:1']);
 export const SECTIONS = ['opening', 'middle', 'finale'] as const;
 export type SectionName = (typeof SECTIONS)[number];
 
