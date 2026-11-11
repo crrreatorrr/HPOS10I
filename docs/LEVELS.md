@@ -43,7 +43,12 @@ the lead.
    - give every climb a run-up, a booster or a gentler approach;
    - never put a steep hill right after a checkpoint.
 5. **Readable direction.** When the way forward isn't simply "right":
-   - Signal it with level art (arrows, lit doors, ticket trails).
+   - Signal it with level art (lit doors, ticket trails). There is no
+     arrow sign object yet; it needs sprite art.
+   - Moves are taught where they are first needed, with a one-line prompt
+     on the HUD (a `PromptZone`): Zone 1 Act 1 has three (the spin dash at
+     the foot of the first hill for a player who stops there, the first
+     enemy, and keeping speed into the first loop).
    - Never require backtracking more than 3 screens without a visible
      reason.
 6. **Generosity tapers off.**

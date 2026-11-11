@@ -265,6 +265,12 @@ viewRect()
   (`src/levels/builder/`).
 - Added to every act at runtime (`src/levels/content.ts`): item boxes along
   the route (off in Ranked and by option), the 10:00 time limit, impact feel.
+- Teaching prompts: a `PromptZone` (`hpos://objects/prompt_zone`; props
+  `prompt`, `width`, `height`, `on_entry`) calls `Prompts.show(key)`
+  (`src/core/prompts.ts`) when Sproto enters it (`on_entry`) or stands in it
+  under 1 px/frame for 60 frames. The HUD draws the line for 5 s, worded from
+  the bindings of the device in use (`src/ui/hud/prompt_line.ts`). Each key
+  shows once per run (cleared by `GameState.levelStarted`). Text only.
 - Backdrop: 4 parallax layers (scroll 0.1 / 0.3 / 0.6 / 0.9) from
   `assets/backgrounds/<zone>/1_far.png` … `4_near.png` when they exist,
   placeholder layers drawn in code otherwise.
@@ -338,7 +344,7 @@ Web Audio, unlocked by the first key press, click or tap.
 |---|---|
 | Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
 | Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; BACK and HUB (straight to the hub). Acts unlock by progress (`isActUnlocked`: the act before it cleared on this save, or already cleared itself); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`). The dev menu and `?zone=` are not gated. |
-| HUD | Score, time, tickets, lives, power-ups |
+| HUD | Score, time, tickets, lives, power-ups; speed lines; the teaching prompt line |
 | Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title |
 | Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |

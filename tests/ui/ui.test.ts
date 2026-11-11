@@ -24,6 +24,9 @@ import { EndingScreen } from '../../src/ui/ending/ending';
 import { GameOverScreen } from '../../src/ui/game_over/game_over';
 import { Hud } from '../../src/ui/hud/hud';
 import { SpeedLines } from '../../src/ui/hud/speed_lines';
+import { promptLine } from '../../src/ui/hud/prompt_line';
+import { Prompts } from '../../src/core/prompts';
+import { measure } from '../../src/ui/common/theme';
 import { EXTRA_MOVES_LINES, MOVES_LINE, OPTION_ROWS, PauseMenu } from '../../src/ui/pause/pause_menu';
 import { RotateHint } from '../../src/ui/rotate_hint';
 import { installUi, registerUiScenes } from '../../src/ui/setup';
@@ -1044,6 +1047,26 @@ describe('Hud', () => {
     Settings.set('speedEffects', true);
     lines.update(1 / 60, { ...(runner as object), groundSpeed: 5 } as never);
     expect(lines.streaks()).toEqual([]);
+  });
+
+  it('shows the teaching prompt a level asked for, worded for the device, then lets it go', () => {
+    const hud = new Hud();
+    tree.root.addChild(hud);
+    expect(hud.promptText()).toBe('');
+    Prompts.reset();
+    Prompts.show('spindash');
+    expect(hud.promptText()).toBe('HOLD DOWN, TAP Z, LET GO: SPIN DASH');
+    Display.setTouch(true);
+    expect(hud.promptText()).toBe('HOLD DOWN, TAP JUMP, LET GO: SPIN DASH');
+    Display.setTouch(false);
+    expect(measure(hud.promptText(), 'outline')).toBeLessThanOrEqual(416);
+    expect(measure(promptLine('enemy', 'keyboard'), 'outline')).toBeLessThanOrEqual(416);
+    drawAll(hud, fakeGfx());
+    frames(60 * 6);
+    expect(hud.promptText()).toBe('');
+    expect(Prompts.show('spindash')).toBe(false); // once per run
+    Prompts.reset();
+    hud.free();
   });
 
   it('moves the lives box for touch controls', () => {
