@@ -23,6 +23,7 @@ import { EmeraldIcon } from '../../src/ui/emerald/emerald_icon';
 import { EndingScreen } from '../../src/ui/ending/ending';
 import { GameOverScreen } from '../../src/ui/game_over/game_over';
 import { Hud } from '../../src/ui/hud/hud';
+import { SpeedLines } from '../../src/ui/hud/speed_lines';
 import { EXTRA_MOVES_LINES, MOVES_LINE, OPTION_ROWS, PauseMenu } from '../../src/ui/pause/pause_menu';
 import { RotateHint } from '../../src/ui/rotate_hint';
 import { installUi, registerUiScenes } from '../../src/ui/setup';
@@ -887,6 +888,31 @@ describe('Hud', () => {
     ]);
     hud.free();
     fake.free();
+  });
+
+  it('speed lines fade in above top running speed and follow the speed effects option', () => {
+    expect(SpeedLines.strengthFor(4)).toBe(0);
+    expect(SpeedLines.strengthFor(6)).toBe(0);
+    expect(SpeedLines.strengthFor(9)).toBeCloseTo(0.5, 6);
+    expect(SpeedLines.strengthFor(-12)).toBe(1);
+    expect(SpeedLines.strengthFor(16)).toBe(1);
+    const lines = new SpeedLines();
+    const runner = { state: 'run', grounded: true, groundSpeed: 9, groundAngle: 0, velocity: new Vec2(9, 0) } as unknown as Parameters<SpeedLines['update']>[1];
+    lines.update(1 / 60, runner);
+    expect(lines.strength).toBeCloseTo(0.5, 6);
+    const streaks = lines.streaks();
+    expect(streaks.length).toBeGreaterThanOrEqual(6);
+    expect(streaks.length).toBeLessThanOrEqual(10);
+    // Edge bands only: never across the middle of the screen.
+    for (const s of streaks) expect(s.y < 64 || s.y > 240 - 64).toBe(true);
+    expect(() => lines.paint(fakeGfx())).not.toThrow();
+    Settings.set('speedEffects', false);
+    lines.update(1 / 60, runner);
+    expect(lines.strength).toBe(0);
+    expect(lines.streaks()).toEqual([]);
+    Settings.set('speedEffects', true);
+    lines.update(1 / 60, { ...(runner as object), groundSpeed: 5 } as never);
+    expect(lines.streaks()).toEqual([]);
   });
 
   it('moves the lives box for touch controls', () => {

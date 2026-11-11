@@ -8,6 +8,7 @@
 // GameState.levelTime for the clock (read every frame). At 0 tickets the
 // TICKETS counter flashes red: the next hit costs a life. In touch mode the
 // lives box moves under the counters so the on-screen pad does not cover it.
+// Under the counters it draws the speed lines (speed_lines.ts).
 
 import { GameState } from '../../core/game_state';
 import { Color } from '../../runtime/color';
@@ -17,6 +18,7 @@ import type { Player } from '../../player/player';
 import { PixelArt } from '../common/pixel_art';
 import { COLORS, drawText, UiLayer } from '../common/theme';
 import { Display } from '../display';
+import { SpeedLines } from './speed_lines';
 
 /** Seconds per on/off cycle of the 0-ticket warning flash. */
 export const FLASH_PERIOD = 0.5;
@@ -49,6 +51,7 @@ export class Hud extends UiLayer {
   private flashClock = 0;
   private warningLit = false;
   private clock = 0;
+  readonly speedLines = new SpeedLines();
 
   constructor() {
     super('HUD', 10);
@@ -75,6 +78,7 @@ export class Hud extends UiLayer {
 
   override process(delta: number): void {
     this.clock += delta;
+    this.speedLines.update(delta, this.isInsideTree() ? this.tree.getFirstNodeInGroup<Player>('player') : null);
     this.updateTime();
     this.flashClock = (this.flashClock + delta) % FLASH_PERIOD;
     this.updateWarning();
@@ -144,6 +148,7 @@ export class Hud extends UiLayer {
   };
 
   protected override paint(g: Gfx): void {
+    this.speedLines.paint(g);
     // Counters (offsets from hud.tscn).
     drawText(g, 'SCORE', 18, 5, 'hudLabel');
     drawText(g, this.scoreText, 74, 5, 'hudValue', { align: 'right', width: 62 });
