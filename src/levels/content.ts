@@ -33,6 +33,8 @@ const BOX_SPACING = 424 * 5;
 const CLEAR_RADIUS = 56;
 /** No pit (a column with no floor under it at all) this close to a box, either way: about one bounce at running speed. */
 const PIT_CLEAR = 384;
+/** No up-slope this far ahead of a box (to the right, the way acts run). */
+const CLIMB_CLEAR = 512;
 const FLOOR_MASK = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A;
 /** Offsets tried around each target x, nearest first (up to 1.5 screens either way). */
 const SEARCH_OFFSETS: readonly number[] = [0, ...Array.from({ length: 20 }, (_, i) => [(i + 1) * 32, -(i + 1) * 32]).flat()];
@@ -94,10 +96,11 @@ function floorNear(x: number, y: number): number | null {
 
 /**
  * True when the ground stays level around x: flat under the box and its
- * approach, no slope foot or downhill bottom within a few tiles, and no pit
- * within a bounce, so a box never stops a runner coming down a hill, never
- * sits where a jump over it lands on an up-slope, and never bounces a
- * player who lands on it into a pit.
+ * approach, no slope foot or downhill bottom within a few tiles, no climb
+ * within 512 px ahead, and no pit within a bounce, so a box never stops a
+ * runner coming down a hill, never sits where a jump over it lands on an
+ * up-slope, never leaves a player who rolled through it rolling into a
+ * climb, and never bounces a player who lands on it into a pit.
  */
 function levelGround(x: number, y: number, bottom: number): boolean {
   for (let dx = -PIT_CLEAR; dx <= PIT_CLEAR; dx += 16) {
@@ -113,6 +116,12 @@ function levelGround(x: number, y: number, bottom: number): boolean {
     if (Math.abs(dx) > 256) continue;
     const limit = Math.abs(dx) <= 96 ? 1 : 8;
     if (Math.abs(f - y) > limit) return false;
+  }
+  // No climb within a roll's reach ahead: a player who rolls through the box
+  // must not meet an up-slope before he is back on his feet.
+  for (let dx = 256 + 16; dx <= CLIMB_CLEAR; dx += 16) {
+    const f = floorNear(x + dx, y);
+    if (f !== null && y - f > 8) return false;
   }
   return true;
 }

@@ -47,7 +47,7 @@ const TARGETS: Record<number, ActTargets> = {
   0: { screens: 20, par_seconds: 45, enemies_per_screen: 0.2, tiers: { 1: 100 }, direction: 1, checkpoints: 2, tickets_per_screen: 6.0 },
   1: { screens: 45, par_seconds: 80, enemies_per_screen: 0.4, tiers: { 1: 100 }, direction: 1, checkpoints: 3, tickets_per_screen: 5.0 },
   2: { screens: 55, par_seconds: 115, enemies_per_screen: 0.6, tiers: { 1: 75, 2: 25 }, direction: 2, checkpoints: 6, tickets_per_screen: 4.5 },
-  3: { screens: 55, par_seconds: 120, enemies_per_screen: 0.8, tiers: { 1: 45, 2: 40, 3: 15 }, direction: 3, checkpoints: 4, tickets_per_screen: 4.0 },
+  3: { screens: 55, par_seconds: 120, enemies_per_screen: 0.8, tiers: { 1: 45, 2: 40, 3: 15 }, direction: 3, checkpoints: 5, tickets_per_screen: 4.0 },
   4: { screens: 65, par_seconds: 175, enemies_per_screen: 1.0, tiers: { 1: 25, 2: 45, 3: 30 }, direction: 4, checkpoints: 5, tickets_per_screen: 4.0 },
   5: { screens: 65, par_seconds: 140, enemies_per_screen: 1.1, tiers: { 2: 50, 3: 40, 4: 10 }, direction: 4, checkpoints: 5, tickets_per_screen: 3.5 },
   6: { screens: 75, par_seconds: 190, enemies_per_screen: 1.2, tiers: { 2: 35, 3: 45, 4: 20 }, direction: 4, checkpoints: 6, tickets_per_screen: 3.5 },

@@ -42,6 +42,11 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [14160, -368], deckY: -448, deck: [14224, 15376] },
     { from: [25344, -48], deckY: -128, deck: [25392, 26352] },
   ],
+  'src/levels/data/z2_wizard_academy/act1.json': [
+    { from: [1984, -192], deckY: -272, deck: [2080, 3424] },
+    // Staying on the upper level: a running jump over the 64 px gap where the ramp goes down.
+    { from: [11560, -640], deckY: -640, deck: [11840, 13520], jumpAt: 11744, speed: 5 },
+  ],
 };
 
 const FLOOR = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY;
