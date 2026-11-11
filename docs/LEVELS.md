@@ -109,19 +109,47 @@ first draft, with more checkpoints so a death never sends you far back.
 
 | Act | D | Screens | Par time | Enemies/screen | Tier mix | Direction | New idea (teach → test → twist) | Checkpoints | Tickets/screen |
 |---|---|---|---|---|---|---|---|---|---|
-| Test zone | 0 | ~20 | 1:00 | 0.2 | T1 | R1 | Everything, gently | 2 | 6 |
-| Z1 Act 1 | 1 | 45 | 2:30 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
-| Z1 Act 2 | 2 | 55 | 3:15 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 4 | 4.5 |
+| Test zone | 0 | ~20 | 0:45 | 0.2 | T1 | R1 | Everything, gently | 2 | 6 |
+| Z1 Act 1 | 1 | 45 | 1:20 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
+| Z1 Act 2 | 2 | 55 | 1:55 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 4 | 4.5 |
 | Z1 Boss (Rug Pull) | 2.5 | arena | – | – | – | – | – | – | – |
-| Z2 Act 1 | 3 | 55 | 3:30 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves | 4 | 4 |
-| Z2 Act 2 | 4 | 65 | 4:15 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase | 5 | 4 |
+| Z2 Act 1 | 3 | 55 | 2:00 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves | 4 | 4 |
+| Z2 Act 2 | 4 | 65 | 2:55 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase | 5 | 4 |
 | Z2 Boss (Library Demon) | 4.5 | arena | – | – | – | – | – | – | – |
-| Z3 Act 1 | 5 | 65 | 4:15 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run into ballrooms; doors and switches that open shortcuts | 5 | 3.5 |
-| Z3 Act 2 | 6 | 75 | 5:00 | 1.2 | T2 35 / T3 45 / T4 20 | R4 | Underground bunker: vertical shafts up AND down, timed security beams, the exit reached by travelling left | 6 | 3.5 |
+| Z3 Act 1 | 5 | 65 | 2:20 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run into ballrooms; doors and switches that open shortcuts | 5 | 3.5 |
+| Z3 Act 2 | 6 | 75 | 3:10 | 1.2 | T2 35 / T3 45 / T4 20 | R4 | Underground bunker: vertical shafts up AND down, timed security beams, the exit reached by travelling left | 6 | 3.5 |
 | Z3 Boss (Broccoli Head) | **8** | arena | – | – | – | – | – | – | – |
-| Z4 Act 1 | 7 | 75 | 5:00 | 1.3 | T2 30 / T3 40 / T4 30 | R5 | Zone 1 ideas remixed at speed: reverse runs (right to left), vanishing neon platforms | 6 | 3 |
-| Z4 Act 2 | 8 | 85 | 5:45 | 1.4 | T3 50 / T4 50 | R5 | A spiral ascent to the rooftop: everything combined, crossfire, timed platforms over pits | 7 | 3 |
+| Z4 Act 1 | 7 | 75 | 3:35 | 1.3 | T2 30 / T3 40 / T4 30 | R5 | Zone 1 ideas remixed at speed: reverse runs (right to left), vanishing neon platforms | 6 | 3 |
+| Z4 Act 2 | 8 | 85 | 4:30 | 1.4 | T3 50 / T4 50 | R5 | A spiral ascent to the rooftop: everything combined, crossfire, timed platforms over pits | 7 | 3 |
 | Z4 Boss (The Executive) | **10** | arena | – | – | – | – | – | – | – |
+
+## Par, ranks and replay
+
+Par (`par_seconds` in `src/core/difficulty.ts`) is 1.5 × the best deathless
+bot time on the act (the faster of the QA pilot and the naive runner; the
+route pilot for Zone 4), rounded up to 5 s. It is recomputed when a level
+changes. A clear is ranked by r = time / par, on the attempt clock
+(`GameState.attemptTime`: every tick since the act started, never rewound by
+a death or a restart):
+
+| r at or under | Rank | Time bonus |
+|---|---|---|
+| 0.70 | S | 20,000 |
+| 0.85 | A | 12,000 |
+| 1.00 | B | 8,000 |
+| 1.50 | C | 3,000 |
+| 2.00 | D | 1,000 |
+| above | D | 0 |
+
+- A run with a death or a checkpoint restart is capped at A. The pause menu's
+  RESTART ACT starts a fresh attempt from 0:00.
+- The best time and best rank of every act are saved and shown on the zone
+  select; the tally shows NEW BEST and a new rank; the ending lists all eight
+  ranks.
+- Enemies popped without touching the ground score 100, 200, 400, 800, then
+  1,000 each.
+- The HUD clock still rewinds to the checkpoint's time after a death, and the
+  10:00 time limit reads the HUD clock.
 
 ## Rising difficulty inside every act
 

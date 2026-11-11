@@ -9,7 +9,8 @@
 // open. BOSS opens once the zone's last act is cleared; it starts the boss
 // arena (stage acts + 1) for practice, and a boss beaten before banks no hub
 // Tickets (HubClient). The line under the rows shows the focused act's saved
-// best time ("m:ss.cc", or "--:--").
+// best time ("m:ss.cc", or "--:--") and best rank, and each act button
+// carries its best rank letter in its top-right corner once it has one.
 //
 // Choosing an act calls SceneRouter.startZone(); BACK
 // (P, Esc, the gamepad B or the button) returns to the title. Arrows / WASD / D-pad /
@@ -41,7 +42,7 @@ import { formatActTime } from '../common/act_time';
 import { InputHints } from '../common/input_hints';
 import { MenuBackdrop } from '../common/menu_backdrop';
 import { MenuList, type Direction, type MenuItem } from '../common/menu';
-import { COLORS, drawCentered, drawPanel, drawText, UiLayer, PANEL_MARGIN_X, PANEL_MARGIN_Y } from '../common/theme';
+import { COLORS, drawButton, drawCentered, drawPanel, drawText, UiLayer, PANEL_MARGIN_X, PANEL_MARGIN_Y } from '../common/theme';
 import { Display } from '../display';
 import { EmeraldIcon } from '../emerald/emerald_icon';
 
@@ -193,6 +194,11 @@ export class ZoneSelect extends Node {
           enabled: open,
           onSelect: () => this.choose(zone.id, act),
           data: { zoneId: zone.id, act },
+          draw: (g, item, state) => {
+            drawButton(g, item.rect, `ACT ${act}`, state);
+            const rank = HubClient.bestRank(zone.id, act);
+            if (rank) drawText(g, rank, item.rect.right - 8, item.rect.y + 1, 'label', { color: COLORS.gold });
+          },
         });
         row.push(open ? index : -1);
         x += BUTTON_W + COL_SEP;
@@ -311,7 +317,7 @@ export class ZoneSelect extends Node {
   infoText(): string {
     const d = this.menu.focused?.data as { zoneId: string; act: number; boss?: boolean } | undefined;
     if (d?.boss) return HubClient.isCleared(d.zoneId, d.act) ? BOSS_REPLAY_NOTE : 'BOSS ARENA';
-    if (d) return `ACT ${d.act}   BEST ${formatActTime(HubClient.bestTime(d.zoneId, d.act))}`;
+    if (d) return `ACT ${d.act}   BEST ${formatActTime(HubClient.bestTime(d.zoneId, d.act))}   RANK ${HubClient.bestRank(d.zoneId, d.act) ?? '-'}`;
     return this.acts.some((a) => !a.open) ? UNLOCK_HINT : '';
   }
 

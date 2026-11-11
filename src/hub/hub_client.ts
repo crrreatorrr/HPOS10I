@@ -13,7 +13,8 @@
 // - Every act clear is reported as hpos10i.level_complete {zone, act}: the
 //   server grants the HPOS10I Core for Zone 1 Act 1 and pets for later acts.
 // - The act-time board keeps one time per player, so only Zone 1 Act 1 posts
-//   to it (a like-for-like time trial; the server ignores unranked runs).
+//   to it (a like-for-like time trial; the server ignores unranked runs), and
+//   only from a clean run. Times are the attempt clock (GameState.attemptTime).
 // - Exit to Hub flushes the SDK outbox and returns to <hubUrl>#from=hpos10i.
 // - With a session, the Ticket balance is read once after init
 //   (getTicketBalance) and then follows earn answers. ticketText() is what
@@ -23,7 +24,9 @@
 // until it is acked.
 
 import { createHubSdk, type HubSdk, type GameId } from '@hub-sdk';
+import { Difficulty } from '../core/difficulty';
 import { GameState } from '../core/game_state';
+import { betterRank, rankFor, type Rank } from '../core/rank';
 import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
 import { HubSave } from './hub_save';
@@ -52,12 +55,20 @@ export type Reach = 'offline' | 'pending' | 'ready';
 export interface ClearResult {
   zone: string;
   act: number;
-  /** Seconds this clear took. */
+  /** Seconds this clear took on the attempt clock (GameState.attemptTime: never rewound). */
   time: number;
   /** The best time saved before this clear (null: the first clear). */
   previousBest: number | null;
   /** True when this clear is the first or beat the saved best. */
   newBest: boolean;
+  /** This clear's rank against the act's par (null: the act has no par). */
+  rank: Rank | null;
+  /** The best rank saved before this clear. */
+  previousRank: Rank | null;
+  /** True when this clear's rank beat the saved one (or is the first). */
+  newRank: boolean;
+  /** False when the attempt had a death or a checkpoint restart (its rank is capped at A). */
+  clean: boolean;
 }
 
 type Payload = Record<string, unknown>;
@@ -198,6 +209,11 @@ class HubClientImpl {
     return this.save.bestTime(zone, act);
   }
 
+  /** The saved best rank of an act, or null. */
+  bestRank(zone: string, act: number): Rank | null {
+    return this.save.bestRank(zone, act);
+  }
+
   /** True when a stage was cleared on this save (acts 1..n, the boss arena n + 1). */
   isCleared(zone: string, stage: number): boolean {
     return this.save.isCleared(zone, stage);
@@ -284,7 +300,8 @@ class HubClientImpl {
     const act = GameState.act;
     if (zone === '') return;
     // Boss arenas are stage acts + 1: they bank tickets but are not acts.
-    const timeMs = Math.round(GameState.levelTime * 1000);
+    // Times are the attempt clock: a death or a restart never shortens them.
+    const timeMs = Math.round(GameState.attemptTime * 1000);
     const timeSec = timeMs / 1000;
     const tickets = Math.trunc(GameState.tickets);
     const zoneDef = SceneRouter.currentZone();
@@ -293,10 +310,25 @@ class HubClientImpl {
     const bossReplay = !isAct && !!zoneDef && act === zoneDef.acts.length + 1 && this.save.isCleared(zone, act);
     if (!isAct && zoneDef && act === zoneDef.acts.length + 1) this.save.recordStageClear(zone, act);
     if (isAct) {
+      const clean = GameState.cleanRun;
+      const par = Difficulty.parFor(zone, act);
+      const rank = par === null ? null : rankFor(timeSec, par, clean).rank;
       const previousBest = this.save.bestTime(zone, act);
-      const best = this.save.recordClear(zone, act, timeSec);
-      this.lastClear = { zone, act, time: timeSec, previousBest, newBest: previousBest === null || timeSec < previousBest };
-      if (zone === BOARD_ZONE && act === BOARD_ACT) {
+      const previousRank = this.save.bestRank(zone, act);
+      const best = this.save.recordClear(zone, act, timeSec, rank);
+      this.lastClear = {
+        zone,
+        act,
+        time: timeSec,
+        previousBest,
+        newBest: previousBest === null || timeSec < previousBest,
+        rank,
+        previousRank,
+        newRank: betterRank(rank, previousRank),
+        clean,
+      };
+      // The board takes a clean run's honest time only (and only Zone 1 Act 1).
+      if (zone === BOARD_ZONE && act === BOARD_ACT && clean) {
         void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, best, { zone, act }));
       }
       // One key per clear: the attempt's run id is part of the id, so two

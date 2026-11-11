@@ -33,6 +33,7 @@ export const TERRAIN_MASK = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layer
 export const WALL_MASK = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A;
 
 export class Enemy extends PlayerArea implements Configurable {
+  /** The score of a single pop (chains pay more: GameState.chainScore()). */
   static readonly SCORE = 100;
   static readonly GRAVITY = 0.21875;
   static readonly MAX_FALL = 16.0;
@@ -106,7 +107,10 @@ export class Enemy extends PlayerArea implements Configurable {
   destroy(by: Player | null = null): void {
     if (!this.alive) return;
     this.alive = false;
-    GameState.addScore(Enemy.SCORE);
+    // An air chain pays more for each enemy popped before Sproto touches the
+    // ground again; a pop from the ground (a roll) starts from 100 every time.
+    if (by?.grounded) GameState.resetChain();
+    GameState.addScore(by ? GameState.chainScore() : Enemy.SCORE);
     Audio.playSfx('enemy_pop');
     if (by) this.bounce(by);
     this.pop();

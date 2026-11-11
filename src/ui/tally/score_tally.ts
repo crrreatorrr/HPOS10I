@@ -10,9 +10,14 @@
 // the act started), a line says "+N Tickets sent to the hub", or that the
 // hub's Ticket limit was reached when the hub refused the earn for a cap.
 //
-// After an act (HubClient.lastClear), a line shows this clear's time and the
-// saved best ("TIME 1:23.45   BEST 1:20.10"), or a flashing NEW BEST! when
-// this clear is the first or beat it.
+// After an act, a line shows this clear's time on the attempt clock
+// (GameState.attemptTime: a death or a restart never shortens it), the saved
+// best (HubClient.lastClear) or a flashing NEW BEST!, and the rank against
+// the act's par ("TIME 1:23.45   BEST 1:20.10   RANK A"; the letter flashes
+// with NEW! when it beat the saved rank). The time bonus comes from the same
+// rank table (src/core/rank.ts): r = time / par, S 20,000 down to D 1,000,
+// nothing past twice the par; a run with a death or a restart is capped at A.
+// Stages with no par (boss arenas, sandboxes) keep the flat table below.
 //
 // Jump (any device) or a tap/click skips the count; once counted, it
 // continues. Timing runs on seconds, so any frame rate gives the same tally.
@@ -21,7 +26,9 @@
 
 import { Audio } from '../../core/audio';
 import { Emeralds } from '../../core/emeralds';
+import { Difficulty } from '../../core/difficulty';
 import { GameState } from '../../core/game_state';
+import { rankFor, type Rank } from '../../core/rank';
 import { ZoneRegistry } from '../../core/zone_registry';
 import { HubClient, type ClearResult } from '../../hub/hub_client';
 import { Color } from '../../runtime/color';
@@ -35,7 +42,7 @@ import { formatActTime } from '../common/act_time';
 import { COLORS, drawPanel, drawText, lineHeight, measure, PANEL_MARGIN_X, PANEL_MARGIN_Y, UiLayer } from '../common/theme';
 import { BIG_SIZE, EmeraldIcon } from '../emerald/emerald_icon';
 
-/** [under this many seconds, bonus]. Slower than the last entry: no bonus. */
+/** Stages with no par: [under this many seconds, bonus]. Slower than the last entry: no bonus. */
 export const TIME_BONUS: readonly [number, number][] = [
   [30, 8000],
   [45, 5000],
@@ -47,6 +54,8 @@ export const TIME_BONUS: readonly [number, number][] = [
 ];
 export const TICKET_BONUS = 100;
 export const NEW_BEST = 'NEW BEST!';
+export const NEW_RANK = 'NEW!';
+const GAP = '   ';
 export const HUB_LIMIT_LINE = 'Hub Ticket limit reached';
 /** Points per second moved into the score while counting (100 a frame at 60). */
 export const COUNT_RATE = 6000;
@@ -102,6 +111,10 @@ export class ScoreTally extends UiLayer {
   private countText = '';
   private banked = 0;
   private clear: ClearResult | null = null;
+  private par: number | null = null;
+  private seconds = 0;
+  /** This clear's rank (null for a stage with no par). */
+  rank: Rank | null = null;
   private panel = new Rect2();
   private rows: { key: string; y: number }[] = [];
   private sep = 3;
@@ -131,7 +144,9 @@ export class ScoreTally extends UiLayer {
     return b && b !== bankedAtStart && b.amount > 0 ? b.amount : 0;
   }
 
-  static timeBonusFor(seconds: number): number {
+  /** The time bonus: from the rank table against `par`, or the flat table when the stage has no par. */
+  static timeBonusFor(seconds: number, par: number | null = null, clean = true): number {
+    if (par !== null) return rankFor(seconds, par, clean).bonus;
     for (const [limit, bonus] of TIME_BONUS) if (seconds < limit) return bonus;
     return 0;
   }
@@ -147,7 +162,10 @@ export class ScoreTally extends UiLayer {
   override ready(): void {
     if (this.zoneId === '') this.zoneId = GameState.zoneId;
     if (this.act <= 0) this.act = GameState.act;
-    this.timeBonus = ScoreTally.timeBonusFor(GameState.levelTime);
+    this.par = Difficulty.parFor(this.zoneId, this.act);
+    this.seconds = GameState.attemptTime;
+    this.rank = this.par === null ? null : rankFor(this.seconds, this.par, GameState.cleanRun).rank;
+    this.timeBonus = ScoreTally.timeBonusFor(this.seconds, this.par, GameState.cleanRun);
     this.ticketBonus = GameState.tickets * TICKET_BONUS;
     this.fillHeading();
     this.countText = `${GameState.emeraldCount()} / ${Emeralds.total()}`;
@@ -163,12 +181,27 @@ export class ScoreTally extends UiLayer {
     return this.clear?.newBest === true;
   }
 
-  /** "TIME m:ss.cc   BEST m:ss.cc" (or NEW BEST!); '' when no act time was recorded. */
-  timesLine(): string {
+  /** True when this clear's rank beat the saved one. */
+  isNewRank(): boolean {
+    return this.clear?.newRank === true;
+  }
+
+  /** The pieces of the times line, left to right ('' = not shown). */
+  private timesParts(): { time: string; best: string; rank: string; fresh: string } {
+    if (this.par === null && !this.clear) return { time: '', best: '', rank: '', fresh: '' };
     const c = this.clear;
-    if (!c) return '';
-    const time = `TIME ${formatActTime(c.time)}`;
-    return c.newBest ? `${time}   ${NEW_BEST}` : `${time}   BEST ${formatActTime(c.previousBest)}`;
+    return {
+      time: `TIME ${formatActTime(c ? c.time : this.seconds)}`,
+      best: !c ? '' : c.newBest ? NEW_BEST : `BEST ${formatActTime(c.previousBest)}`,
+      rank: this.rank ? `RANK ${this.rank}` : '',
+      fresh: this.rank && c?.newRank ? NEW_RANK : '',
+    };
+  }
+
+  /** "TIME m:ss.cc   BEST m:ss.cc   RANK A" (NEW BEST! and NEW! when beaten); '' for a stage with no par. */
+  timesLine(): string {
+    const p = this.timesParts();
+    return [p.time, p.best, p.rank].filter((x) => x !== '').join(GAP) + (p.fresh !== '' ? ` ${p.fresh}` : '');
   }
 
   hasEmeraldMoment(): boolean {
@@ -339,7 +372,7 @@ export class ScoreTally extends UiLayer {
     } else if (this.mode === 'earlier') {
       parts.push({ key: 'quiet', h: QUIET_H });
     }
-    if (this.clear) parts.push({ key: 'times', h: lineHeight('outline') });
+    if (this.timesLine() !== '') parts.push({ key: 'times', h: lineHeight('outline') });
     parts.push({ key: 'rows', h: 3 * lineHeight('hudValue') + 2 * 2 });
     if (this.banked > 0) parts.push({ key: 'banked', h: lineHeight('outline') });
     parts.push({ key: 'continue', h: lineHeight('outline') });
@@ -420,17 +453,22 @@ export class ScoreTally extends UiLayer {
           break;
         }
         case 'times': {
-          const c = this.clear;
-          if (!c) break;
-          if (!c.newBest) {
-            drawText(g, this.timesLine(), x, row.y, 'outline', { align: 'center', width: w });
-            break;
+          // One centred line; NEW BEST!, the rank letter and NEW! are gold, and what is new flashes.
+          const p = this.timesParts();
+          const flash = this.clock % 0.5 < 0.32;
+          const segments: { text: string; gold: boolean; flashing: boolean }[] = [];
+          if (p.time !== '') segments.push({ text: p.time, gold: false, flashing: false });
+          if (p.best !== '') segments.push({ text: GAP + p.best, gold: p.best === NEW_BEST, flashing: p.best === NEW_BEST });
+          if (p.rank !== '') {
+            segments.push({ text: `${GAP}RANK `, gold: false, flashing: false });
+            segments.push({ text: this.rank ?? '', gold: true, flashing: p.fresh !== '' });
           }
-          // NEW BEST! flashes gold beside the time.
-          const time = `TIME ${formatActTime(c.time)}   `;
-          const left = cx - Math.floor(measure(time + NEW_BEST, 'outline') / 2);
-          drawText(g, time, left, row.y, 'outline');
-          if (this.clock % 0.5 < 0.32) drawText(g, NEW_BEST, left + measure(time, 'outline'), row.y, 'outline', { color: COLORS.gold });
+          if (p.fresh !== '') segments.push({ text: ` ${p.fresh}`, gold: true, flashing: true });
+          let left = cx - Math.floor(measure(segments.map((sg) => sg.text).join(''), 'outline') / 2);
+          for (const sg of segments) {
+            if (!sg.flashing || flash) drawText(g, sg.text, left, row.y, 'outline', sg.gold ? { color: COLORS.gold } : {});
+            left += measure(sg.text, 'outline');
+          }
           break;
         }
         case 'rows': {

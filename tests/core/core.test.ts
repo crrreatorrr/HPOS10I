@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseTimeline } from '../../src/core/dev';
 import { Difficulty } from '../../src/core/difficulty';
 import { Emeralds } from '../../src/core/emeralds';
-import { GameState, START_LIVES } from '../../src/core/game_state';
+import { CHAIN_SCORES, GameState, START_LIVES } from '../../src/core/game_state';
+import { Vec2 } from '../../src/runtime/vec2';
 import { Layers } from '../../src/core/layers';
 import { accel, defaultPhysics, frames, speed } from '../../src/core/physics_constants';
 import { SceneRouter } from '../../src/core/scene_router';
@@ -340,6 +341,43 @@ describe('emeralds and GameState', () => {
       c.true(!GameState.timerRunning, 'the goal stops the timer');
     }),
   );
+});
+
+describe('attempt clock, clean runs and the chain score', () => {
+  it('the attempt clock counts with the act clock and is never rewound; a restart makes the run unclean', () => {
+    GameState.resetGame();
+    GameState.startLevel(Z1, 1);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+    GameState.tick(12);
+    GameState.setCheckpoint(new Vec2(50, 0));
+    GameState.tick(8);
+    expect(GameState.levelTime).toBe(20);
+    expect(GameState.attemptTime).toBe(20);
+    GameState.restartFromCheckpoint();
+    expect(GameState.levelTime).toBe(12);
+    expect(GameState.attemptTime).toBe(20);
+    expect(GameState.cleanRun).toBe(false);
+    GameState.tick(3);
+    GameState.completeLevel();
+    GameState.tick(5); // the clock is stopped
+    expect(GameState.levelTime).toBe(15);
+    expect(GameState.attemptTime).toBe(23);
+    // A fresh start resets both and is clean again.
+    GameState.startLevel(Z1, 1);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+  });
+
+  it('chain score: 100, 200, 400, 800, then 1000 each, until the chain is reset', () => {
+    GameState.resetGame();
+    expect(CHAIN_SCORES).toEqual([100, 200, 400, 800, 1000]);
+    expect([1, 2, 3, 4, 5, 6].map(() => GameState.chainScore())).toEqual([100, 200, 400, 800, 1000, 1000]);
+    GameState.resetChain();
+    expect(GameState.chainScore()).toBe(100);
+    GameState.startLevel(Z1, 1);
+    expect(GameState.chain).toBe(0);
+  });
 });
 
 describe('SceneRouter', () => {

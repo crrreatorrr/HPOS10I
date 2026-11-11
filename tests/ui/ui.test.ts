@@ -7,7 +7,7 @@ import { Scenes } from '../../src/core/scenes';
 import { Settings } from '../../src/core/settings';
 import { ZoneRegistry } from '../../src/core/zone_registry';
 import { HubClient } from '../../src/hub/hub_client';
-import { RelicLoadout } from '../../src/hub/relic_loadout';
+import { RELIC_BELT, RELIC_CONES, RELIC_CROWN, RELIC_GENESIS, RelicLoadout } from '../../src/hub/relic_loadout';
 import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
 import { Gfx } from '../../src/runtime/gfx';
 import { Input, KEY_BINDINGS, type Action } from '../../src/runtime/input';
@@ -20,7 +20,9 @@ import { MenuList, REPEAT_DELAY } from '../../src/ui/common/menu';
 import { DevMenu } from '../../src/ui/dev_menu';
 import { Display } from '../../src/ui/display';
 import { EmeraldIcon } from '../../src/ui/emerald/emerald_icon';
-import { EndingScreen } from '../../src/ui/ending/ending';
+import { EndingScreen, rankLines } from '../../src/ui/ending/ending';
+import { Difficulty } from '../../src/core/difficulty';
+import { betterRank, rankFor } from '../../src/core/rank';
 import { GameOverScreen } from '../../src/ui/game_over/game_over';
 import { Hud } from '../../src/ui/hud/hud';
 import { SpeedLines } from '../../src/ui/hud/speed_lines';
@@ -381,9 +383,11 @@ describe('ZoneSelect', () => {
   it('shows the saved best time of the focused act, or --:--', () => {
     HubClient.save.bestTimes.set('z1_retro_rush_hills:1', 83.456);
     const zs = open();
-    expect(zs.infoText()).toBe('ACT 1   BEST 1:23.45');
+    HubClient.save.bestRanks.set('z1_retro_rush_hills:1', 'A');
+    expect(zs.infoText()).toBe('ACT 1   BEST 1:23.45   RANK A');
     tapAction('ui_right');
-    expect(zs.infoText()).toBe('ACT 2   BEST --:--');
+    expect(zs.infoText()).toBe('ACT 2   BEST --:--   RANK -');
+    HubClient.save.bestRanks.clear();
     expect(formatActTime(0)).toBe('0:00.00');
     expect(formatActTime(59.999)).toBe('0:59.99');
     expect(formatActTime(600)).toBe('10:00.00');
@@ -507,6 +511,13 @@ describe('ZoneSelect', () => {
 // --- Pause menu --------------------------------------------------------------------------
 
 describe('PauseMenu', () => {
+  function showLevel(): LevelRoot {
+    Scenes.register('test:ui_level2', () => buildMiniLevel());
+    SceneRouter.openScene('test:ui_level2');
+    frames(3);
+    return tree.currentScene as LevelRoot;
+  }
+
   function enterGameplay(): void {
     SceneRouter.openScene(PLAY_SCENE);
     frames(2);
@@ -554,14 +565,14 @@ describe('PauseMenu', () => {
     expect(tree.paused).toBe(false);
   });
 
-  it('lists resume, restart, options, exit to hub and quit to title, wrapping', () => {
+  it('lists resume, restart, restart act, options, exit to hub and quit to title, wrapping', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
     const labels = pm.main.items.map((i) => i.label);
-    expect(labels).toEqual(['RESUME', 'RESTART', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE']);
+    expect(labels).toEqual(['RESUME', 'RESTART', 'RESTART ACT', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE']);
     tapAction('ui_up');
-    expect(pm.main.focus).toBe(4);
+    expect(pm.main.focus).toBe(5);
     const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
     tapAction('ui_up');
     tapAction('jump');
@@ -577,17 +588,44 @@ describe('PauseMenu', () => {
     expect(tree.paused).toBe(false);
   });
 
+  it('RESTART ACT starts the stage again as a fresh attempt: clock at 0:00, lives and score kept', () => {
+    const pm = addOverlay(new PauseMenu());
+    SceneRouter.startZone('z1_retro_rush_hills', 2);
+    frames(2);
+    GameState.lives = 2;
+    GameState.addScore(400);
+    GameState.tick(30);
+    GameState.restartFromCheckpoint();
+    expect(GameState.cleanRun).toBe(false);
+    expect(GameState.attemptTime).toBe(30);
+    const start = vi.spyOn(GameState, 'startLevel');
+    tapAction('pause');
+    expect(pm.isOpen()).toBe(true);
+    tapAction('ui_down');
+    tapAction('ui_down');
+    expect(pm.main.focused?.label).toBe('RESTART ACT');
+    tapAction('jump');
+    expect(pm.isOpen()).toBe(false);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith('z1_retro_rush_hills', 2);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.levelTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+    expect(GameState.lives).toBe(2);
+    expect(GameState.score).toBe(400);
+  });
+
   it('KEEP PLAYING (or cancel) on the exit question goes back to the pause list', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
     const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
-    for (let i = 0; i < 3; i++) tapAction('ui_down'); // EXIT TO HUB
+    for (let i = 0; i < 4; i++) tapAction('ui_down'); // EXIT TO HUB
     tapAction('ui_accept');
     expect(pm.page).toBe('confirm');
     tapAction('ui_accept'); // KEEP PLAYING
     expect(pm.page).toBe('main');
-    expect(pm.main.focus).toBe(3);
+    expect(pm.main.focus).toBe(4);
     expect(pm.isOpen()).toBe(true);
     tapAction('ui_accept');
     expect(pm.page).toBe('confirm');
@@ -634,6 +672,7 @@ describe('PauseMenu', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
+    tapAction('ui_down');
     tapAction('ui_down');
     tapAction('ui_down');
     tapAction('ui_accept'); // OPTIONS
@@ -702,10 +741,11 @@ describe('PauseMenu', () => {
       expect(restartItem.enabled).toBe(false);
       expect(pm.main.stateOf(1)).toBe('disabled');
       expect(pm.restartHint()).toBe('WAIT FOR RESPAWN');
-      // Navigation skips it: RESUME -> OPTIONS.
+      // Navigation skips it and RESTART ACT: RESUME -> OPTIONS.
       expect(pm.main.focus).toBe(0);
+      expect(pm.main.items[2]!.enabled).toBe(false);
       tapAction('ui_down');
-      expect(pm.main.focus).toBe(2);
+      expect(pm.main.focus).toBe(3);
       // Choosing it any way does nothing.
       const restart = vi.spyOn(SceneRouter, 'restart').mockImplementation(() => undefined);
       pm.main.activate(1);
@@ -795,7 +835,7 @@ describe('PauseMenu', () => {
     Input.feedPads([pad]);
     frames(1);
     expect(pm.isOpen()).toBe(true);
-    pm.main.setFocus(4, true); // QUIT TO TITLE
+    pm.main.setFocus(5, true); // QUIT TO TITLE
     pad.buttons[1] = { pressed: true, value: 1 };
     Input.feedPads([pad]);
     frames(1);
@@ -825,6 +865,30 @@ describe('PauseMenu', () => {
     expect(b.right).toBeLessThanOrEqual(422);
     drawAll(pm, fakeGfx());
     tapAction('pause');
+    frames(3);
+    // The worst case still fits: a Relic line and the restart hint on top of the extra moves.
+    const reach = HubClient.reach;
+    HubClient.reach = 'ready';
+    HubClient.relics = [RELIC_GENESIS, RELIC_CONES, RELIC_CROWN, RELIC_BELT];
+    HubClient.revision++;
+    RelicLoadout.reset();
+    const level = showLevel();
+    level.player!.kill();
+    frames(5);
+    tapAction('pause');
+    expect(pm.isOpen()).toBe(true);
+    expect(pm.restartHint()).not.toBe('');
+    const worst = pm.layoutBounds();
+    expect(worst.top).toBeGreaterThanOrEqual(1);
+    expect(worst.bottom).toBeLessThanOrEqual(239);
+    drawAll(pm, fakeGfx());
+    expect(pm.relicLine()).toContain('SKIN');
+    expect(pm.relicLine()).toContain('CAPE');
+    HubClient.reach = reach;
+    HubClient.relics = [];
+    HubClient.revision++;
+    RelicLoadout.reset();
+    SceneRouter.openScene(PLAY_SCENE);
     frames(3);
     Settings.set('extraMoves', false);
     tapAction('pause');
@@ -858,31 +922,35 @@ describe('ScoreTally', () => {
   function clearAct(zoneId: string, act: number, seconds: number, tickets: number): void {
     GameState.startLevel(zoneId, act);
     GameState.levelTime = seconds;
+    GameState.attemptTime = seconds;
     GameState.tickets = tickets;
     GameState.completeLevel();
   }
 
   it('counts the bonuses into the score and emits finished once', () => {
-    clearAct('z1_retro_rush_hills', 1, 40, 3);
+    // Half of par: rank S and its bonus.
+    clearAct('z1_retro_rush_hills', 1, Difficulty.parFor('z1_retro_rush_hills', 1)! * 0.5, 3);
     const tally = new ScoreTally('z1_retro_rush_hills');
     let finished = 0;
     tally.finished.connect(() => finished++);
     tree.root.addChild(tally);
-    expect(tally.timeBonus).toBe(5000);
+    expect(tally.rank).toBe('S');
+    expect(tally.timeBonus).toBe(20000);
     expect(tally.ticketBonus).toBe(300);
     expect(tally.hasEmeraldMoment()).toBe(true);
     const before = GameState.score;
     for (let i = 0; i < 60 * 10 && finished === 0; i++) frames(1);
     frames(60);
     expect(finished).toBe(1);
-    expect(GameState.score - before).toBe(5300);
+    expect(GameState.score - before).toBe(20300);
     expect(Audio.history).toContain('emerald_get');
     expect(Audio.history).toContain('tally_tick');
     tally.free();
   });
 
   it('jump skips the count, then continues', () => {
-    clearAct('z1_retro_rush_hills', 2, 100, 0);
+    // Twice par less a second: rank D, 1000.
+    clearAct('z1_retro_rush_hills', 2, Difficulty.parFor('z1_retro_rush_hills', 2)! * 2 - 1, 0);
     const tally = new ScoreTally();
     let finished = 0;
     tally.finished.connect(() => finished++);
@@ -896,6 +964,57 @@ describe('ScoreTally', () => {
     tapAction('jump');
     expect(finished).toBe(1);
     tally.free();
+  });
+
+  it('the time bonus and rank follow time / par; a run with a death is capped at A; a boss keeps the flat table', () => {
+    const par = 100;
+    const cases: [number, string, number][] = [
+      [70, 'S', 20000],
+      [70.5, 'A', 12000],
+      [85, 'A', 12000],
+      [100, 'B', 8000],
+      [150, 'C', 3000],
+      [200, 'D', 1000],
+      [200.5, 'D', 0],
+    ];
+    for (const [seconds, rank, bonus] of cases) {
+      expect(rankFor(seconds, par), `${seconds} s`).toEqual({ rank, bonus });
+      expect(ScoreTally.timeBonusFor(seconds, par)).toBe(bonus);
+    }
+    expect(rankFor(50, par, false)).toEqual({ rank: 'A', bonus: 12000 });
+    expect(rankFor(120, par, false)).toEqual({ rank: 'C', bonus: 3000 });
+    expect(betterRank('S', 'A')).toBe(true);
+    expect(betterRank('B', 'B')).toBe(false);
+    expect(betterRank('D', null)).toBe(true);
+    // No par (a boss arena): the old flat table by seconds.
+    expect(ScoreTally.timeBonusFor(40)).toBe(5000);
+    expect(ScoreTally.timeBonusFor(400)).toBe(0);
+    clearAct('z1_retro_rush_hills', 3, 40, 0);
+    const boss = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(boss);
+    expect(boss.rank).toBeNull();
+    expect(boss.timeBonus).toBe(5000);
+    expect(boss.timesLine()).toBe('');
+    boss.free();
+    // Every act has a par, and a par-pace run is a B.
+    for (const zone of ZoneRegistry.allZones(true)) {
+      zone.acts.forEach((_, i) => {
+        const p = Difficulty.parFor(zone.id, i + 1);
+        expect(p, `${zone.id} act ${i + 1}`).not.toBeNull();
+        expect(rankFor(p!, p!).rank).toBe('B');
+      });
+      expect(Difficulty.parFor(zone.id, zone.acts.length + 1)).toBeNull();
+    }
+    // A death in the run: S pace shows as A on the tally.
+    GameState.startLevel('z1_retro_rush_hills', 1);
+    GameState.attemptTime = 10;
+    GameState.restartFromCheckpoint();
+    GameState.completeLevel();
+    const capped = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(capped);
+    expect(capped.rank).toBe('A');
+    expect(capped.timeBonus).toBe(12000);
+    capped.free();
   });
 
   it('shows no emerald in the test zone or after a boss, a quiet one when won earlier', () => {
@@ -925,12 +1044,13 @@ describe('ScoreTally', () => {
 
   it('shows this clear\'s time with the saved best, NEW BEST! when it beat it, and still fits', () => {
     clearAct('z1_retro_rush_hills', 1, 83.456, 4);
-    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 83.456, previousBest: 80.1, newBest: false };
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 83.456, previousBest: 80.1, newBest: false, rank: 'C', previousRank: 'C', newRank: false, clean: true };
     HubClient.lastBanked = { amount: 4, acked: false };
     let tally = new ScoreTally('z1_retro_rush_hills');
     tree.root.addChild(tally);
-    expect(tally.timesLine()).toBe('TIME 1:23.45   BEST 1:20.10');
+    expect(tally.timesLine()).toBe('TIME 1:23.45   BEST 1:20.10   RANK C');
     expect(tally.isNewBest()).toBe(false);
+    expect(tally.isNewRank()).toBe(false);
     expect(tally.hasEmeraldMoment()).toBe(true);
     let r = tally.panelRect();
     expect(r.y).toBeGreaterThanOrEqual(44);
@@ -938,21 +1058,25 @@ describe('ScoreTally', () => {
     drawAll(tally, fakeGfx());
     tally.free();
 
-    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 70, previousBest: 80.1, newBest: true };
+    clearAct('z1_retro_rush_hills', 1, 70, 4);
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 70, previousBest: 80.1, newBest: true, rank: 'B', previousRank: 'C', newRank: true, clean: true };
+    HubClient.lastBanked = { amount: 4, acked: false };
     tally = new ScoreTally('z1_retro_rush_hills');
     tree.root.addChild(tally);
-    expect(tally.timesLine()).toBe('TIME 1:10.00   NEW BEST!');
+    expect(tally.timesLine()).toBe('TIME 1:10.00   NEW BEST!   RANK B NEW!');
     expect(tally.isNewBest()).toBe(true);
+    expect(tally.isNewRank()).toBe(true);
+    expect(tally.panelRect().w).toBeLessThanOrEqual(416);
     r = tally.panelRect();
     expect(r.bottom).toBeLessThanOrEqual(223);
     drawAll(tally, fakeGfx());
     tally.free();
 
     // Another act's record is not this tally's.
-    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 2, time: 70, previousBest: null, newBest: true };
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 2, time: 70, previousBest: null, newBest: true, rank: 'S', previousRank: null, newRank: true, clean: true };
     tally = new ScoreTally('z1_retro_rush_hills');
     tree.root.addChild(tally);
-    expect(tally.timesLine()).toBe('');
+    expect(tally.timesLine()).toBe('TIME 1:10.00   RANK B');
     tally.free();
     HubClient.lastClear = null;
   });
@@ -1273,6 +1397,21 @@ describe('screens', () => {
     expect(go).toHaveBeenCalledTimes(1);
     expect(GameState.score).toBe(0);
     expect(GameState.lives).toBe(3);
+  });
+
+  it('the ending lists the best rank of all eight acts', () => {
+    HubClient.save.bestRanks.clear();
+    HubClient.save.bestRanks.set('z1_retro_rush_hills:1', 'S');
+    HubClient.save.bestRanks.set('z4_neon_rush_remix:2', 'C');
+    const lines = rankLines();
+    expect(lines.length).toBe(4);
+    expect(lines[0]).toBe('RETRO RUSH HILLS   S  -');
+    expect(lines[3]).toBe('NEON RUSH REMIX   -  C');
+    const end = showScene(() => new EndingScreen());
+    const texts = end.lines.map((l) => l.text);
+    expect(texts).toContain('BEST RANKS');
+    for (const l of lines) expect(texts).toContain(l);
+    HubClient.save.bestRanks.clear();
   });
 
   it('the ending rolls, then goes to the title', () => {

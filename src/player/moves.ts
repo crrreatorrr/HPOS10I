@@ -21,6 +21,7 @@
 // classic physics (docs/PHYSICS.md) are untouched.
 
 import { Audio } from '../core/audio';
+import { GameState } from '../core/game_state';
 import { Settings } from '../core/settings';
 import { RelicLoadout } from '../hub/relic_loadout';
 import { Input } from '../runtime/input';
@@ -235,6 +236,7 @@ export class Moves {
 
   onLand(): void {
     const p = this.player;
+    GameState.resetChain();
     this.pendingRoll = false;
     this.airPressUsed = false;
     this.coyote = 0;
