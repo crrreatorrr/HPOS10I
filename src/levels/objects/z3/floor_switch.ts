@@ -6,6 +6,7 @@
 // centre, on the floor. Node names should contain "switch" (QA's lint counts
 // doors and switches for R4).
 
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { Audio } from '../../../core/audio';
 import { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
@@ -110,11 +111,16 @@ export class FloorSwitch extends PlayerArea implements Configurable {
 
   override draw(g: Gfx): void {
     const half = this.width / 2;
-    const h = this.isPressed ? 2.0 : 5.0;
-    g.rect(-half - 2, -7, this.width + 4, 7, OUTLINE);
-    g.rect(-half - 1, -6, this.width + 2, 6, FRAME);
-    g.rect(-half + 1, -h, this.width - 2, h, PLATE_DARK);
-    g.rect(-half + 1, -h, this.width - 2, 1, PLATE);
+    const sprite = this.isPressed ? PropSprite.pressedSwitch : PropSprite.floorSwitch;
+    const height = this.isPressed ? 3 : 6;
+    const drawn = drawPropSprite(g, sprite, new Vec2(0, -height / 2),
+      new Vec2((this.width + 2) / 34, height / (this.isPressed ? 6 : 8)));
+    if (!drawn) {
+      g.rect(-half - 2, -7, this.width + 4, 7, OUTLINE);
+      g.rect(-half - 1, -6, this.width + 2, 6, FRAME);
+      g.rect(-half + 1, -height, this.width - 2, height, PLATE_DARK);
+      g.rect(-half + 1, -height, this.width - 2, 1, PLATE);
+    }
     // A faint light column over the plate: the sensor.
     if (!this.isPressed) g.rect(-half + 4, -this.triggerHeight, this.width - 8, this.triggerHeight - 6, PLATE_GLOW);
   }

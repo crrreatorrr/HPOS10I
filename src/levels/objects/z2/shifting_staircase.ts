@@ -17,6 +17,8 @@
 // (z_index -1) so the sunk part is hidden. The origin is the top-left corner
 // of the first step.
 
+import { drawPropSprite, PropSprite } from '../prop_sprite';
+import { TerrainArt } from '../../../terrain/terrain_art';
 import { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
 import { clamp } from '../../../runtime/math';
@@ -58,12 +60,17 @@ export class StairStep extends MovingBody {
     const size = this.size;
     g.rect(-1, -1, size.x + 2, size.y + 2, OUTLINE);
     g.rect(0, 0, size.x, size.y, STONE_DARK);
+    const stone = TerrainArt.materials('z2_wizard_academy').fill;
+    if (stone) g.tiled(stone, new Rect2(0, 0, size.x, size.y));
     // The step's top slab, then a pillar of stone courses below it.
-    g.rect(0, 0, size.x, Math.min(16, size.y), STONE);
+    const depth = Math.min(16, size.y);
+    if (!drawPropSprite(g, PropSprite.stairTread, new Vec2(size.x / 2, depth / 2), new Vec2(size.x / 42, depth / 14))) {
+      g.rect(0, 0, size.x, depth, STONE);
+    }
     g.rect(0, 0, size.x, 2, STONE_LIGHT);
     let y = 16.0;
     let course = 0;
-    while (y < size.y) {
+    while (!stone && y < size.y) {
       g.line(new Vec2(0, y), new Vec2(size.x, y), OUTLINE, 1);
       const joint = size.x / 2 + (course % 2 === 0 ? 12 : -12);
       g.line(new Vec2(joint, y), new Vec2(joint, Math.min(y + 8, size.y)), OUTLINE, 1);

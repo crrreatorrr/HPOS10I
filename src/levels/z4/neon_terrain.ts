@@ -2,7 +2,7 @@
 // neon, a dark sky and glowing outlines). NeonTerrain is a CurveTerrain with
 // its own drawing: a dark fill (fill_color) with a faint world-aligned grid,
 // a glowing lip (edge_color, magenta by default) along every open
-// top-facing edge and a thinner glow (accent_color, cyan) along the other
+// running edge and a thinner glow (accent_color, cyan) along the other
 // open edges. An edge is open when no other terrain lies just outside it,
 // so pieces that butt together read as one surface. NeonLoop is a
 // TerrainLoop drawn the same way (its ring pieces are hidden and drawn by
@@ -27,7 +27,6 @@ const GRID = new Color(0.62, 0.2, 0.9, 0.16);
 
 const EDGE_PART = 8;
 const PROBE = 2;
-const TOP_COS = Math.cos((60 * Math.PI) / 180);
 const TERRAIN_BITS = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_PATH_B | Layers.TERRAIN_TOP_ONLY;
 
 interface NeonBuilt {
@@ -53,7 +52,7 @@ function covered(point: Vec2, self: CollisionObject2D): boolean {
   return false;
 }
 
-/** Splits a polygon outline into open top-facing and open other chains (local space). */
+/** Splits a polygon outline into open running edges and other open edges (local space). */
 function buildNeon(piece: CurveTerrain): NeonBuilt {
   const toWorld = piece.globalTransform;
   const tops: Vec2[][] = [];
@@ -75,7 +74,7 @@ function buildNeon(piece: CurveTerrain): NeonBuilt {
       const normal = (ccw ? new Vec2(d.y, -d.x) : new Vec2(-d.y, d.x)).normalized();
       const mid = a.add(b).div(2);
       const open = !covered(toWorld.xform(mid.add(normal.mul(PROBE))), piece);
-      kinds.push(!open ? 0 : -normal.y >= TOP_COS ? 1 : 2);
+      kinds.push(!open ? 0 : piece.isLipEdge(pts, i, normal) ? 1 : 2);
     }
     for (const want of [1, 2]) {
       const out = want === 1 ? tops : sides;

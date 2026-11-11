@@ -5,6 +5,7 @@
 // origin is the top-left corner of the belt surface.
 
 import { Layers } from '../../../core/layers';
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
 import { fposmod, signf } from '../../../runtime/math';
@@ -89,7 +90,16 @@ export class Conveyor extends StaticBody2D implements Configurable {
       x += 24;
       k += 1;
     }
-    g.rect(0, 6, size.x, size.y - 6, BELT_DARK);
-    g.rect(0, 6, size.x, 1, OUTLINE);
+    const faceHeight = size.y - 6;
+    if (faceHeight > 0) {
+      g.rect(0, 6, size.x, faceHeight, BELT_DARK);
+      const count = Math.max(1, Math.round(size.x / 36));
+      const width = size.x / count;
+      for (let i = 0; i < count; i++) {
+        drawPropSprite(g, PropSprite.conveyor, new Vec2((i + 0.5) * width, 6 + faceHeight / 2),
+          new Vec2(width / 45, faceHeight / 19));
+      }
+      g.rect(0, 6, size.x, 1, OUTLINE);
+    }
   }
 }

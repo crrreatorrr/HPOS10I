@@ -9,6 +9,8 @@
 import { Layers } from '../../../core/layers';
 import { Player } from '../../../player/player';
 import { tree } from '../../../runtime/tree';
+import type { Gfx } from '../../../runtime/gfx';
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { Rect2, Vec2 } from '../../../runtime/vec2';
 import { MovingBody } from '../../common/moving_body';
 import type { Props } from '../../common/props';
@@ -88,6 +90,17 @@ export class SetPiecePlatform extends MovingBody {
 
   cullRect(): Rect2 {
     return new Rect2(-8, -8, this.size.x + 16, this.size.y + 16);
+  }
+
+  protected drawSurface(g: Gfx): void {
+    const zone = resolveArtZone(this, this.artZone);
+    const [sprite, height] = this.styleNow().neon ? [PropSprite.neonLedge, 17]
+      : zone.startsWith('z3_') ? [PropSprite.marbleLedge, 24] : [PropSprite.grassLedge, 27];
+    const count = Math.max(1, Math.round(this.size.x / 46));
+    const width = this.size.x / count;
+    for (let i = 0; i < count; i++) {
+      drawPropSprite(g, sprite, new Vec2((i + 0.5) * width, this.size.y / 2), new Vec2(width / 46, this.size.y / height));
+    }
   }
 
   protected styleNow(): SetPieceStyle {

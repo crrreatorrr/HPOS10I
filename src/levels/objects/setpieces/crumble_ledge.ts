@@ -133,17 +133,16 @@ export class CrumbleLedge extends SetPiecePlatform implements Configurable {
     const jy = shaking ? ((Math.floor(this.frame / 2) % 2) - 0.5) : 0;
     if (shaking) g.setTransform(new Vec2(jx, jy));
     const cracks = [0.3, 0.55, 0.8].map((f) => Math.round(w * f));
+    g.rect(0, 0, w, h, style.body);
+    g.rect(0, h * 0.5, w, h * 0.5, style.shade);
+    this.drawSurface(g);
     if (style.neon) {
-      g.rect(0, 0, w, h, style.body);
-      g.rect(0, h * 0.5, w, h * 0.5, style.shade);
       g.additive(() => {
         glowLine(g, [new Vec2(0, 0), new Vec2(w, 0)], shaking ? style.warn : style.edge, false, 2);
         glowLine(g, [new Vec2(0, h), new Vec2(w, h)], style.accent, false, 1);
       });
     } else {
-      g.rect(0, 0, w, h, style.outline);
-      g.rect(1, 1, w - 2, h - 2, style.body);
-      g.rect(1, h * 0.6, w - 2, h * 0.4 - 1, style.shade);
+      g.rect(0, 0, w, h, style.outline, false, 1);
       g.rect(1, 1, w - 2, 2, shaking ? style.warn : style.edge);
     }
     // Cracks: always hinted, wide open while shaking.

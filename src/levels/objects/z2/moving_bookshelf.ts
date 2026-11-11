@@ -9,6 +9,7 @@
 // (re)spawn or a pause (the cycle starts at rest). The rest between cycles
 // scales with interval_mult. The origin is the shelf's top-left corner at rest.
 
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
 import { clamp } from '../../../runtime/math';
@@ -174,6 +175,11 @@ export class MovingBookshelf extends MovingBody implements Configurable {
     const size = this.size;
     const warning = this.phase === ShelfPhase.WARNING;
     const rattle = warning ? (this.timer % 2) - 0.5 : 0;
+    if (drawPropSprite(g, PropSprite.bookshelf, size.mul(0.5).add(new Vec2(rattle, 0)), size.div(46))) {
+      g.rect(0, 0, size.x, 2, WOOD_LIGHT);
+      if (warning && Math.trunc(this.timer / 4) % 2 === 0) g.rect(-3, -3, size.x + 6, size.y + 6, GLOW, false, 2);
+      return;
+    }
     g.rect(-1, -1, size.x + 2, size.y + 2, OUTLINE);
     g.rect(0, 0, size.x, size.y, WOOD);
     g.rect(0, 0, size.x, 3, WOOD_LIGHT);
