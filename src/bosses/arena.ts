@@ -17,6 +17,7 @@
 // Terrain is CurveTerrain BLOCK pieces in the zone's art (placeholder colours
 // until the zone's terrain art exists).
 
+import { assetImage } from '../runtime/assets';
 import { Layers } from '../core/layers';
 import { GameCamera } from '../camera/game_camera';
 import { Color } from '../runtime/color';
@@ -218,6 +219,18 @@ function block(name: string, x: number, y: number, w: number, h: number, spec: A
   return t;
 }
 
+class ArenaBackdrop extends DecorRect {
+  constructor(private readonly zoneId: string) {
+    super('ArenaBack');
+  }
+
+  override draw(g: Gfx): void {
+    const texture = assetImage(`assets/backgrounds/${this.zoneId}/boss_arena.png`);
+    if (texture) g.texture(texture, this.rect.position, { size: this.rect.size });
+    else super.draw(g);
+  }
+}
+
 /** Builds the arena level around the spec's boss. */
 export function buildArena(spec: ArenaSpec): LevelRoot {
   const root = new LevelRoot(spec.name);
@@ -236,7 +249,7 @@ export function buildArena(spec: ArenaSpec): LevelRoot {
   start.position = new Vec2(L.START_X, floorY - 19);
   root.addChild(start);
 
-  const back = new DecorRect('ArenaBack');
+  const back = new ArenaBackdrop(spec.zoneId);
   back.rect = new Rect2(inLeft, L.VIEW_TOP, inRight - inLeft, floorY - L.VIEW_TOP);
   back.color = spec.back;
   back.zIndex = -10;

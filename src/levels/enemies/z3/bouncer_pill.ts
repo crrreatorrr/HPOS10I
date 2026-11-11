@@ -3,6 +3,7 @@
 // its shield. Port of levels/enemies/z3/bouncer_pill.gd (+ .tscn: tier 3,
 // speed 0.5, a 30x18 hurtbox 13 px up).
 
+import { PillSprite } from '../pill_sprite';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
 import { Armored } from '../armored';
@@ -11,6 +12,8 @@ import { Walker } from '../walker';
 import { MansionArt } from './mansion_art';
 
 export class BouncerPill extends Armored {
+  protected override readonly spriteRow: number = PillSprite.bouncer;
+
   constructor(name = 'BouncerPill') {
     super(name, new Vec2(30, 18), new Vec2(0, -13));
     this.tier = 3;

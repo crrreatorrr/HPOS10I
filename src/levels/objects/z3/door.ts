@@ -1,3 +1,4 @@
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 // A door (Capital Mansion): a solid panel across a hall that slides up out of
 // the way when its switch is pressed (open()), and stays open. It is moving
 // terrain while it slides (docs/CONTRACTS.md), but it only ever moves up,
@@ -80,6 +81,7 @@ export class Door extends MovingBody implements Configurable {
   override draw(g: Gfx): void {
     const size = this.size;
     const r = new Rect2(0, -size.y, size.x, size.y);
+    if (drawPropSprite(g, PropSprite.door, r.center, new Vec2(size.x / 32, size.y / 48))) return;
     g.rectR(r.grow(1), OUTLINE);
     g.rectR(r, PANEL);
     g.rect(r.x, r.y, size.x, 3, PANEL_LIGHT);

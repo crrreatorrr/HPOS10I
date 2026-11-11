@@ -10,6 +10,7 @@
 // capsule while it hangs. Port of levels/enemies/dropper.gd (+ dropper.tscn:
 // tier 4, a 16x24 hurtbox at the origin).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import { Audio } from '../../core/audio';
 import type { Player } from '../../player/player';
 import type { Gfx } from '../../runtime/gfx';
@@ -29,6 +30,7 @@ export enum DropperMode {
 }
 
 export class Dropper extends Enemy {
+  protected readonly spriteRow: number = PillSprite.dropper;
   static readonly HALF_LENGTH = 5.0;
   static readonly RADIUS = 7.0;
   /** Telegraph before the drop, seconds at difficulty 1. */
@@ -151,6 +153,10 @@ export class Dropper extends Enemy {
   }
 
   override draw(g: Gfx): void {
+    this.drawHangingSprite(g);
+  }
+
+  protected drawHangingSprite(g: Gfx): boolean {
     const HL = Dropper.HALF_LENGTH;
     const R = Dropper.RADIUS;
     const shake = this.shake();
@@ -163,9 +169,11 @@ export class Dropper extends Enemy {
         g.rect(-0.5 + s.x, top - k - 3 + s.y, 1, 2, PillArt.METAL);
       }
     }
+    if (drawPillSprite(g, this.spriteRow, 15, 1, this.isTelegraphing(), this.mode === DropperMode.FALLING ? 3 : 7)) return true;
     g.setTransform(shake, -Math.PI * 0.5);
     PillArt.drawCapsule(g, HL, R, 1, this.palette());
     g.resetTransform();
     PillArt.drawVisor(g, shake.add(new Vec2(0, 2)), 8, 2, false, this.mode === DropperMode.SHAKING && idiv(this.timer, 3) % 2 === 0);
+    return false;
   }
 }

@@ -11,6 +11,7 @@
 // middle of its base, on the floor or ceiling it is mounted on. Port of
 // levels/enemies/sniper.gd (+ sniper.tscn: tier 4, an 18x26 hurtbox 14 px up).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import type { Player } from '../../player/player';
 import type { Gfx } from '../../runtime/gfx';
 import type { Node2D } from '../../runtime/node';
@@ -32,6 +33,7 @@ export enum SniperMode {
 }
 
 export class Sniper extends Enemy {
+  protected readonly spriteRow: number = PillSprite.sniper;
   static readonly HALF_LENGTH = 5.0;
   static readonly RADIUS = 7.0;
   static readonly BODY_Y = -14.0;
@@ -188,6 +190,7 @@ export class Sniper extends Enemy {
   override draw(g: Gfx): void {
     const BODY_Y = Sniper.BODY_Y;
     this.drawSight(g);
+    if (drawPillSprite(g, this.spriteRow, 0, Math.sign(this.aim.x), this.isTelegraphing() || this.isFiring())) return;
     // Base plate, a barrel along the aim, an upright capsule with its visor.
     g.rect(-8, -3, 16, 3, PillArt.OUTLINE);
     g.rect(-7, -2, 14, 1, PillArt.METAL_DARK);

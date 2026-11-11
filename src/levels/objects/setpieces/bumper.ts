@@ -9,6 +9,7 @@
 // in Neon Rush Remix, a brass-and-red post cap elsewhere (`art_zone`).
 // Layer 7 (objects), mask 5 (player).
 
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { Audio } from '../../../core/audio';
 import { GameState } from '../../../core/game_state';
 import type { Player } from '../../../player/player';
@@ -109,6 +110,12 @@ export class Bumper extends PlayerArea implements Configurable {
     const across = 1 + 0.18 * s;
     g.setTransform(Vec2.ZERO, this.hitDir.angle(), new Vec2(along, across));
     const r = this.radius;
+    const size = (r * 2 + 2) / 29;
+    if (drawPropSprite(g, style.neon ? PropSprite.neonBumper : PropSprite.bumper, Vec2.ZERO, new Vec2(size, size))) {
+      if (s > 0.05) drawPropSprite(g, PropSprite.sparkle, Vec2.ZERO, new Vec2(size, size), s);
+      g.resetTransform();
+      return;
+    }
     const ring = (rr: number, n = 20): Vec2[] => {
       const pts: Vec2[] = [];
       for (let i = 0; i < n; i++) {

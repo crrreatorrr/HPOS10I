@@ -4,6 +4,7 @@
 // scattered-ticket port: a 10x6 gold card with notched ends, a darker gold
 // border and a small star, squashed horizontally for the spinning flip.
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Vec2 } from '../../runtime/vec2';
@@ -45,6 +46,8 @@ const SHINE_B = new Vec2(TICKET_SIZE.x / 2 - 2.5, -TICKET_SIZE.y / 2 + 1.0);
 
 /** Draws a ticket centred on the node's origin; `squash` (0..1) scales it horizontally. */
 export function drawTicket(g: Gfx, squash: number): void {
+  const pose = squash > 0.67 ? PropSprite.ticket : squash > 0.32 ? PropSprite.ticketTurn : PropSprite.ticketEdge;
+  if (drawPropSprite(g, pose, Vec2.ZERO, new Vec2(0.77, 0.77))) return;
   g.setTransform(Vec2.ZERO, 0, new Vec2(squash, 1));
   g.polygon(CARD, TICKET_FILL);
   g.polyline(CARD, TICKET_RIM, 1, true);
@@ -55,6 +58,7 @@ export function drawTicket(g: Gfx, squash: number): void {
 
 /** The ticket `size` times bigger, drawn within the current transform (the goal sign). */
 export function drawTicketEmblem(g: Gfx, size: number): void {
+  if (drawPropSprite(g, PropSprite.ticket, Vec2.ZERO, new Vec2(size * 0.72, size * 0.68))) return;
   const w = (TICKET_SIZE.x / 2) * size;
   const h = (TICKET_SIZE.y / 2) * size;
   const outline = cardOutline(w, h, 1.4 * size, 1.6 * size);

@@ -1,3 +1,4 @@
+import { drawPropSprite, PropSprite } from '../objects/prop_sprite';
 // A sheet of paper thrown by a clerk pill: flies in an arc under gravity
 // towards where Sproto stood when the throw was telegraphed, drifting a
 // little, and pops on terrain, off screen or after LIFETIME frames. Touching
@@ -43,6 +44,10 @@ export class PaperSheet extends EnemyProjectile {
 
   override draw(g: Gfx): void {
     g.setTransform(Vec2.ZERO, Math.sin(this.spin) * 0.6);
+    if (drawPropSprite(g, PropSprite.paper, Vec2.ZERO, new Vec2(0.63, 0.8))) {
+      g.resetTransform();
+      return;
+    }
     g.rect(-5, -6, 10, 12, PillArt.OUTLINE);
     g.rect(-4, -5, 8, 10, PaperSheet.PAPER);
     g.rect(2, -5, 2, 10, PaperSheet.PAPER_SHADE);

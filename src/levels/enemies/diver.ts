@@ -13,6 +13,7 @@
 // origin is the middle of its post. Port of levels/enemies/diver.gd
 // (+ diver.tscn: tier 3, a 24x16 hurtbox at the origin).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import type { Player } from '../../player/player';
 import type { Gfx } from '../../runtime/gfx';
 import { rectShape } from '../../runtime/physics';
@@ -33,6 +34,7 @@ export enum DiverMode {
 }
 
 export class Diver extends Enemy {
+  protected readonly spriteRow: number = PillSprite.diver;
   static readonly HALF_LENGTH = 6.0;
   static readonly RADIUS = 7.0;
   /** Telegraph before a swoop, seconds at difficulty 1. */
@@ -206,6 +208,7 @@ export class Diver extends Enemy {
     const HL = Diver.HALF_LENGTH;
     const R = Diver.RADIUS;
     this.drawTarget(g);
+    if (drawPillSprite(g, this.spriteRow, 13, this.facing, this.isTelegraphing(), this.isSwooping() ? 3 : 6)) return;
     // Two little wings that beat faster in a swoop.
     const beat = Math.sin(this.flap);
     for (const side of [-1, 1]) {

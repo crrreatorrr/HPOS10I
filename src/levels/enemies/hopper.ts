@@ -4,6 +4,7 @@
 // interval and the telegraph scale with the act's difficulty. Port of
 // levels/enemies/hopper.gd (+ hopper.tscn: a 14x26 hurtbox 18 px up).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import type { Gfx } from '../../runtime/gfx';
 import { clamp, lerp } from '../../runtime/math';
 import { rectShape } from '../../runtime/physics';
@@ -15,6 +16,7 @@ import { Enemy } from './enemy_base';
 import { idiv, PillArt } from './pill_art';
 
 export class Hopper extends Enemy {
+  protected readonly spriteRow: number = PillSprite.hopper;
   static readonly HALF_LENGTH = 5.0;
   static readonly RADIUS = 7.0;
   /** Spring foot length at rest, crouched and stretched. */
@@ -101,6 +103,7 @@ export class Hopper extends Enemy {
   }
 
   override draw(g: Gfx): void {
+    if (drawPillSprite(g, this.spriteRow, 0, 1, this.isTelegraphing(), this.grounded ? 6 : 3)) return;
     const HL = Hopper.HALF_LENGTH;
     const R = Hopper.RADIUS;
     const length = this.springLength();

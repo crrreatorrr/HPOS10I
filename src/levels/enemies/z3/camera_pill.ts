@@ -3,6 +3,7 @@
 // lens turns to follow Sproto and glows during the telegraph. Port of
 // levels/enemies/z3/camera_pill.gd (+ .tscn: tier 4, a 20x26 hurtbox 14 px up).
 
+import { drawPillSprite, PillSprite } from '../pill_sprite';
 import type { Gfx } from '../../../runtime/gfx';
 import { Vec2 } from '../../../runtime/vec2';
 import { PillArt, type PillPalette } from '../pill_art';
@@ -22,6 +23,7 @@ export class CameraPill extends Sniper {
   override draw(g: Gfx): void {
     const BODY_Y = Sniper.BODY_Y;
     this.drawSight(g);
+    if (drawPillSprite(g, PillSprite.camera, 0, Math.sign(this.aim.x), this.isTelegraphing() || this.isFiring())) return;
     g.rect(-8, -3, 16, 3, PillArt.OUTLINE);
     g.rect(-7, -2, 14, 1, PillArt.METAL_DARK);
     g.line(new Vec2(0, -3), new Vec2(0, BODY_Y + 8), PillArt.OUTLINE, 4);

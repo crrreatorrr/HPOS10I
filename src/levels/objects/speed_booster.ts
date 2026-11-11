@@ -1,3 +1,4 @@
+import { drawPropSprite, PropSprite } from './prop_sprite';
 // A pad on the floor that shoots Sproto along in its facing direction:
 // player.pushGround(facing * speed, LOCK_FRAMES), at SPEED px/frame or the
 // speed he already had in that direction, whichever is higher. Plays
@@ -81,6 +82,11 @@ export class SpeedBooster extends PlayerArea implements Configurable {
     const width = SpeedBooster.WIDTH;
     const half = width / 2;
     const f = this._facing;
+    const frame = Math.trunc(tree.physicsFrames / 6) % 3;
+    g.setTransform(new Vec2(0, -5), 0, new Vec2(f, 1));
+    const loaded = drawPropSprite(g, PropSprite.boosterStart + frame, Vec2.ZERO);
+    g.resetTransform();
+    if (loaded) return;
     g.rect(-half, -6, width, 6, OUTLINE);
     g.rect(-half + 1, -5, width - 2, 4, PLATE);
     g.rect(-half + 1, -5, width - 2, 1, PLATE_LIGHT);

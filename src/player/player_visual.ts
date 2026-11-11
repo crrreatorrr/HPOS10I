@@ -152,6 +152,7 @@ export class SheetFrames {
 
   private countFrames(img: HTMLImageElement): void {
     this.counted = true;
+    if ([...this.anims.values()].every((anim) => anim.frames > 0)) return;
     const cols = Math.floor(img.width / this.cell.x);
     let pixels: Uint8ClampedArray | null = null;
     const canvas = makeCanvas(img.width, img.height);
@@ -249,9 +250,8 @@ export class SheetSprite extends Node2D {
 
 const SHEET_DIR = 'assets/sprites/common/sproto';
 const SHEET_PATH = `${SHEET_DIR}/sproto_sheet.png`;
-/** Golden Sproto art. Missing until the 16-bit pass; the placeholder swaps blue/yellow for gold meanwhile. */
+const NOBU_SHEET_PATH = `${SHEET_DIR}/nobu_sproto_sheet.png`;
 const GOLDEN_SHEET_PATH = `${SHEET_DIR}/golden_sproto_sheet.png`;
-/** Tidebreaker Sproto art. Missing until the 16-bit pass, like Golden. */
 const TIDEBREAKER_SHEET_PATH = `${SHEET_DIR}/tidebreaker_sproto_sheet.png`;
 /** Rows of a sheet without a .json layout (docs/CONTRACTS.md). */
 const DEFAULT_ROWS = ['idle', 'run', 'jump', 'hurt'];
@@ -401,7 +401,8 @@ export class PlayerVisual extends Node2D {
       case 'run':
         return Math.abs(p.groundSpeed) >= Tuning.physics.top_speed ? 'run' : 'walk';
       case 'idle':
-        return p.crouching ? 'crouch' : 'idle';
+        if (p.crouching) return 'crouch';
+        return p.lookingUp ? 'look_up' : 'idle';
       case 'dropdash':
         return 'jump';
     }
@@ -475,12 +476,7 @@ export class PlayerVisual extends Node2D {
     return RelicLoadout.resolve().skin;
   }
 
-  /**
-   * Golden uses golden_sproto_sheet.png and Tidebreaker tidebreaker_sproto_sheet.png
-   * when they exist. Otherwise the base sheet is tinted, and the placeholder
-   * swaps colours (gold for Golden, sea-green blue parts with the yellow face
-   * kept for Tidebreaker).
-   */
+  /** Equip the matching sheet, with a tinted base as a fallback for missing art. */
   private applySkin(): void {
     const skin = this.skin();
     switch (skin) {
@@ -571,14 +567,41 @@ export class PlayerVisual extends Node2D {
     }
   }
 
-  /** Head centre of the placeholder (local space, facing right), for the accessory and cape. */
+  /** Head centre of the current frame in local space, facing right. */
   headPoint(): Vec2 {
+    const sprite = this.sprite;
+    if (sprite?.visible && sprite.loaded()) {
+      const point = this.spriteHeadAnchor(sprite.animation, sprite.frame);
+      if (point) return sprite.position.add(point).sub(sprite.frames.cell.mul(0.5));
+    }
     const feet = this.feetY();
     if (this.isBall()) {
       // On top of the ball, so a hat sits on it.
       return new Vec2(1, feet - this.player.getRadii().y * 2 + HEAD_RADIUS - 1);
     }
     return this.headCenter(feet);
+  }
+
+  private spriteHeadAnchor(anim: string, frame: number): Vec2 | null {
+    const anchors = spriteJson(`${SHEET_DIR}/anchors.json`);
+    if (!isRecord(anchors)) return null;
+    const candidates: unknown[] = [];
+    if (isRecord(anchors.head)) {
+      const row = anchors.head[anim];
+      if (Array.isArray(row)) candidates.push(row[frame]);
+    }
+    for (const root of [anchors, anchors.animations, anchors.frames]) {
+      if (!isRecord(root)) continue;
+      const row = root[anim];
+      if (!Array.isArray(row)) continue;
+      const entry: unknown = row[frame];
+      if (isRecord(entry)) candidates.push(entry.head);
+    }
+    for (const point of candidates) {
+      if (Array.isArray(point) && point.length >= 2) return new Vec2(Number(point[0]), Number(point[1]));
+      if (isRecord(point) && 'x' in point && 'y' in point) return new Vec2(Number(point.x), Number(point.y));
+    }
+    return null;
   }
 
   private lean(): number {
@@ -791,6 +814,8 @@ function skinSheetPath(skin: string): string {
   switch (skin) {
     case 'golden':
       return GOLDEN_SHEET_PATH;
+    case 'nobu':
+      return NOBU_SHEET_PATH;
     case 'tidebreaker':
       return TIDEBREAKER_SHEET_PATH;
   }

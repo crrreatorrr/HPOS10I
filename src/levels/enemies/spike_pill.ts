@@ -5,6 +5,7 @@
 // scale with the local difficulty. Port of levels/enemies/spike_pill.gd
 // (+ spike_pill.tscn: tier 3, speed 0.5, a 34x20 hurtbox 13 px up).
 
+import { PillSprite } from './pill_sprite';
 import type { Player } from '../../player/player';
 import type { Gfx } from '../../runtime/gfx';
 import { Vec2 } from '../../runtime/vec2';
@@ -19,6 +20,8 @@ export enum SpikePhase {
 }
 
 export class SpikePill extends Walker {
+  protected override readonly spriteRow: number = PillSprite.spike;
+
   static readonly TELEGRAPH = 0.5;
   static readonly SPIKE_LENGTH = 6.0;
   static readonly SPIKE_COUNT = 8;

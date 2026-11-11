@@ -6,6 +6,7 @@
 // Port of levels/enemies/pellet_pill.gd (+ pellet_pill.tscn: tier 2, a 14x22
 // hurtbox 14 px up).
 
+import { drawPillSprite, PillSprite } from './pill_sprite';
 import type { Player } from '../../player/player';
 import type { Gfx } from '../../runtime/gfx';
 import type { Node2D } from '../../runtime/node';
@@ -18,6 +19,7 @@ import { Pellet } from './pellet';
 import { idiv, PillArt } from './pill_art';
 
 export class PelletPill extends Enemy {
+  protected readonly spriteRow: number = PillSprite.pellet;
   static readonly HALF_LENGTH = 5.0;
   static readonly RADIUS = 7.0;
   static readonly BODY_Y = -14.0;
@@ -128,6 +130,7 @@ export class PelletPill extends Enemy {
   }
 
   override draw(g: Gfx): void {
+    if (drawPillSprite(g, this.spriteRow, 0, this.facing, this.isTelegraphing())) return;
     const HL = PelletPill.HALF_LENGTH;
     const R = PelletPill.RADIUS;
     const BODY_Y = PelletPill.BODY_Y;
