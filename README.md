@@ -63,8 +63,10 @@ outside fullscreen) pauses. Time Focus stays on F, a key of its own beside the
 WASD block, because it is an ability rather than an interaction.
 
 Keys are bound by position, so on AZERTY or QWERTZ keyboards the movement keys
-are the ones in the WASD spot. The charge run, drop dash and shield bounce can
-be turned off in **Pause → Options**, and are always off in Ranked.
+are the ones in the WASD spot. The charge run, drop dash, shield bounce and
+jump assist (a jump pressed a moment after running off a ledge, or a moment
+before landing, still counts) can be turned off together in
+**Pause → Options → Extra moves**, and are always off in Ranked.
 
 ## Zones
 

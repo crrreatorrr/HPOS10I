@@ -202,6 +202,68 @@ describe('extra moves', () => {
     Moves.extraMovesOverride = false;
   });
 
+  it('precedence on one late air press: a held drop dash wins over the buffered jump; a tap buffers a jump', () => {
+    // Held to the landing for 20+ frames: the drop dash fires and no jump follows.
+    let w = newWorld();
+    Moves.extraMovesOverride = true;
+    addFloor(w);
+    let p = spawnPlayer(w, Vec2.ZERO);
+    settle(p, Vec2.ZERO);
+    press('jump');
+    step(1);
+    release('jump');
+    step(4);
+    press('jump');
+    for (let i = 0; i < 80 && !p.grounded; i++) step(1);
+    step(2);
+    expect(p.grounded).toBe(true);
+    expect(p.state).toBe('roll');
+    release('jump');
+
+    // Pressed 3 frames before landing and still held: too short for a drop dash, so it is an early jump.
+    w = newWorld();
+    Moves.extraMovesOverride = true;
+    addFloor(w);
+    p = spawnPlayer(w, Vec2.ZERO);
+    settle(p, Vec2.ZERO);
+    press('jump');
+    step(1);
+    release('jump');
+    let air = 1;
+    while (!p.grounded && air < 200) {
+      step(1);
+      air++;
+    }
+    step(4);
+    press('jump');
+    step(1);
+    release('jump');
+    step(air - 1 - 3);
+    expect(p.grounded).toBe(false);
+    press('jump');
+    step(4);
+    expect(p.state).toBe('jump');
+    expect(p.velocity.y).toBeLessThan(-5);
+    release('jump');
+
+    // With a shield the same press is a shield bounce, not a buffered jump.
+    w = newWorld();
+    Moves.extraMovesOverride = true;
+    addFloor(w);
+    p = spawnPlayer(w, Vec2.ZERO);
+    settle(p, Vec2.ZERO);
+    p.moves.give('shield');
+    press('jump');
+    step(1);
+    release('jump');
+    step(10);
+    press('jump');
+    step(1);
+    release('jump');
+    expect(p.velocity.y).toBeCloseTo(8, 0);
+    Moves.extraMovesOverride = false;
+  });
+
   it('charge run: up + jump, hold up, release for speed 12; early release cancels', () => {
     const w = newWorld();
     Moves.extraMovesOverride = true;

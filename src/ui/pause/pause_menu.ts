@@ -85,7 +85,7 @@ export interface OptionRow {
 }
 
 export const OPTION_ROWS: readonly OptionRow[] = [
-  { key: 'extraMoves', label: 'EXTRA MOVES', rankedOff: true, help: 'DROP DASH, CHARGE RUN AND SHIELD BOUNCE' },
+  { key: 'extraMoves', label: 'EXTRA MOVES', rankedOff: true, help: 'DROP DASH, CHARGE RUN, SHIELD BOUNCE, JUMP ASSIST' },
   { key: 'itemBoxes', label: 'ITEM BOXES', rankedOff: true, help: 'SHIELDS, SPEED SHOES AND INVINCIBILITY' },
   { key: 'screenShake', label: 'SCREEN SHAKE', rankedOff: false, help: 'SHAKE AND HIT-STOP ON BIG IMPACTS' },
   { key: 'speedEffects', label: 'SPEED EFFECTS', rankedOff: false, help: 'SPEED LINES AND THE AFTERIMAGE TRAIL' },

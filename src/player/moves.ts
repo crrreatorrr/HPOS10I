@@ -12,6 +12,11 @@
 //     cancels.
 //   - Shield bounce: with a shield, press jump in the air to slam down; the
 //     landing bounces you back up.
+//   - Jump assist: a jump pressed up to COYOTE_FRAMES after running or rolling
+//     off a ledge still jumps (late jump), and a jump pressed up to
+//     JUMP_BUFFER_FRAMES before landing jumps on the first grounded frame
+//     (early jump). On one air press the shield bounce comes first, then a
+//     drop dash that was held long enough, then the buffered jump.
 // With extra moves off and no power-ups, every hook below is a no-op, so the
 // classic physics (docs/PHYSICS.md) are untouched.
 
@@ -33,6 +38,10 @@ const PEELOUT_CHARGE_FRAMES = 30;
 const PEELOUT_SPEED = 12;
 const SHIELD_BOUNCE_DOWN = 8;
 const SHIELD_BOUNCE_UP = 7.5;
+/** Frames after the floor is lost in which a jump press still jumps. */
+export const COYOTE_FRAMES = 5;
+/** Frames before landing in which a jump press is kept for the landing. */
+export const JUMP_BUFFER_FRAMES = 6;
 
 export class Moves {
   /** Tests switch the extra moves off to compare against the classic model. */
@@ -45,6 +54,9 @@ export class Moves {
   private peelCharge = 0;
   private shieldBouncing = false;
   private airPressUsed = false;
+  private coyote = 0;
+  private buffer = 0;
+  private bufferedJump = false;
 
   constructor(private readonly player: Player) {}
 
@@ -108,12 +120,18 @@ export class Moves {
     this.dropCharge = -1;
     this.peelCharge = 0;
     this.shieldBouncing = false;
+    this.coyote = 0;
+    this.buffer = 0;
+    this.bufferedJump = false;
   }
 
   tick(): void {
     if (this.speedShoesFrames > 0) this.speedShoesFrames--;
     if (this.invincibilityFrames > 0) this.invincibilityFrames--;
     const p = this.player;
+    if (p.grounded) this.coyote = 0;
+    else if (this.coyote > 0) this.coyote--;
+    if (this.buffer > 0) this.buffer--;
     // Drop dash charge builds while jump stays held after the second press.
     if (this.dropCharge >= 0) {
       if (!Input.isActionPressed('jump') || p.grounded) {
@@ -128,6 +146,9 @@ export class Moves {
   // --- Air ----------------------------------------------------------------------
 
   onJump(): void {
+    this.coyote = 0;
+    this.buffer = 0;
+    this.bufferedJump = false;
     this.airPressUsed = false;
     this.dropCharge = -1;
     this.shieldBouncing = false;
@@ -138,14 +159,39 @@ export class Moves {
     this.airPressUsed = false;
   }
 
+  // --- Jump assist ----------------------------------------------------------------
+
+  /** The ground step lost the floor (ran or rolled off a ledge): a late jump is allowed for a few frames. */
+  onFloorLost(): void {
+    this.coyote = this.extrasEnabled() ? COYOTE_FRAMES + 1 : 0;
+  }
+
+  /** True (once) when a fresh air press may still jump off the ledge just left. */
+  takeCoyoteJump(): boolean {
+    if (this.coyote <= 0 || !this.extrasEnabled()) return false;
+    this.coyote = 0;
+    return true;
+  }
+
+  /** True (once) on the first grounded tick after a jump press that came just before landing. */
+  takeBufferedJump(): boolean {
+    const take = this.bufferedJump;
+    this.bufferedJump = false;
+    return take;
+  }
+
   /** A fresh jump press while airborne (not hurt). */
   airJumpPressed(): void {
     const p = this.player;
-    if (!this.extrasEnabled() || this.airPressUsed) return;
+    if (!this.extrasEnabled()) return;
+    // Every air press is remembered for the landing; a shield bounce uses it up.
+    this.buffer = JUMP_BUFFER_FRAMES + 1;
+    if (this.airPressUsed) return;
     if (p.state !== 'jump' && p.state !== 'spring' && p.state !== 'roll') return;
     this.airPressUsed = true;
     if (this.shield && p.state === 'jump') {
       // Shield bounce: slam straight down.
+      this.buffer = 0;
       this.shieldBouncing = true;
       p.velocity = new Vec2(0, SHIELD_BOUNCE_DOWN);
       p._airLocked = true;
@@ -176,6 +222,7 @@ export class Moves {
     }
     out = Math.max(-DROPDASH_MAX, Math.min(DROPDASH_MAX, out));
     this.pendingRoll = true;
+    this.buffer = 0;
     Audio.playSfx('spindash_release');
     return out * 60;
   }
@@ -190,6 +237,10 @@ export class Moves {
     const p = this.player;
     this.pendingRoll = false;
     this.airPressUsed = false;
+    this.coyote = 0;
+    // An early jump: pressed just before this landing, with no drop dash or shield bounce taking it.
+    this.bufferedJump = this.buffer > 0 && !this.shieldBouncing && p.state !== 'hurt' && this.extrasEnabled();
+    this.buffer = 0;
     if (this.shieldBouncing) {
       this.shieldBouncing = false;
       // Bounce back up along the floor normal.

@@ -4,7 +4,7 @@ import { SAVE_KEYS, Storage } from '../hub/storage';
 import { Signal } from '../runtime/signal';
 
 export interface SettingsData {
-  /** Drop dash, charge run and shield bounce (never in Ranked). */
+  /** Drop dash, charge run, shield bounce and the jump assist (never in Ranked). */
   extraMoves: boolean;
   /** Item boxes in levels (never in Ranked). */
   itemBoxes: boolean;

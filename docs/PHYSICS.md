@@ -28,7 +28,10 @@ reference tests still match the model to 1/256 px. The test names in the
 matrix refer to the Vitest files in `tests/physics/` (`test_ground` is
 `ground.test.ts`, and so on; the QA ones are `qa_*.test.ts`).
 
-The extra moves (drop dash, charge run, shield bounce) and the item-box
+The extra moves (drop dash, charge run, shield bounce and the jump assist:
+a jump pressed up to 5 frames after running off a ledge, or up to 6 frames
+before landing, still counts; `COYOTE_FRAMES` and `JUMP_BUFFER_FRAMES` in
+`src/player/moves.ts`) and the item-box
 power-ups are additions outside this audit. They are off in Ranked and can
 be turned off in Options; with them off the controller is exactly the
 audited one, and the tests run that way.

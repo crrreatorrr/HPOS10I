@@ -187,7 +187,10 @@ ticket scatter attach through `PlayerHooks` (`visuals_setup.ts`).
 Scattered tickets and placed tickets both call `GameState.addTickets(1)`,
 `Audio.playSfx('ticket')` and `Effects.ticketSparkle(at, parent)`.
 
-**Extra moves** (`moves.ts`): drop dash, charge run and shield bounce, with
+**Extra moves** (`moves.ts`): drop dash, charge run, shield bounce and the
+jump assist (a late jump up to 5 frames after the ground step loses the floor,
+an early jump buffered up to 6 frames before landing; on one air press the
+shield bounce comes first, then a held drop dash, then the buffered jump), with
 the player's option on and never in Ranked. With them off, the physics are
 exactly the classic model (docs/PHYSICS.md); the tests run that way.
 
