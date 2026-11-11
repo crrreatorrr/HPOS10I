@@ -477,6 +477,56 @@ describe('hub reports', () => {
     c.done();
   });
 
+  it('a boss beaten before on this save banks nothing on a replay, and a failed attempt never pays', async () => {
+    const c = new Checks();
+    const sdk = await boot();
+    const zone = ZoneRegistry.getZone(ZONE_A)!;
+    const boss = zone.acts.length + 1;
+    // A failed attempt (never cleared) and a game-over retry: two fresh ids, no earn.
+    const failed = playAttempt(ZONE_A, boss, 0);
+    GameState.addTickets(5);
+    const retried = playAttempt(ZONE_A, boss, 0);
+    c.true(failed !== retried, 'a retry is a fresh attempt with its own id');
+    c.eq(sdk.earns().length, 0, 'an attempt that is not cleared sends nothing');
+    // The first clear banks, once, under the retry's id.
+    GameState.addTickets(5);
+    GameState.completeLevel();
+    c.eq(sdk.earns().length, 1, 'the first boss clear banks');
+    c.eq(sdk.earns()[0]?.key, retried, 'under the clearing attempt id');
+    c.eq(Number(earnRow(failed).amount ?? 0), 0, 'the failed attempt id never got an earn');
+    c.true(HubClient.isCleared(ZONE_A, boss), 'the boss clear is saved');
+    // Replays (the zone select BOSS button, or a later run): nothing more.
+    playAttempt(ZONE_A, boss, 9);
+    playAttempt(ZONE_A, boss, 20);
+    c.eq(sdk.earns().length, 1, `a boss replay banks nothing (${sdk.ledger()})`);
+    c.eq(pendingEarnKeys().length, 1, 'and saves no earn row');
+    // Another zone's boss is its own first clear.
+    playAttempt(ZONE_B, ZoneRegistry.getZone(ZONE_B)!.acts.length + 1, 3);
+    c.eq(sdk.earns().length, 2, 'another boss banks its first clear');
+    c.done();
+  });
+
+  it('remembers the clear for the tally: the time, the best before it and whether it beat it', async () => {
+    await boot();
+    playAttempt(ZONE_A, 2, 0);
+    expect(HubClient.lastClear).toBeNull();
+    GameState.levelTime = 50;
+    GameState.completeLevel();
+    expect(HubClient.lastClear).toEqual({ zone: ZONE_A, act: 2, time: 50, previousBest: null, newBest: true });
+    expect(HubClient.bestTime(ZONE_A, 2)).toBe(50);
+    playAttempt(ZONE_A, 2, 0);
+    expect(HubClient.lastClear).toBeNull();
+    GameState.levelTime = 61.5;
+    GameState.completeLevel();
+    expect(HubClient.lastClear).toEqual({ zone: ZONE_A, act: 2, time: 61.5, previousBest: 50, newBest: false });
+    expect(HubClient.bestTime(ZONE_A, 2)).toBe(50);
+    playAttempt(ZONE_A, 2, 0);
+    GameState.levelTime = 44;
+    GameState.completeLevel();
+    expect(HubClient.lastClear).toMatchObject({ previousBest: 50, newBest: true });
+    expect(HubClient.bestTime(ZONE_A, 2)).toBe(44);
+  });
+
   it('only Zone 1 Act 1 submits the act-time score', async () => {
     const c = new Checks();
     const sdk = await boot();

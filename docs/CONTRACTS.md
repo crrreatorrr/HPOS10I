@@ -334,12 +334,12 @@ Web Audio, unlocked by the first key press, click or tap.
 | Screen | |
 |---|---|
 | Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; Relic skin row; BACK and HUB (straight to the hub) |
+| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; BACK and HUB (straight to the hub). Acts unlock by progress (`isActUnlocked`: the act before it cleared on this save, or already cleared itself); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`). The dev menu and `?zone=` are not gated. |
 | HUD | Score, time, tickets, lives, power-ups |
 | Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title |
 | Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |
-| Tally | Emits `finished`; the emerald moment; "+N Tickets sent to the hub" |
+| Tally | Emits `finished`; the emerald moment; this clear's time with the saved best or NEW BEST! (`HubClient.lastClear`); "+N Tickets sent to the hub", or "Hub Ticket limit reached" when the hub refused the earn for a cap |
 | Game over | RETRY STAGE (default: a fresh game at the act or boss arena where the last life went) and QUIT TO TITLE; one continue prompt in sandbox scenes |
 | Ending, dev menu (`main`), sound hint, rotate hint | |
 
@@ -362,6 +362,15 @@ Web Audio, unlocked by the first key press, click or tap.
 - `npm run e2e:hub` checks the web build against a running hub server (the hub
   repo's `server/docker-compose.yml`): ticket redeem, earn once per attempt,
   reloads, the Relic, the board, outbox recovery and Exit to Hub.
+- A boss arena (stage acts + 1) banks its tickets the first time it is beaten
+  on this save. A boss already in the save's `cleared` list is a replay and
+  banks nothing, however it was started.
+- A game over's RETRY STAGE and the pause menu's RESTART ACT are fresh starts
+  (`GameState.startLevel`): each mints a new run id. Only a clear sends an
+  earn, under the id of the attempt that cleared, so an abandoned or failed
+  attempt never pays and no id can pay twice.
+- `HubClient.bestTime(zone, act)` and `isCleared(zone, stage)` read the local
+  save; `lastClear` holds the clear the tally is showing.
 - Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
   key unique to that attempt (the server grants the HPOS10I Core and pets).
 - Only Zone 1 Act 1 posts to `hpos10i_act_time` (the server keeps one time

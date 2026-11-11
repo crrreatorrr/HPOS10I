@@ -31,7 +31,8 @@ import { SoundHint } from '../../src/ui/sound_hint/sound_hint';
 import { ScoreTally } from '../../src/ui/tally/score_tally';
 import { DISCLAIMER, TitleScreen } from '../../src/ui/title/title_screen';
 import { JUMP_CENTER, PAD_CENTER, TouchControls, padActions } from '../../src/ui/touch_controls/touch_controls';
-import { HINT_PAD, ZoneSelect } from '../../src/ui/zone_select/zone_select';
+import { BOSS_REPLAY_NOTE, HINT_PAD, isActUnlocked, isBossUnlocked, UNLOCK_HINT, ZoneSelect } from '../../src/ui/zone_select/zone_select';
+import { formatActTime } from '../../src/ui/common/act_time';
 import { buildMiniLevel } from '../levels/level_world';
 
 // --- Helpers ---------------------------------------------------------------------------
@@ -131,6 +132,8 @@ beforeEach(() => {
   Settings.reset();
   RelicLoadout.reset();
   HubClient.lastBanked = null;
+  HubClient.lastClear = null;
+  HubClient.earnCapped = false;
   showScene(() => new Node('Empty'));
   frames(1);
 });
@@ -242,6 +245,22 @@ describe('MenuList', () => {
 // --- Zone select -------------------------------------------------------------------------
 
 describe('ZoneSelect', () => {
+  /** A save with every act cleared (everything unlocked), as most tests want. */
+  function clearAllActs(): void {
+    for (const zone of ZoneRegistry.allZones(false)) zone.acts.forEach((_, i) => HubClient.save.cleared.add(`${zone.id}:${i + 1}`));
+  }
+
+  beforeEach(() => {
+    HubClient.save.cleared.clear();
+    HubClient.save.bestTimes.clear();
+    clearAllActs();
+  });
+
+  afterEach(() => {
+    HubClient.save.cleared.clear();
+    HubClient.save.bestTimes.clear();
+  });
+
   function open(): ZoneSelect {
     const zs = showScene(() => new ZoneSelect());
     frames(20); // past the input grace
@@ -289,6 +308,8 @@ describe('ZoneSelect', () => {
     tapAction('ui_right');
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:2');
     tapAction('move_right');
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:3'); // the boss
+    tapAction('move_right');
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1'); // wraps in the row
     tapAction('ui_down');
     expect(focusedAct(zs)).toBe('z2_wizard_academy:1');
@@ -302,6 +323,69 @@ describe('ZoneSelect', () => {
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1'); // wraps
     tapAction('ui_up');
     expect(focusedAct(zs)).toBe('back');
+  });
+
+  it('a fresh save opens only the first act; clearing an act opens the next, and the last act opens the boss', () => {
+    HubClient.save.cleared.clear();
+    let zs = open();
+    const openActs = () => zs.acts.filter((a) => a.open).map((a) => `${a.zoneId}:${a.act}`);
+    expect(openActs()).toEqual(['z1_retro_rush_hills:1']);
+    expect(zs.bosses.length).toBe(4);
+    expect(zs.bosses.every((b) => !b.open)).toBe(true);
+    // Navigation skips everything locked: act 1, then BACK.
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1');
+    tapAction('ui_right');
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1');
+    tapAction('ui_down');
+    expect(focusedAct(zs)).toBe('back');
+    expect(zs.infoText()).toBe(UNLOCK_HINT);
+    for (const b of zs.bosses) expect(zs.menu.stateOf(zs.menu.items.findIndex((i) => (i.data as { zoneId?: string; boss?: boolean } | undefined)?.boss === true && (i.data as { zoneId: string }).zoneId === b.zoneId))).toBe('disabled');
+
+    HubClient.save.cleared.add('z1_retro_rush_hills:1');
+    zs = open();
+    expect(openActs()).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2']);
+    expect(zs.bosses.some((b) => b.open)).toBe(false);
+
+    HubClient.save.cleared.add('z1_retro_rush_hills:2');
+    zs = open();
+    expect(openActs()).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2', 'z2_wizard_academy:1']);
+    expect(zs.bosses.filter((b) => b.open).map((b) => b.zoneId)).toEqual(['z1_retro_rush_hills']);
+
+    // An act cleared before the rule existed stays open, even with a gap before it.
+    HubClient.save.cleared.add('z3_capital_mansion:2');
+    zs = open();
+    expect(openActs()).toContain('z3_capital_mansion:2');
+    expect(openActs()).not.toContain('z3_capital_mansion:1');
+    expect(isActUnlocked('z4_neon_rush_remix', 1)).toBe(true);
+    expect(isBossUnlocked('z3_capital_mansion')).toBe(true);
+    expect(isBossUnlocked('z2_wizard_academy')).toBe(false);
+  });
+
+  it('BOSS starts the boss arena (stage acts + 1) and says when a replay banks nothing', () => {
+    const start = vi.spyOn(SceneRouter, 'startZone').mockImplementation(() => undefined);
+    const zs = open();
+    tapAction('ui_right');
+    tapAction('ui_right');
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:3');
+    expect(zs.infoText()).toBe('BOSS ARENA');
+    HubClient.save.cleared.add('z1_retro_rush_hills:3');
+    expect(zs.infoText()).toBe(BOSS_REPLAY_NOTE);
+    tapAction('jump');
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith('z1_retro_rush_hills', 3);
+  });
+
+  it('shows the saved best time of the focused act, or --:--', () => {
+    HubClient.save.bestTimes.set('z1_retro_rush_hills:1', 83.456);
+    const zs = open();
+    expect(zs.infoText()).toBe('ACT 1   BEST 1:23.45');
+    tapAction('ui_right');
+    expect(zs.infoText()).toBe('ACT 2   BEST --:--');
+    expect(formatActTime(0)).toBe('0:00.00');
+    expect(formatActTime(59.999)).toBe('0:59.99');
+    expect(formatActTime(600)).toBe('10:00.00');
+    expect(formatActTime(null)).toBe('--:--');
+    drawAll(zs, fakeGfx());
   });
 
   it('choosing an act starts it exactly once', () => {
@@ -833,6 +917,53 @@ describe('ScoreTally', () => {
     const r = tally.panelRect();
     expect(r.y).toBeGreaterThanOrEqual(44);
     expect(r.bottom).toBeLessThanOrEqual(223);
+    tally.free();
+  });
+
+  it('shows this clear\'s time with the saved best, NEW BEST! when it beat it, and still fits', () => {
+    clearAct('z1_retro_rush_hills', 1, 83.456, 4);
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 83.456, previousBest: 80.1, newBest: false };
+    HubClient.lastBanked = { amount: 4, acked: false };
+    let tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.timesLine()).toBe('TIME 1:23.45   BEST 1:20.10');
+    expect(tally.isNewBest()).toBe(false);
+    expect(tally.hasEmeraldMoment()).toBe(true);
+    let r = tally.panelRect();
+    expect(r.y).toBeGreaterThanOrEqual(44);
+    expect(r.bottom).toBeLessThanOrEqual(223);
+    drawAll(tally, fakeGfx());
+    tally.free();
+
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 70, previousBest: 80.1, newBest: true };
+    tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.timesLine()).toBe('TIME 1:10.00   NEW BEST!');
+    expect(tally.isNewBest()).toBe(true);
+    r = tally.panelRect();
+    expect(r.bottom).toBeLessThanOrEqual(223);
+    drawAll(tally, fakeGfx());
+    tally.free();
+
+    // Another act's record is not this tally's.
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 2, time: 70, previousBest: null, newBest: true };
+    tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.timesLine()).toBe('');
+    tally.free();
+    HubClient.lastClear = null;
+  });
+
+  it('says when the hub refused the earn for its Ticket limit', () => {
+    ScoreTally.watchBanks();
+    GameState.startLevel('z1_retro_rush_hills', 1);
+    HubClient.lastBanked = { amount: 12, acked: false };
+    const tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.bankedLine()).toBe('+12 Tickets sent to the hub');
+    HubClient.earnCapped = true;
+    expect(tally.bankedLine()).toBe('Hub Ticket limit reached');
+    HubClient.earnCapped = false;
     tally.free();
   });
 

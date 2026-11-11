@@ -7,7 +7,12 @@
 // (sfx `emerald_get`). If this act's emerald was won before, a quiet small
 // icon and "N / 8" instead. Nothing for the test zone or boss arenas. When
 // this clear banked tickets with the hub (HubClient.lastBanked changed since
-// the act started), a line says "+N Tickets sent to the hub".
+// the act started), a line says "+N Tickets sent to the hub", or that the
+// hub's Ticket limit was reached when the hub refused the earn for a cap.
+//
+// After an act (HubClient.lastClear), a line shows this clear's time and the
+// saved best ("TIME 1:23.45   BEST 1:20.10"), or a flashing NEW BEST! when
+// this clear is the first or beat it.
 //
 // Jump (any device) or a tap/click skips the count; once counted, it
 // continues. Timing runs on seconds, so any frame rate gives the same tally.
@@ -18,7 +23,7 @@ import { Audio } from '../../core/audio';
 import { Emeralds } from '../../core/emeralds';
 import { GameState } from '../../core/game_state';
 import { ZoneRegistry } from '../../core/zone_registry';
-import { HubClient } from '../../hub/hub_client';
+import { HubClient, type ClearResult } from '../../hub/hub_client';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Input } from '../../runtime/input';
@@ -26,6 +31,7 @@ import { clamp, lerp } from '../../runtime/math';
 import type { InputEventLike } from '../../runtime/node';
 import { Signal } from '../../runtime/signal';
 import { Rect2, Vec2 } from '../../runtime/vec2';
+import { formatActTime } from '../common/act_time';
 import { COLORS, drawPanel, drawText, lineHeight, measure, PANEL_MARGIN_X, PANEL_MARGIN_Y, UiLayer } from '../common/theme';
 import { BIG_SIZE, EmeraldIcon } from '../emerald/emerald_icon';
 
@@ -40,6 +46,8 @@ export const TIME_BONUS: readonly [number, number][] = [
   [300, 100],
 ];
 export const TICKET_BONUS = 100;
+export const NEW_BEST = 'NEW BEST!';
+export const HUB_LIMIT_LINE = 'Hub Ticket limit reached';
 /** Points per second moved into the score while counting (100 a frame at 60). */
 export const COUNT_RATE = 6000;
 const TICK_INTERVAL = 1 / 15;
@@ -93,6 +101,7 @@ export class ScoreTally extends UiLayer {
   private zoneName = '';
   private countText = '';
   private banked = 0;
+  private clear: ClearResult | null = null;
   private panel = new Rect2();
   private rows: { key: string; y: number }[] = [];
   private sep = 3;
@@ -144,7 +153,22 @@ export class ScoreTally extends UiLayer {
     this.countText = `${GameState.emeraldCount()} / ${Emeralds.total()}`;
     this.mode = ScoreTally.emeraldMode(this.zoneId, this.act);
     this.banked = ScoreTally.bankedThisAct();
+    const clear = HubClient.lastClear;
+    this.clear = clear && clear.zone === this.zoneId && clear.act === this.act ? clear : null;
     this.layout();
+  }
+
+  /** True when this clear is the act's first or beat the saved best time. */
+  isNewBest(): boolean {
+    return this.clear?.newBest === true;
+  }
+
+  /** "TIME m:ss.cc   BEST m:ss.cc" (or NEW BEST!); '' when no act time was recorded. */
+  timesLine(): string {
+    const c = this.clear;
+    if (!c) return '';
+    const time = `TIME ${formatActTime(c.time)}`;
+    return c.newBest ? `${time}   ${NEW_BEST}` : `${time}   BEST ${formatActTime(c.previousBest)}`;
   }
 
   hasEmeraldMoment(): boolean {
@@ -156,7 +180,10 @@ export class ScoreTally extends UiLayer {
   }
 
   bankedLine(): string {
-    return this.banked > 0 ? `+${this.banked} Tickets sent to the hub` : '';
+    if (this.banked <= 0) return '';
+    // The hub refused this earn for its session or daily cap: nothing was added.
+    if (HubClient.earnCapped && HubClient.lastBanked?.acked !== true) return HUB_LIMIT_LINE;
+    return `+${this.banked} Tickets sent to the hub`;
   }
 
   isCountingDone(): boolean {
@@ -312,18 +339,27 @@ export class ScoreTally extends UiLayer {
     } else if (this.mode === 'earlier') {
       parts.push({ key: 'quiet', h: QUIET_H });
     }
+    if (this.clear) parts.push({ key: 'times', h: lineHeight('outline') });
     parts.push({ key: 'rows', h: 3 * lineHeight('hudValue') + 2 * 2 });
     if (this.banked > 0) parts.push({ key: 'banked', h: lineHeight('outline') });
     parts.push({ key: 'continue', h: lineHeight('outline') });
-    const content = (sep: number) => parts.reduce((a, p) => a + p.h, 0) + sep * (parts.length - 1);
     const area = PANEL_BOTTOM - PANEL_TOP;
-    this.sep = content(3) + PANEL_MARGIN_Y * 2 <= area ? 3 : 2;
+    const content = (sep: number) => parts.reduce((a, p) => a + p.h, 0) + sep * (parts.length - 1);
+    const fits = (sep: number) => content(sep) + PANEL_MARGIN_Y * 2 <= area;
+    // Tighter rows first; with the emerald, the times and the hub line all
+    // showing, the zone name gives way (the heading still names the act).
+    this.sep = 3;
+    if (!fits(3)) this.sep = 2;
+    if (!fits(2)) parts.splice(parts.findIndex((p) => p.key === 'zone'), 1);
+    if (!fits(2)) this.sep = 1;
     const innerH = content(this.sep);
     const widths = [
       MIN_WIDTH,
       measure(this.heading, 'title'),
       measure(this.zoneName, 'hudValue'),
       measure(this.bankedLine(), 'outline'),
+      measure(HUB_LIMIT_LINE, 'outline'),
+      measure(this.timesLine(), 'outline'),
       measure('JUMP OR TAP TO CONTINUE', 'outline'),
     ];
     const innerW = Math.max(...widths);
@@ -381,6 +417,20 @@ export class ScoreTally extends UiLayer {
           const total = QUIET_H + 6 + textW;
           const left = cx - Math.floor(total / 2);
           drawText(g, this.countText, left + QUIET_H + 6, row.y + Math.floor((QUIET_H - 9) / 2), 'outline', { color: COLORS.soft });
+          break;
+        }
+        case 'times': {
+          const c = this.clear;
+          if (!c) break;
+          if (!c.newBest) {
+            drawText(g, this.timesLine(), x, row.y, 'outline', { align: 'center', width: w });
+            break;
+          }
+          // NEW BEST! flashes gold beside the time.
+          const time = `TIME ${formatActTime(c.time)}   `;
+          const left = cx - Math.floor(measure(time + NEW_BEST, 'outline') / 2);
+          drawText(g, time, left, row.y, 'outline');
+          if (this.clock % 0.5 < 0.32) drawText(g, NEW_BEST, left + measure(time, 'outline'), row.y, 'outline', { color: COLORS.gold });
           break;
         }
         case 'rows': {

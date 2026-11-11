@@ -7,6 +7,9 @@
 //   tickets collected as hub Tickets with that id as the idempotency key, so
 //   a retry, a reload or a second tab can never pay twice. Unacked earns are
 //   resent after the next successful init.
+// - A boss arena banks its tickets the first time it is beaten on this save
+//   only: replays (the zone select's BOSS button) bank nothing, so the short
+//   fight is never the best Ticket source.
 // - Every act clear is reported as hpos10i.level_complete {zone, act}: the
 //   server grants the HPOS10I Core for Zone 1 Act 1 and pets for later acts.
 // - The act-time board keeps one time per player, so only Zone 1 Act 1 posts
@@ -46,6 +49,17 @@ const REFRESH_EVERY_MS = 120_000;
 
 export type Reach = 'offline' | 'pending' | 'ready';
 
+export interface ClearResult {
+  zone: string;
+  act: number;
+  /** Seconds this clear took. */
+  time: number;
+  /** The best time saved before this clear (null: the first clear). */
+  previousBest: number | null;
+  /** True when this clear is the first or beat the saved best. */
+  newBest: boolean;
+}
+
 type Payload = Record<string, unknown>;
 
 function errorPayload(err: unknown): Payload {
@@ -73,6 +87,11 @@ class HubClientImpl {
   revision = 0;
   /** Last banked earn, for the tally ("+N Tickets to the hub"). */
   lastBanked: { amount: number; acked: boolean } | null = null;
+  /**
+   * The act clear that just happened (null from the next act start): its time,
+   * the best time saved before it and whether it beat that. For the tally.
+   */
+  lastClear: ClearResult | null = null;
   /** Bumped by every balance source, so a slow balance read never overwrites a newer earn answer. */
   private balanceStamp = 0;
 
@@ -174,6 +193,16 @@ class HubClientImpl {
     if (typeof window !== 'undefined') window.location.assign(target);
   }
 
+  /** The saved best time of an act in seconds, or null. */
+  bestTime(zone: string, act: number): number | null {
+    return this.save.bestTime(zone, act);
+  }
+
+  /** True when a stage was cleared on this save (acts 1..n, the boss arena n + 1). */
+  isCleared(zone: string, stage: number): boolean {
+    return this.save.isCleared(zone, stage);
+  }
+
   /** The hub URL players return to (shown in the pause menu). */
   get hubTarget(): string {
     return this.hubUrl;
@@ -240,6 +269,7 @@ class HubClientImpl {
   // --- Level hooks -------------------------------------------------------------------
 
   private onLevelStarted(zone: string, act: number): void {
+    this.lastClear = null;
     // Respawns keep the attempt; only a fresh start (startLevel) mints a run id.
     if (SceneRouter.freeScene !== '' || zone === '') return;
     if (!this.save.beginAttempt(zone, act)) {
@@ -259,8 +289,13 @@ class HubClientImpl {
     const tickets = Math.trunc(GameState.tickets);
     const zoneDef = SceneRouter.currentZone();
     const isAct = !!zoneDef && act >= 1 && act <= zoneDef.acts.length;
+    // A boss beaten before on this save is a replay: it banks nothing.
+    const bossReplay = !isAct && !!zoneDef && act === zoneDef.acts.length + 1 && this.save.isCleared(zone, act);
+    if (!isAct && zoneDef && act === zoneDef.acts.length + 1) this.save.recordStageClear(zone, act);
     if (isAct) {
+      const previousBest = this.save.bestTime(zone, act);
       const best = this.save.recordClear(zone, act, timeSec);
+      this.lastClear = { zone, act, time: timeSec, previousBest, newBest: previousBest === null || timeSec < previousBest };
       if (zone === BOARD_ZONE && act === BOARD_ACT) {
         void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, best, { zone, act }));
       }
@@ -270,7 +305,7 @@ class HubClientImpl {
       const eventKey = this.save.keyFor('relic', `${zone}:${act}:${this.save.currentRunId()}:${timeMs}`);
       void this.call(() => this.sdk!.reportEvent(EVENT_LEVEL_COMPLETE, { zone, act, time: timeSec }, eventKey));
     }
-    if (tickets > 0) this.bankTickets(zone, act, tickets);
+    if (tickets > 0 && !bossReplay) this.bankTickets(zone, act, tickets);
   }
 
   private bankTickets(zone: string, act: number, tickets: number): void {

@@ -1,5 +1,6 @@
 // Progress and idempotency keys (localStorage, one JSON value per former
-// user:// file). Cleared acts, best times and won emeralds live in progress;
+// user:// file). Cleared acts and boss arenas (stage acts + 1), best act
+// times and won emeralds live in progress;
 // write_keys holds idempotency keys only. Relic ownership and Ticket balances
 // are server-side and are never written here.
 //
@@ -105,6 +106,14 @@ export class HubSave {
     this.bestTimes.set(id, best);
     this.writeProgress();
     return best;
+  }
+
+  /** Records a cleared stage that keeps no time (a boss arena: stage acts + 1). */
+  recordStageClear(zone: string, stage: number): void {
+    const id = `${zone}:${stage}`;
+    if (this.cleared.has(id)) return;
+    this.cleared.add(id);
+    this.writeProgress();
   }
 
   /** Saves a won emerald (acts without one are ignored). */
