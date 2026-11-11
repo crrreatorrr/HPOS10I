@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Layers } from '../../src/core/layers';
 import { GameState } from '../../src/core/game_state';
 import { Enemy } from '../../src/levels/enemies/enemy_base';
+import { AutoscrollSection } from '../../src/levels/objects/z2/autoscroll_section';
 import { tree } from '../../src/runtime/tree';
 import { Vec2 } from '../../src/runtime/vec2';
 import { press, release, releaseAll, step } from '../helpers/world';
@@ -47,6 +48,14 @@ const ROUTES: Record<string, Entry[]> = {
     // Staying on the upper level: a running jump over the 64 px gap where the ramp goes down.
     { from: [11560, -640], deckY: -640, deck: [11840, 13520], jumpAt: 11744, speed: 5 },
   ],
+  'src/levels/data/z2_wizard_academy/act2.json': [
+    { from: [2320, -144], deckY: -224, deck: [2368, 3808] },
+    { from: [4656, -272], deckY: -352, deck: [4704, 5360] },
+    // Level with the breakable-wall tunnel's roof: a running jump over the 64 px gap.
+    { from: [14400, -576], deckY: -576, deck: [14656, 15968], jumpAt: 14560, speed: 5 },
+    // Staying on the upper floor where the ramp goes down.
+    { from: [19560, -832], deckY: -832, deck: [19856, 21264], jumpAt: 19760, speed: 5 },
+  ],
 };
 
 const FLOOR = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY;
@@ -58,7 +67,8 @@ for (const [file, entries] of Object.entries(ROUTES)) {
     it.each(entries)('the deck at y $deckY from x $deck.0 is reached from ($from.0, $from.1) and rejoins the floor', async (e) => {
       GameState.resetGame();
       const root = await loadAct(file);
-      for (const enemy of root.findChildren((n) => n instanceof Enemy)) enemy.queueFree();
+      // Enemies are not part of the question; a chase section would grab a teleported Sproto.
+      for (const node of root.findChildren((n) => n instanceof Enemy || n instanceof AutoscrollSection)) node.queueFree();
       step(1);
       const p = root.player!;
       p.respawnAt(new Vec2(e.from[0], e.from[1] - FEET));

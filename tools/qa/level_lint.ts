@@ -113,7 +113,7 @@ const CODE_PREFIX = 'code:';
  * and hard checkpoint gap are errors. An act joins the list when its flow
  * pass lands; elsewhere the same findings are warnings.
  */
-export const FLOW_ENFORCED: ReadonlySet<string> = new Set<string>(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2', 'z2_wizard_academy:1']);
+export const FLOW_ENFORCED: ReadonlySet<string> = new Set<string>(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2', 'z2_wizard_academy:1', 'z2_wizard_academy:2']);
 export const SECTIONS = ['opening', 'middle', 'finale'] as const;
 export type SectionName = (typeof SECTIONS)[number];
 
@@ -712,7 +712,7 @@ export interface Measures {
   /** Every node in group `level_hazard` (vents, rams, wells, burrowers). */
   hazards: HazardInfo[];
   /** Hazards within 2 screens after a checkpoint, spring or loop exit. */
-  hazardTooClose: { kind: string; name: string; x: number; hazard: string; ahead: number }[];
+  hazardTooClose: { kind: string; name: string; x: number; hazard: string; ahead: number; onLowestRoute: boolean }[];
 }
 
 export interface HazardInfo {
@@ -950,7 +950,7 @@ export function measure(root: Node2D, isEnemy: (n: Node) => boolean = isEnemyNod
   for (const spot of safe) {
     for (const h of hazards) {
       const ahead = travel * (h.x - spot.x);
-      if (ahead >= 0 && ahead < 2 * SCREEN_W) hazardTooClose.push({ ...spot, hazard: h.name, ahead });
+      if (ahead >= 0 && ahead < 2 * SCREEN_W) hazardTooClose.push({ ...spot, hazard: h.name, ahead, onLowestRoute: h.onLowestRoute });
     }
   }
 
@@ -1134,7 +1134,9 @@ function checkFlow(out: Finding[], m: Measures, d: number, enforce: boolean): vo
   }
   if (d < 5) {
     for (const c of m.hazardTooClose) {
-      add(out, c.kind === 'spring' || !enforce ? 'warn' : 'error', 'hazard.safe_spot', new Vec2(c.x, 0), `${c.kind} ${c.name} at x ${f0(c.x)}: hazard ${c.hazard} only ${f0(c.ahead)} px (${f1(c.ahead / SCREEN_W)} screens) ahead (below D5 keep 2 screens clear)`);
+      // A hazard on an optional shelf above the route is reported; one on the lowest route is held to the rule.
+      const hard = enforce && c.kind !== 'spring' && c.onLowestRoute;
+      add(out, hard ? 'error' : 'warn', 'hazard.safe_spot', new Vec2(c.x, 0), `${c.kind} ${c.name} at x ${f0(c.x)}: hazard ${c.hazard}${c.onLowestRoute ? '' : ' (on a shelf above the route)'} only ${f0(c.ahead)} px (${f1(c.ahead / SCREEN_W)} screens) ahead (below D5 keep 2 screens clear)`);
     }
   }
 }

@@ -291,6 +291,17 @@ describe('flow and hazard rules self-test (fixtures)', () => {
     expect(rules(L.check(m, 1, ROW_1), 'warn')).toContain('hazard.safe_spot');
     expect(rules(L.check(m, 1, ROW_1, false, true), 'error')).toContain('hazard.safe_spot');
     expect(L.check(m, 5, ROW_1).map((f) => f.rule)).not.toContain('hazard.safe_spot');
+    // On a shelf above the route it stays a warning even when the act is enforced.
+    const shelf = (w: Node2D): void => {
+      qa.rect(w, new Rect2(xAt(0.55) + 100, -200, 400, 16));
+      const h = new FakeHazard('Vent2', false);
+      h.position = new Vec2(xAt(0.55) + 300, -200);
+      w.addChild(h);
+    };
+    const above = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, shelf));
+    expect(above.hazardTooClose[0]).toMatchObject({ hazard: 'Vent2', onLowestRoute: false });
+    expect(rules(L.check(above, 1, ROW_1, false, true), 'error')).not.toContain('hazard.safe_spot');
+    expect(rules(L.check(above, 1, ROW_1, false, true), 'warn')).toContain('hazard.safe_spot');
   });
 });
 
