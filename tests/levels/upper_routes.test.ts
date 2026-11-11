@@ -63,6 +63,10 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [24140, -144], deckY: -144, deck: [24416, 25200], jumpAt: 24320, speed: 5 },
     { from: [26900, -80], deckY: -80, deck: [27136, 27936], jumpAt: 27040, speed: 4 },
   ],
+  'src/levels/data/z3_capital_mansion/act2.json': [
+    { from: [22100, -512], deckY: -512, deck: [22336, 23104], jumpAt: 22240, speed: 4 },
+    { from: [26900, -768], deckY: -768, deck: [27136, 27936], jumpAt: 27040, speed: 4 },
+  ],
 };
 
 const FLOOR = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY;
