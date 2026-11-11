@@ -35,6 +35,13 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [14336, -112], deckY: -192, deck: [14416, 15600] },
     { from: [16512, -128], deckY: -208, deck: [16592, 17104] },
   ],
+  'src/levels/data/z1_retro_rush_hills/act2.json': [
+    { from: [1408, -48], deckY: -128, deck: [1504, 2880] },
+    { from: [11488, -368], deckY: -448, deck: [11536, 12240] },
+    { from: [12352, -368], deckY: -448, deck: [12400, 13296] },
+    { from: [14160, -368], deckY: -448, deck: [14224, 15376] },
+    { from: [25344, -48], deckY: -128, deck: [25392, 26352] },
+  ],
 };
 
 const FLOOR = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY;

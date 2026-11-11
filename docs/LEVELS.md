@@ -111,7 +111,7 @@ first draft, with more checkpoints so a death never sends you far back.
 |---|---|---|---|---|---|---|---|---|---|
 | Test zone | 0 | ~20 | 0:45 | 0.2 | T1 | R1 | Everything, gently | 2 | 6 |
 | Z1 Act 1 | 1 | 45 | 1:20 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
-| Z1 Act 2 | 2 | 55 | 1:55 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 4 | 4.5 |
+| Z1 Act 2 | 2 | 55 | 1:55 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 6 | 4.5 |
 | Z1 Boss (Rug Pull) | 2.5 | arena | – | – | – | – | – | – | – |
 | Z2 Act 1 | 3 | 55 | 2:00 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves | 4 | 4 |
 | Z2 Act 2 | 4 | 65 | 2:55 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase | 5 | 4 |
