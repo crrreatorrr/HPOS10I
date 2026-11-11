@@ -62,6 +62,8 @@ in your final report.
 - `tree` (`tree.ts`): the scene tree and main loop: `physicsStep()`,
   `processStep()`, `advance(n)` (tests), `changeScene()`, `callDeferred()`,
   `getNodesInGroup()`, `paused`, `timeScale`, `hitStop(ticks)`, `camera`.
+  `suspended` stops the whole loop, ALWAYS nodes and input included, and
+  changes no state (the feedback window, `ui/feedback.ts`).
 - `crashGuard` (`crash_guard.ts`, `tree.crash`): the main loop always
   reschedules; a frame that throws stops its remaining ticks and is counted.
   `CRASH_HALT_FRAMES` failures in a row (or a boot failure) halt the game and
@@ -124,6 +126,7 @@ area (mask bit 5) and call the player API below.
 | `move_up` / `move_down` | Up/Down, W/S | D-pad, left stick | threshold 0.75, so 45° diagonals read as horizontal |
 | `jump` | Z, X, C, Space, K | A, B, X, Y | |
 | `pause` | P, Enter, Esc | Start | |
+| (feedback window, not an action) | N twice | | |
 | `focus` | F | LB, RB | Time Focus (Duelist cape) |
 | `debug_overlay` | F1 | | |
 | `ui_*` | arrows, Enter, Space, Esc | D-pad, left stick (0.5), A, B | menus |
@@ -336,7 +339,8 @@ Web Audio, unlocked by the first key press, click or tap.
 | Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
 | Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; Relic skin row; BACK and HUB (straight to the hub) |
 | HUD | Score, time, tickets, lives, power-ups |
-| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title |
+| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title, Send feedback |
+| Feedback (`feedback.ts`) | N twice, or SEND FEEDBACK in the pause menu, opens the hub SDK's feedback window (a DOM overlay; `installFeedback`, hub repo `docs/feedback.md`). `Feedback.install(canvas)` runs at boot before any other key listener, so the game never sees N or the keys typed in the window. While it is open `tree.suspended` freezes everything and closing restores the exact state. Sends the scene id, mode, player position and state, level time, build id, crash-guard errors and breadcrumbs (act start, checkpoint, death, act clear, boss start/phase/defeat, scene changes). Signed-in hub players only; standalone shows a one-line toast |
 | Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |
 | Tally | Emits `finished`; the emerald moment; "+N Tickets sent to the hub" |

@@ -64,6 +64,13 @@ class TimeFocusNode extends Node {
     if (was) tree.timeScale = 1;
   }
 
+  /** The main loop stood still for `ms` (tree.suspended): the slow motion lasts that much longer. */
+  skip(ms: number): void {
+    if (!this.active || !(ms > 0)) return;
+    this.deadline += ms;
+    if (this.pausedAt !== 0) this.pausedAt += ms;
+  }
+
   private onLevelStarted(): void {
     this.usesLeft = USES_PER_LEVEL;
     if (RelicLoadout.resolve().ranked) {

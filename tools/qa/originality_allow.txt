@@ -16,16 +16,18 @@ src/core/emeralds.ts:12
 # id list (.js and .d.ts) and the relic-by-game map, one per line. The classic-script
 # bundle repeats those five code uses (id list, relic map, quest event, two shop
 # lookups) and adds no others. None in save.js or realtime/.
-vendor/hub-sdk/README.md:164
-vendor/hub-sdk/dist/createHubSdk.js:431
-vendor/hub-sdk/dist/createHubSdk.js:456
+# Re-pinned 2026-11-11 for SDK 0.7.0 (the in-game feedback window): the same eleven
+# uses on moved lines, and none in the new feedback.js or feedback.d.ts.
+vendor/hub-sdk/README.md:166
+vendor/hub-sdk/dist/createHubSdk.js:447
+vendor/hub-sdk/dist/createHubSdk.js:472
 vendor/hub-sdk/dist/events.js:44
-vendor/hub-sdk/dist/hub-sdk.iife.js:84
-vendor/hub-sdk/dist/hub-sdk.iife.js:104
-vendor/hub-sdk/dist/hub-sdk.iife.js:181
-vendor/hub-sdk/dist/hub-sdk.iife.js:1540
-vendor/hub-sdk/dist/hub-sdk.iife.js:1560
-vendor/hub-sdk/dist/types.d.ts:2
+vendor/hub-sdk/dist/hub-sdk.iife.js:91
+vendor/hub-sdk/dist/hub-sdk.iife.js:111
+vendor/hub-sdk/dist/hub-sdk.iife.js:188
+vendor/hub-sdk/dist/hub-sdk.iife.js:1575
+vendor/hub-sdk/dist/hub-sdk.iife.js:1595
+vendor/hub-sdk/dist/types.d.ts:3
 vendor/hub-sdk/dist/types.js:5
 vendor/hub-sdk/dist/types.js:33
 

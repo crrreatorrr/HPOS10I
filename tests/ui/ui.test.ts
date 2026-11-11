@@ -19,6 +19,7 @@ import { InputHints } from '../../src/ui/common/input_hints';
 import { MenuList, REPEAT_DELAY } from '../../src/ui/common/menu';
 import { DevMenu } from '../../src/ui/dev_menu';
 import { Display } from '../../src/ui/display';
+import { feedbackContext } from '../../src/ui/feedback';
 import { EmeraldIcon } from '../../src/ui/emerald/emerald_icon';
 import { EndingScreen } from '../../src/ui/ending/ending';
 import { GameOverScreen } from '../../src/ui/game_over/game_over';
@@ -466,12 +467,16 @@ describe('PauseMenu', () => {
     expect(tree.paused).toBe(false);
   });
 
-  it('lists resume, restart, options, exit to hub and quit to title, wrapping', () => {
+  it('lists resume, restart, options, exit to hub, quit to title and send feedback, wrapping', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
     const labels = pm.main.items.map((i) => i.label);
-    expect(labels).toEqual(['RESUME', 'RESTART', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE']);
+    expect(labels).toEqual(['RESUME', 'RESTART', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE', 'SEND FEEDBACK']);
+    // The whole page still fits the 240 px screen.
+    expect(pm.main.items[5]!.rect.bottom).toBeLessThan(240);
+    tapAction('ui_up');
+    expect(pm.main.focus).toBe(5);
     tapAction('ui_up');
     expect(pm.main.focus).toBe(4);
     const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
@@ -576,6 +581,25 @@ describe('PauseMenu', () => {
     frames(2);
     expect(pm.isOpen()).toBe(false);
     expect(tree.paused).toBe(false);
+  });
+
+  it('feedback context: scene and mode in a menu; position, time and player state in a level; no hub answers standalone', async () => {
+    SceneRouter.changeTo('title');
+    frames(2);
+    const menu = feedbackContext();
+    expect(menu).toMatchObject({ level: 'title', mode: 'menu' });
+    expect(menu.position).toBeUndefined();
+    Scenes.register('test:feedback_level', () => buildMiniLevel());
+    SceneRouter.openScene('test:feedback_level');
+    frames(3);
+    const level = tree.currentScene as LevelRoot;
+    const at = feedbackContext();
+    expect(at).toMatchObject({ level: 'test:feedback_level', mode: 'sandbox', gameTime: GameState.levelTime });
+    expect(at.position!.x).toBeCloseTo(level.player!.globalPosition.x, 0);
+    expect(at.player).toMatchObject({ lives: GameState.lives, tickets: 0, state: level.player!.state, checkpoint: null, phase: 'playing' });
+    expect(() => JSON.stringify(at)).not.toThrow();
+    HubClient.shutdown();
+    expect(await HubClient.feedbackTransport().access()).toEqual({ ok: false, reason: 'standalone' });
   });
 
   describe('RESTART while dying (HPOS-DEC-01)', () => {

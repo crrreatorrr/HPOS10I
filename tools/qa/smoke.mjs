@@ -2,7 +2,8 @@
 // Browser smoke test of the web build: serves build/web, boots the game in
 // headless Chromium, opens every registered scene for a couple of seconds and
 // fails on any page error or console error, a scene that never shows up, or a
-// blank screen. Also plays the title -> zone select -> act 1 path by keyboard.
+// blank screen. Also plays the title -> zone select -> act 1 path by keyboard,
+// and opens the feedback window (N twice) over a level.
 //
 //   npm run build && node tools/qa/smoke.mjs [build_dir]
 //
@@ -126,6 +127,44 @@ for (const id of ids) {
     fail(`play path: ${String(e).split('\n')[0]}`);
   }
   if (errors.length) fail(`play path: ${errors.slice(0, 3).join(' | ')}`);
+  await page.close();
+}
+
+// 3. The feedback window (N twice) freezes the game and gives it back as it was.
+{
+  const { page, errors } = await open('scene=' + encodeURIComponent(ids.find((id) => id.startsWith('level:')) ?? ids[0]) + '&mute');
+  const state = () => page.evaluate(() => ({ frames: window.hpos.tree.physicsFrames, paused: window.hpos.tree.paused, open: window.hpos.feedback.isOpen() }));
+  try {
+    await page.waitForFunction(() => window.hpos.router.inGameplay(), null, { timeout: 15000 });
+    // A stand-in hub session that keeps what was sent.
+    await page.evaluate(() => {
+      window.__feedback = [];
+      window.hpos.hub.sdk = { feedbackAccess: async () => ({ ok: true }), submitFeedback: async (note) => (window.__feedback.push(note), { id: 'TEST-0001' }) };
+    });
+    await frames(page, 30);
+    await page.keyboard.press('KeyN');
+    await page.keyboard.press('KeyN');
+    await page.waitForFunction(() => window.hpos.feedback.isOpen(), null, { timeout: 5000 });
+    const opened = await state();
+    await page.keyboard.press('KeyP');
+    await page.keyboard.press('ArrowRight');
+    await frames(page, 30);
+    const frozen = await state();
+    if (frozen.frames !== opened.frames || frozen.paused) fail(`feedback: the game was not frozen as it was (${JSON.stringify([opened, frozen])})`);
+    await page.keyboard.press('Digit7');
+    await page.keyboard.press('Enter');
+    await frames(page, 30);
+    const after = await state();
+    if (after.open || after.paused || !(after.frames > frozen.frames)) fail(`feedback: the game did not resume (${JSON.stringify(after)})`);
+    const note = await page.evaluate(() => window.__feedback[0]);
+    if (!note) fail('feedback: nothing was sent');
+    else if (!note.image.startsWith('data:image/jpeg') || note.image.length < 5000) fail('feedback: no screenshot');
+    else if (!note.meta.level || !note.meta.version || typeof note.meta.position?.x !== 'number') fail(`feedback: context missing (${JSON.stringify(note.meta).slice(0, 200)})`);
+    else console.log(`OK    feedback window (${note.meta.level}, ${Math.round(note.image.length / 1024)} KB screenshot)`);
+  } catch (e) {
+    fail(`feedback: ${String(e).split('\n')[0]}`);
+  }
+  if (errors.length) fail(`feedback: ${errors.slice(0, 3).join(' | ')}`);
   await page.close();
 }
 
