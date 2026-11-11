@@ -27,9 +27,12 @@ the lead.
      telegraph appears must always avoid them, at every difficulty.
    - No blind drops into pits: show the landing, use arrow signs, or let
      look-down reveal it.
-   - Nothing that can't be avoided at top speed: an enemy on a fast route is
-     visible at least 1 s ahead at that speed, or can be destroyed by a
-     rolling Sproto.
+   - Nothing that can't be avoided at speed: an enemy on a fast route is
+     visible at least 0.7 s ahead at top running speed (6 px/frame), or can
+     be destroyed by a rolling Sproto. The camera leads Sproto by 56 px at
+     that speed and by 104 px from 9 px/frame (`src/camera/game_camera.ts`),
+     which gives 0.74 s at 6 px/frame and 0.44 s at 12; a full second is not
+     reachable in a 424 px view.
    - No enemy within 2 screens after a spring landing, a loop exit or a
      checkpoint until difficulty 5.
 4. **Momentum-friendly terrain.** As in the classic games, Sproto can't
