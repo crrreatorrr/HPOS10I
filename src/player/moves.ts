@@ -49,9 +49,13 @@ export class Moves {
   constructor(private readonly player: Player) {}
 
   /** True when the extra moves may be used (option on, not Ranked). */
-  extrasEnabled(): boolean {
+  static extrasOn(): boolean {
     if (Moves.extraMovesOverride !== null) return Moves.extraMovesOverride;
     return Settings.data.extraMoves && RelicLoadout.resolve().extras_allowed;
+  }
+
+  extrasEnabled(): boolean {
+    return Moves.extrasOn();
   }
 
   // --- Power-ups ----------------------------------------------------------------

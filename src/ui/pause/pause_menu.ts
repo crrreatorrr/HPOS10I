@@ -21,7 +21,9 @@
 // like Start (B is also a jump button, so without this it would choose the
 // focused item). Left/right cycle the Relic skin when there is a choice. The
 // panel also lists the controls for every device; key and button names come
-// from the bindings (InputHints), and Esc is never offered for pause.
+// from the bindings (InputHints), and Esc is never offered for pause. Under
+// the table one line names the classic moves and, while the extra moves are
+// on, two more name the drop dash, charge run and shield bounce.
 //
 // Pausing releases every held game input. Resuming waits for two physics
 // frames without a fresh jump press, so the key that closed the menu never
@@ -33,6 +35,7 @@ import { SceneRouter } from '../../core/scene_router';
 import { Settings, type SettingsData } from '../../core/settings';
 import { HubClient } from '../../hub/hub_client';
 import { LevelRoot } from '../../levels/common/level_root';
+import { Moves } from '../../player/moves';
 import { RelicLoadout } from '../../hub/relic_loadout';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
@@ -59,6 +62,8 @@ const OPTION_W = 236;
 /** Under EXIT TO HUB? (tickets bank only when an act is cleared). */
 export const EXIT_CONFIRM_NOTE = 'THIS RUN ENDS HERE. TICKETS FROM THIS ACT ARE NOT BANKED.';
 export const MOVES_LINE = 'DOWN: ROLL   HOLD DOWN + JUMP: SPIN DASH   UP: LOOK';
+/** Shown under it only while the extra moves are on (Moves.extrasOn()). One line is wider than the screen. */
+export const EXTRA_MOVES_LINES: readonly string[] = ['JUMP TWICE AND HOLD: DROP DASH   HOLD UP + JUMP: CHARGE RUN', 'JUMP WITH A SHIELD: BOUNCE'];
 /** Under the list while RESTART is greyed out: dying (or the respawn is on its way)... */
 export const RESTART_HINT_DYING = 'WAIT FOR RESPAWN';
 /** ...or the act is being cleared. */
@@ -419,6 +424,16 @@ export class PauseMenu extends UiLayer {
     ];
   }
 
+  /** The moves lines under the controls table (the second only with the extra moves on). */
+  movesLines(): string[] {
+    return this.extraMoves ? [MOVES_LINE, ...EXTRA_MOVES_LINES] : [MOVES_LINE];
+  }
+
+  /** @internal Tests: the controls panel and the title line of the open page. */
+  layoutBounds(): { top: number; bottom: number; left: number; right: number } {
+    return { top: this.titleY, bottom: this.controls.bottom, left: this.controls.x, right: this.controls.right };
+  }
+
   /** The device column to highlight: the one the player used last. */
   activeColumn(): number {
     const device: Device = Display.isTouch ? 'touch' : Input.lastDevice;
@@ -431,6 +446,7 @@ export class PauseMenu extends UiLayer {
   private relicY = 0;
   private hintY = 0;
   private controls = new Rect2();
+  private extraMoves = false;
   private columnX: number[] = [];
 
   /** Places the items for the current page (centred vertically, like the VBox). */
@@ -477,11 +493,12 @@ export class PauseMenu extends UiLayer {
     // Controls panel: header, the 4-row grid, the moves line.
     const smallH = lineHeight('label');
     const gridH = 4 * smallH + 3;
-    const panelInner = lineHeight('header') + 3 + gridH + 3 + smallH;
+    this.extraMoves = Moves.extrasOn();
+    const panelInner = lineHeight('header') + 3 + gridH + 3 + smallH + (this.extraMoves ? EXTRA_MOVES_LINES.length * (smallH + 1) : 0);
     const rows = this.controlsRows();
     const widths = [0, 1, 2, 3].map((c) => Math.max(...rows.map((r) => measure(r[c]!, 'label'))));
     const gridW = widths.reduce((a, b) => a + b, 0) + 10 * 3;
-    const innerW = Math.max(gridW, measure(MOVES_LINE, 'label'), measure('CONTROLS', 'header'));
+    const innerW = Math.max(gridW, measure(MOVES_LINE, 'label'), ...(this.extraMoves ? EXTRA_MOVES_LINES.map((l) => measure(l, 'label')) : []), measure('CONTROLS', 'header'));
     const panelH = panelInner + PANEL_MARGIN_Y * 2;
     const panelW = innerW + PANEL_MARGIN_X * 2;
     const total = titleH + LAYOUT_SEP + listH + LAYOUT_SEP + hintH + relicH + panelH;
@@ -544,6 +561,9 @@ export class PauseMenu extends UiLayer {
     });
     y += 2;
     drawText(g, MOVES_LINE, r.x, y, 'label', { align: 'center', width: r.w, color: COLORS.soft });
+    if (this.extraMoves) {
+      EXTRA_MOVES_LINES.forEach((line, i) => drawText(g, line, r.x, y + (i + 1) * (smallH + 1), 'label', { align: 'center', width: r.w, color: COLORS.soft }));
+    }
   }
 
   private paintOptions(g: Gfx): void {

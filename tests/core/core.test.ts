@@ -474,4 +474,41 @@ describe('SceneRouter', () => {
     expect(GameState.lives).toBe(START_LIVES);
     expect(GameState.tickets).toBe(0);
   });
+
+  it('retryStage after a game over keeps the zone and stage and resets lives and score', () => {
+    const started: string[] = [];
+    const onStart = (zone: string, act: number) => started.push(`${zone}:${act}`);
+    GameState.levelStarted.connect(onStart);
+    SceneRouter.startZone(Z1, 3);
+    flush();
+    GameState.addScore(700);
+    GameState.lives = 1;
+    SceneRouter.respawn();
+    flush();
+    expect(sceneId()).toBe(GAME_OVER_SCENE);
+    expect(SceneRouter.canRetryStage()).toBe(true);
+    SceneRouter.retryStage();
+    flush();
+    expect(sceneId()).toBe('boss:rug_pull');
+    expect(SceneRouter.zoneId).toBe(Z1);
+    expect(SceneRouter.stage).toBe(3);
+    expect(GameState.zoneId).toBe(Z1);
+    expect(GameState.act).toBe(3);
+    expect(GameState.lives).toBe(START_LIVES);
+    expect(GameState.score).toBe(0);
+    // One fresh attempt per start: the first start and the retry.
+    expect(started).toEqual([`${Z1}:3`, `${Z1}:3`]);
+    GameState.levelStarted.disconnect(onStart);
+  });
+
+  it('retryStage from a sandbox scene falls back to the title', () => {
+    SceneRouter.openScene('level:z1_retro_rush_hills/act1');
+    flush();
+    expect(SceneRouter.canRetryStage()).toBe(false);
+    GameState.lives = 0;
+    SceneRouter.retryStage();
+    flush();
+    expect(sceneId()).toBe(TITLE_SCENE);
+    expect(GameState.lives).toBe(START_LIVES);
+  });
 });

@@ -215,7 +215,8 @@ are deliberately very difficult** (director):
 - No attack can hit the instant Sproto respawns.
 - Invincibility frames after a hit are honoured.
 - The checkpoint outside the arena means a failed attempt restarts the
-  boss, not the act.
+  boss, not the act. A game over offers RETRY STAGE, which starts the same
+  arena again with fresh lives.
 - QA must show a human-viable no-damage route exists for every phase.
 
 ## How it's checked

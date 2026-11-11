@@ -23,7 +23,7 @@ import { EmeraldIcon } from '../../src/ui/emerald/emerald_icon';
 import { EndingScreen } from '../../src/ui/ending/ending';
 import { GameOverScreen } from '../../src/ui/game_over/game_over';
 import { Hud } from '../../src/ui/hud/hud';
-import { OPTION_ROWS, PauseMenu } from '../../src/ui/pause/pause_menu';
+import { EXTRA_MOVES_LINES, MOVES_LINE, OPTION_ROWS, PauseMenu } from '../../src/ui/pause/pause_menu';
 import { RotateHint } from '../../src/ui/rotate_hint';
 import { installUi, registerUiScenes } from '../../src/ui/setup';
 import { SoundHint } from '../../src/ui/sound_hint/sound_hint';
@@ -721,6 +721,29 @@ describe('PauseMenu', () => {
     Input.feedPads([null]);
   });
 
+  it('the moves lines name the extra moves only while they are on, and the page fits the screen', () => {
+    const pm = addOverlay(new PauseMenu());
+    enterGameplay();
+    tapAction('pause');
+    expect(pm.movesLines()).toEqual([MOVES_LINE, ...EXTRA_MOVES_LINES]);
+    const extra = EXTRA_MOVES_LINES.join(' ');
+    expect(extra).toContain('DROP DASH');
+    expect(extra).toContain('CHARGE RUN');
+    expect(extra).toContain('BOUNCE');
+    const b = pm.layoutBounds();
+    expect(b.top).toBeGreaterThanOrEqual(2);
+    expect(b.bottom).toBeLessThanOrEqual(238);
+    expect(b.left).toBeGreaterThanOrEqual(2);
+    expect(b.right).toBeLessThanOrEqual(422);
+    drawAll(pm, fakeGfx());
+    tapAction('pause');
+    frames(3);
+    Settings.set('extraMoves', false);
+    tapAction('pause');
+    expect(pm.isOpen()).toBe(true);
+    expect(pm.movesLines()).toEqual([MOVES_LINE]);
+  });
+
   it('the controls list names gamepad buttons from the bindings', () => {
     const pm = addOverlay(new PauseMenu());
     const rows = pm.controlsRows();
@@ -998,11 +1021,73 @@ describe('screens', () => {
     Input.feedPads([null]);
   });
 
-  it('game over resets the game and goes to the title', () => {
+  it('game over in a stage: RETRY STAGE is the default and restarts that stage with fresh lives', () => {
+    const start = vi.spyOn(GameState, 'startLevel');
+    SceneRouter.startZone('z3_capital_mansion', 3);
+    frames(2);
+    start.mockClear();
+    GameState.lives = 0;
+    GameState.addScore(900);
+    const title = vi.spyOn(SceneRouter, 'goTitle');
+    const go = showScene(() => new GameOverScreen());
+    expect(go.menu).not.toBeNull();
+    expect(go.menu!.items.map((i) => i.label)).toEqual(['RETRY STAGE', 'QUIT TO TITLE']);
+    expect(go.finalScore).toBe(900);
+    tapAction('jump'); // inside the 1.5 s grace
+    expect(go.isLeaving()).toBe(false);
+    frames(100);
+    expect(go.menu!.focus).toBe(0);
+    tapAction('jump');
+    tapAction('jump');
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith('z3_capital_mansion', 3);
+    expect(title).not.toHaveBeenCalled();
+    expect(GameState.score).toBe(0);
+    expect(GameState.lives).toBe(3);
+    expect(SceneRouter.zoneId).toBe('z3_capital_mansion');
+    expect(SceneRouter.stage).toBe(3);
+  });
+
+  it('game over in a stage: QUIT TO TITLE resets the game and goes to the title', () => {
+    SceneRouter.startZone('z1_retro_rush_hills', 2);
+    frames(2);
+    const go = vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);
+    const retry = vi.spyOn(SceneRouter, 'retryStage');
+    GameState.lives = 0;
+    GameState.addScore(900);
+    const screen = showScene(() => new GameOverScreen());
+    frames(100);
+    tapAction('ui_down');
+    expect(screen.menu!.focus).toBe(1);
+    tapAction('ui_accept');
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
+    expect(GameState.score).toBe(0);
+    expect(GameState.lives).toBe(3);
+  });
+
+  it('game over: a tap on RETRY STAGE retries', () => {
+    SceneRouter.startZone('z1_retro_rush_hills', 1);
+    frames(2);
+    const retry = vi.spyOn(SceneRouter, 'retryStage').mockImplementation(() => undefined);
+    GameState.lives = 0;
+    const screen = showScene(() => new GameOverScreen());
+    frames(100);
+    const r = screen.menu!.items[0]!.rect;
+    pointer(r.x + 5, r.y + 5, 'down');
+    pointer(r.x + 5, r.y + 5, 'up');
+    frames(1);
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('game over outside a stage (a sandbox scene) keeps the single prompt and goes to the title', () => {
+    SceneRouter.openScene(PLAY_SCENE);
+    frames(2);
     const go = vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);
     GameState.lives = 0;
     GameState.addScore(900);
-    showScene(() => new GameOverScreen());
+    const screen = showScene(() => new GameOverScreen());
+    expect(screen.menu).toBeNull();
     frames(100);
     tapAction('ui_accept');
     expect(go).toHaveBeenCalledTimes(1);

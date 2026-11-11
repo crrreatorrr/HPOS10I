@@ -107,7 +107,7 @@ area (mask bit 5) and call the player API below.
 |---|---|
 | `GameState` | **Signals:** `ticketsChanged`, `scoreChanged`, `livesChanged`, `checkpointReached`, `levelCompleted`, `levelStarted(zone, act)` (fresh attempts only), `emeraldWon(zone, act)`. **Fields:** `tickets`, `score`, `lives`, `levelTime` (seconds, physics-ticked), `timerRunning`, `checkpointPosition`, `zoneId`, `act`, `emeralds`, `emeraldJustWon`. **Methods:** `addTickets`, `loseTickets`, `addScore`, `addLife`, `setCheckpoint`, `completeLevel`, `hasEmerald`, `emeraldCount`. `startLevel`, `restartFromCheckpoint`, `resetGame` and `loseLife` belong to SceneRouter. |
 | `Emeralds` | One per act of every zone (8). `Emeralds.NAME` is the display name: a director-approved exception to the originality guardrails, allowlisted for one line of `src/core/emeralds.ts` only, so always show it through `Emeralds.NAME` and never write the word elsewhere. `icon(small)`, `total()`, `allKeys()`, `key()`, `isEmeraldAct()`. |
-| `SceneRouter` | `goTitle()`, `goZoneSelect()`, `startZone(id, stage)`, `nextStage()`, `respawn()` (takes a life, except in free scenes), `restart()`, `openScene(id)`, `inGameplay()`, `currentZone()`; `zoneId`, `stage` (1-based; the boss is acts + 1), `freeScene`, `currentId`; `stageStarted`, `sceneChanged`. Only the first scene change per frame takes effect. |
+| `SceneRouter` | `goTitle()`, `goZoneSelect()`, `startZone(id, stage)`, `nextStage()`, `respawn()` (takes a life, except in free scenes), `restart()` (from the checkpoint), `restartAct()` (the whole stage as a fresh attempt, lives and score kept), `retryStage()` / `canRetryStage()` (after a game over: a fresh game at the same stage), `openScene(id)`, `inGameplay()`, `currentZone()`; `zoneId`, `stage` (1-based; the boss is acts + 1), `freeScene`, `currentId`; `stageStarted`, `sceneChanged`. Only the first scene change per frame takes effect. |
 | `Scenes` | The scene registry: `register(id, factory)` (factories may be async), `exists`, `ids`. Menu ids: `main` (dev menu), `title`, `zone_select`, `game_over`, `ending`. Stages: `level:<zone>/<act>`, `level:test_zone`, `boss:<id>`, playgrounds `playground:<name>`. |
 | `ZoneRegistry` | `allZones(includeTest)`, `getZone(id)`, `stagePath(id, stage)` (a scene id), `nextZoneId(id)`, `isReleased(id)`. Zone: `id`, `name`, `acts`, `boss`, `accessory`, `music`. |
 | `Tuning` | `physics: PhysicsConstants`; read it every tick. |
@@ -340,7 +340,8 @@ Web Audio, unlocked by the first key press, click or tap.
 | Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |
 | Tally | Emits `finished`; the emerald moment; "+N Tickets sent to the hub" |
-| Game over, ending, dev menu (`main`), sound hint, rotate hint | |
+| Game over | RETRY STAGE (default: a fresh game at the act or boss arena where the last life went) and QUIT TO TITLE; one continue prompt in sandbox scenes |
+| Ending, dev menu (`main`), sound hint, rotate hint | |
 
 ## Hub (`src/hub`)
 
