@@ -65,6 +65,32 @@ describe('item boxes', () => {
     expect(p.groundSpeed).toBeGreaterThan(speedAtBreak - 0.2);
   });
 
+  it('a run at 4.5 px/frame or more bursts it without losing speed; a slower run is stopped', () => {
+    for (const [speed, breaks] of [
+      [6, true],
+      [4.6, true],
+      [4.2, false],
+    ] as const) {
+      const { w, b } = box(new Vec2(120, 0), 'shield');
+      const p = spawnPlayer(w, new Vec2(0, 0));
+      settle(p, new Vec2(0, 0));
+      p.groundSpeed = speed;
+      for (let i = 0; i < 40; i++) {
+        // Keep the test speed up to the box (no input: friction would slow the run).
+        if (p.globalPosition.x < 120 - 14 - 10 - 6) p.groundSpeed = speed;
+        step(1);
+      }
+      expect(b.isBroken(), `speed ${speed}`).toBe(breaks);
+      if (breaks) {
+        expect(p.globalPosition.x).toBeGreaterThan(140);
+        expect(p.state).not.toBe('roll');
+        expect(p.moves.shield).toBe(true);
+      } else {
+        expect(p.globalPosition.x).toBeLessThan(120 - 14);
+      }
+    }
+  });
+
   it('a shield absorbs one hit without losing tickets', () => {
     const w = newWorld();
     addFloor(w);

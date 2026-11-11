@@ -1,12 +1,13 @@
 // Item box: a sturdy crate with a screen that shows what's inside. Solid
 // (Sproto can stand on it and is stopped by it) until he hits it while
-// attacking - a jump or a roll, from the side, from above or from below. It
-// then bursts, +10 score, and gives its power-up: a shield (absorbs one hit),
+// attacking - a jump or a roll, from the side, from above or from below - or
+// runs into it at ground speed 4.5 px/frame or more (the armored pill's
+// threshold), so a box never stops a fast runner. It then bursts, +10 score, and gives its power-up: a shield (absorbs one hit),
 // speed shoes, invincibility or an extra life. Item boxes never give tickets.
 // Landing on one from above bounces him like an enemy.
 //
 // Like the breakable wall, the check runs before the player moves and looks
-// one frame ahead, so a roll breaks it without losing speed. Item boxes are
+// one frame ahead, so a roll or a fast run breaks it without losing speed. Item boxes are
 // off in Ranked and when the player turns them off in Options (the level
 // removes them when it starts). The origin is the middle of the base.
 
@@ -37,6 +38,8 @@ const SIZE = 28;
 const SCORE = 10;
 const REACH = 4;
 const DETECT_MARGIN = 24;
+/** A grounded runner at this ground speed (px/frame) or more bursts the box, as a roll does. */
+export const RUN_BURST_SPEED = 4.5;
 
 const OUTLINE = Color.rgb8(24, 20, 48);
 const FRAME = Color.rgb8(196, 200, 214);
@@ -149,7 +152,9 @@ export class ItemBox extends StaticBody2D implements Configurable {
     this.frame++;
     if (this.broken) return;
     for (const player of this.detector.playersInside()) {
-      if (player.state === 'dead' || !player.isAttacking()) continue;
+      if (player.state === 'dead') continue;
+      const fastRun = player.grounded && Math.abs(player.groundSpeed) >= RUN_BURST_SPEED;
+      if (!fastRun && !player.isAttacking()) continue;
       if (this.reaches(player)) {
         this.burst(player);
         return;

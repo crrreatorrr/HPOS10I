@@ -40,7 +40,9 @@ games (prompts included).
 - **Feel:**
   - Dust puffs on skids, landings and spin dashes.
   - Sparkles on ticket pickup.
-  - A short afterimage trail at very high speed.
+  - A short afterimage trail above top running speed (7.5 px/frame), and
+    thin speed lines along the top and bottom of the screen that fade in
+    from 6 px/frame to 12. Both follow the SPEED EFFECTS option.
   - Popping capsule halves when a pill robot is destroyed.
 
 ## Sproto (player)
@@ -78,8 +80,9 @@ A small, very fast creature, the mascot of the game.
 
 Sturdy grey crates on two little feet with a small screen on the front that
 flickers with what's inside (our own design; never an existing game's item
-monitor look). Jumping or rolling into one bursts it into chips and its icon
-rises out of the screen.
+monitor look). Jumping or rolling into one, or running into it at ground
+speed 4.5 px/frame or more, bursts it into chips and its icon rises out of
+the screen. A slower walk is stopped by it.
 
 - **Shield:** a translucent blue bubble around Sproto. Takes one hit with no
   tickets lost; with the extra moves on, jumping again slams down and bounces.
@@ -89,6 +92,9 @@ rises out of the screen.
   enemies and hazards can't hurt (pits still can).
 - **Extra life:** Sproto's face.
 - Never tickets. Off in Ranked, and the player can turn them off.
+- Placed by rule (`src/levels/content.ts`): about one every five screens on
+  level ground, never within a bounce (384 px) of a pit. Zone 4 gets no
+  speed shoes: its speed-shoes spots stay empty.
 
 ## Golden tickets (collectible)
 
