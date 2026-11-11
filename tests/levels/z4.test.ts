@@ -15,7 +15,10 @@ import { SceneRouter } from '../../src/core/scene_router';
 import { GameState } from '../../src/core/game_state';
 import { Layers } from '../../src/core/layers';
 import { buildLevel } from '../../src/levels/common/level_loader';
-import { LevelRoot } from '../../src/levels/common/level_root';
+import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
+import { registerNewContent } from '../../src/levels/content';
+import { ItemBox } from '../../src/levels/objects/item_box';
+import { Settings } from '../../src/core/settings';
 import { Enemy } from '../../src/levels/enemies/enemy_base';
 import { Checkpoint } from '../../src/levels/objects/checkpoint';
 import { GoalSign } from '../../src/levels/objects/goal_sign';
@@ -332,6 +335,42 @@ for (const act of ACTS) {
         expect(run.deaths).toBeLessThanOrEqual(3);
         expect(run.frames / 60).toBeLessThan(t.par_seconds);
       } finally {
+        SceneRouter.zoneId = saved.zone;
+        SceneRouter.stage = saved.stage;
+      }
+    }, 180000);
+
+    it(`the pilot finishes the act with the shipped hooks on (item boxes, time limit, hit-stop)`, async () => {
+      const saved = { zone: SceneRouter.zoneId, stage: SceneRouter.stage, hooks: LevelHooks.afterReady.slice(), boxes: Settings.data.itemBoxes };
+      SceneRouter.zoneId = 'z4_neon_rush_remix';
+      SceneRouter.stage = act.stage;
+      Settings.data.itemBoxes = true;
+      registerNewContent();
+      try {
+        const r0 = await load(builder);
+        const boxes = r0.findChildren<ItemBox>((n) => n instanceof ItemBox);
+        expect(boxes.length).toBeGreaterThanOrEqual(4);
+        // Zone 4's boxes hold no speed shoes, and none stands within a bounce of a pit.
+        expect(boxes.some((b) => b.content === 'speed_shoes')).toBe(false);
+        const run = await flyPilot(
+          r0,
+          builder.route,
+          PILOT_FRAMES,
+          async () => {
+            GameState.restartFromCheckpoint();
+            return load(builder, false);
+          },
+          5,
+        );
+        console.log(
+          `[z4 ${act.name}] full run with item boxes (${boxes.length}): completed ${run.completed} in ${run.frames} frames (${(run.frames / 60).toFixed(0)} s), deaths ${run.deaths}, hurts ${run.hurts}`,
+        );
+        expect(run.completed, JSON.stringify(run.log.slice(-8))).toBe(true);
+        expect(run.deaths).toBeLessThanOrEqual(3);
+      } finally {
+        LevelHooks.afterReady.length = 0;
+        LevelHooks.afterReady.push(...saved.hooks);
+        Settings.data.itemBoxes = saved.boxes;
         SceneRouter.zoneId = saved.zone;
         SceneRouter.stage = saved.stage;
       }

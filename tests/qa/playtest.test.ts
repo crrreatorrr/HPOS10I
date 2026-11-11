@@ -1,11 +1,12 @@
 // QA playtest bot (ports of the bot checks in tests/levels/test_test_zone.gd,
 // test_z1_acts.gd, test_z2_acts.gd and tools/qa/difficulty_bot.sh). The
 // headless bot (tools/qa/playtest_bot.ts) must finish the test zone and every
-// released act (Zone 1 and Zone 2) within the act's time limit, and its
-// median clear time must rise from act to act (docs/LEVELS.md, "How it's
-// checked"). These runs have the item boxes off, as the curve was built
-// without them (tests/qa/playtest_boxes.test.ts plays with them on). Zone 3
-// is played and reported only (not released). Slow: seven bot variants per act.
+// released act that has a level file (Zones 1 to 3) within the act's time
+// limit, and its median clear time must rise from act to act (docs/LEVELS.md,
+// "How it's checked"). These runs have the item boxes off, as the curve was
+// built without them (tests/qa/playtest_boxes.test.ts plays with them on).
+// Zone 4 is built in code: its route pilot plays it in tests/levels/z4.test.ts
+// (bot_runs.ts, botActs()). Slow: seven bot variants per act.
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { registerNewContent } from '../../src/levels/content';

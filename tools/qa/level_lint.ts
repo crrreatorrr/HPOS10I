@@ -17,6 +17,18 @@
 // checkOrder(acts)      each act not easier than the one before it
 // checkLocalSource()    enemy scripts read their local difficulty
 //
+// Flow and routes (docs/gameplay-improvement-plan.md, D1): measure() also
+// reports the share of columns with two stacked routes (whole act and middle
+// third), the share of sloped floor, blocking steps per screen and every
+// node in group `level_hazard`; check() turns them into flow.routes,
+// flow.slope, flow.steps, hazard.timed_solid and hazard.safe_spot, and
+// difficulty.checkpoint_gap gets a hard limit of 16 screens. The flow rules
+// and the hard gap are errors on the acts in FLOW_ENFORCED (acts that had
+// their flow pass) and warnings elsewhere.
+//
+// Acts built in code (Zone 4) are listed by zoneActs() too: their `file` is
+// "code:<scene id>" and loadLevelData() builds them.
+//
 // Findings: { severity: 'error' | 'warn' | 'info', rule, at, detail }. The
 // rules, numbers and tolerances are the Godot lint's (see the .gd files).
 // Item boxes (new in the TypeScript build) are neither enemies nor tickets.
@@ -37,6 +49,9 @@ import { CollisionObject2D, StaticBody2D } from '../../src/runtime/physics';
 import { tree } from '../../src/runtime/tree';
 import { Rect2, Vec2 } from '../../src/runtime/vec2';
 import { TerrainLoop } from '../../src/terrain/loop';
+import { act1Data as z4Act1Data } from '../../src/levels/z4/act1';
+import { act2Data as z4Act2Data } from '../../src/levels/z4/act2';
+import { Z4_ACT1, Z4_ACT2 } from '../../src/levels/z4/zone';
 
 export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -77,6 +92,28 @@ const SPRING_REACH = 160;
 export const FINALE_DENSITY_MIN = 1.3;
 export const FINALE_CHECKPOINT_REACH = 1.5; // screens
 export const GATE_CHECKPOINT_REACH = 2.25; // screens
+/** Two stacked routes on at least this share of an act's columns, and of its middle third. */
+export const ROUTES_MIN_PCT = 20;
+export const ROUTES_MID_MIN_PCT = 25;
+/** Sloped floor (8 to 80 degrees) on at least this share of an act's columns. */
+export const SLOPE_MIN_PCT = 8;
+export const SLOPE_MIN_ANGLE = 8;
+export const SLOPE_MAX_ANGLE = 80;
+/** At most this many blocking steps (the lowest floor rises 16 to 96 px between columns) per screen. */
+export const STEPS_MAX_PER_SCREEN = 0.25;
+const STEP_MIN_RISE = 16;
+const STEP_MAX_RISE = 96;
+/** No stretch between start, checkpoints and goal longer than this many screens. */
+export const MAX_CHECKPOINT_GAP = 16;
+/** Acts built in code: scene id -> level data. */
+const CODE_ACTS: Record<string, () => LevelData> = { [Z4_ACT1]: z4Act1Data, [Z4_ACT2]: z4Act2Data };
+const CODE_PREFIX = 'code:';
+/**
+ * Acts ("zone:stage") whose flow rules (flow.routes, flow.slope, flow.steps)
+ * and hard checkpoint gap are errors. An act joins the list when its flow
+ * pass lands; elsewhere the same findings are warnings.
+ */
+export const FLOW_ENFORCED: ReadonlySet<string> = new Set<string>([]);
 export const SECTIONS = ['opening', 'middle', 'finale'] as const;
 export type SectionName = (typeof SECTIONS)[number];
 
@@ -106,20 +143,27 @@ export interface ActInfo {
   preBoss: boolean;
   /** Scene id ("level:z1_retro_rush_hills/act1"). */
   scene: string;
-  /** Level file, relative to the repository root. */
+  /** Level file, relative to the repository root, or "code:<scene id>" for an act built in code. */
   file: string;
+  /** True for an act built in code (no level file). */
+  code: boolean;
   /** Short label for reports ("Z1 Act 1"). */
   label: string;
 }
 
-/** Every zone act that has a level file (the test zone first), with its D. */
+/** Every zone act that has a level file or is built in code (the test zone first), with its D. */
 export function zoneActs(): ActInfo[] {
   const out: ActInfo[] = [];
   for (const zone of ZoneRegistry.allZones(true)) {
     zone.acts.forEach((scene, i) => {
       const rel = scene.replace(/^level:/, '');
-      const file = rel === 'test_zone' ? 'src/levels/data/test_zone/test_zone.json' : `src/levels/data/${rel}.json`;
-      if (!fs.existsSync(path.join(ROOT_DIR, file))) return;
+      let file = rel === 'test_zone' ? 'src/levels/data/test_zone/test_zone.json' : `src/levels/data/${rel}.json`;
+      let code = false;
+      if (!fs.existsSync(path.join(ROOT_DIR, file))) {
+        if (!CODE_ACTS[scene]) return;
+        file = `${CODE_PREFIX}${scene}`;
+        code = true;
+      }
       const stage = i + 1;
       const label = zone.id === 'test_zone' ? 'Test zone' : `${zone.id.slice(0, 2).toUpperCase()} Act ${stage}`;
       out.push({
@@ -129,6 +173,7 @@ export function zoneActs(): ActInfo[] {
         preBoss: zone.boss !== '' && stage === zone.acts.length,
         scene,
         file,
+        code,
         label,
       });
     });
@@ -141,7 +186,11 @@ const dataCache = new Map<string, LevelData>();
 export function loadLevelData(file: string): LevelData {
   let data = dataCache.get(file);
   if (!data) {
-    data = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, file), 'utf8')) as LevelData;
+    if (file.startsWith(CODE_PREFIX)) {
+      const make = CODE_ACTS[file.slice(CODE_PREFIX.length)];
+      if (!make) throw new Error(`no act built in code for ${file}`);
+      data = make();
+    } else data = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, file), 'utf8')) as LevelData;
     dataCache.set(file, data);
   }
   return data;
@@ -651,6 +700,33 @@ export interface Measures {
   direction: number;
   sections: Record<SectionName, Section>;
   tooClose: { kind: string; name: string; x: number; enemy: string; ahead: number }[];
+  /** Percent of the route's columns (start to goal) with two or more stacked routes. */
+  twoRoutePct: number;
+  /** The same over the middle third of the route. */
+  twoRouteMidPct: number;
+  /** Percent of the route's columns with a floor sloped 8 to 80 degrees. */
+  slopedPct: number;
+  /** Columns where the lowest floor is 16 to 96 px higher than in the column before. */
+  blockingSteps: number;
+  stepsPerScreen: number;
+  /** Every node in group `level_hazard` (vents, rams, wells, burrowers). */
+  hazards: HazardInfo[];
+  /** Hazards within 2 screens after a checkpoint, spring or loop exit. */
+  hazardTooClose: { kind: string; name: string; x: number; hazard: string; ahead: number }[];
+}
+
+export interface HazardInfo {
+  name: string;
+  /** The node's class name (LavaVent, CeilingRam...). */
+  type: string;
+  x: number;
+  y: number;
+  /** A moving solid on a timer (a crusher). */
+  movingSolid: boolean;
+  /** It only starts when the player comes near (`wakeRadius` > 0). */
+  wakes: boolean;
+  /** Its lane is on the lowest floor of its column. */
+  onLowestRoute: boolean;
 }
 
 export function isEnemyNode(n: Node): boolean {
@@ -738,6 +814,42 @@ export function measure(root: Node2D, isEnemy: (n: Node) => boolean = isEnemyNod
     return s.length ? s[Math.trunc(s.length * 0.75)]! : 0;
   });
 
+  // Flow: stacked routes, slopes and blocking steps between start and goal.
+  let flowCols = 0;
+  let twoCols = 0;
+  let midCols = 0;
+  let midTwoCols = 0;
+  let slopedCols = 0;
+  let blockingSteps = 0;
+  let prevLowest: number | null = null;
+  for (const c of columns) {
+    if (c.x < lo || c.x > hi) continue;
+    flowCols++;
+    const inMid = c.x >= lo + (hi - lo) / 3 && c.x <= lo + (2 * (hi - lo)) / 3;
+    if (inMid) midCols++;
+    if (c.skipped || c.floors.length === 0) {
+      prevLowest = null;
+      continue;
+    }
+    let stacked = 0;
+    let last = -Infinity;
+    for (const f of c.floors) {
+      if (f.clearance >= BALL_HEIGHT && f.y - last >= ROUTE_GAP) {
+        stacked++;
+        last = f.y;
+      }
+    }
+    if (stacked >= 2) {
+      twoCols++;
+      if (inMid) midTwoCols++;
+    }
+    if (c.floors.some((f) => Math.abs(f.angle) >= SLOPE_MIN_ANGLE && Math.abs(f.angle) <= SLOPE_MAX_ANGLE)) slopedCols++;
+    const lowest = Math.max(...c.floors.map((f) => f.y));
+    if (prevLowest !== null && prevLowest - lowest >= STEP_MIN_RISE && prevLowest - lowest <= STEP_MAX_RISE) blockingSteps++;
+    prevLowest = lowest;
+  }
+  const routeScreens = Math.max((hi - lo) / SCREEN_W, 0.01);
+
   // Enemies and tiers.
   const enemies = collectAll(root, isEnemy) as Node2D[];
   const tiers: Record<number, number> = {};
@@ -810,6 +922,38 @@ export function measure(root: Node2D, isEnemy: (n: Node) => boolean = isEnemyNod
     }
   }
 
+  // Hazards (group level_hazard): where they are, and whether a timed crusher blocks the lowest route.
+  const columnAt = (x: number): Column | null => {
+    const i = Math.round((x - (bounds.x + 1)) / SCAN_STEP);
+    return columns[Math.min(Math.max(i, 0), columns.length - 1)] ?? null;
+  };
+  const hazards: HazardInfo[] = root
+    .findChildren<Node2D>((n) => n instanceof Node2D && n.isInGroup('level_hazard'))
+    .map((n) => {
+      const at = n.globalPosition;
+      const col = columnAt(at.x);
+      const below = col ? col.floors.filter((f) => f.y >= at.y - 4) : [];
+      const lane = below.length ? Math.min(...below.map((f) => f.y)) : null;
+      const lowest = col && col.floors.length ? Math.max(...col.floors.map((f) => f.y)) : null;
+      return {
+        name: n.name,
+        type: n.constructor.name,
+        x: at.x,
+        y: at.y,
+        movingSolid: isMoving(n),
+        wakes: Number((n as { wakeRadius?: unknown }).wakeRadius ?? 0) > 0,
+        onLowestRoute: lane !== null && lowest !== null && Math.abs(lane - lowest) < 1,
+      };
+    })
+    .sort((a, b) => a.x - b.x);
+  const hazardTooClose: Measures['hazardTooClose'] = [];
+  for (const spot of safe) {
+    for (const h of hazards) {
+      const ahead = travel * (h.x - spot.x);
+      if (ahead >= 0 && ahead < 2 * SCREEN_W) hazardTooClose.push({ ...spot, hazard: h.name, ahead });
+    }
+  }
+
   const m: Measures = {
     screens,
     walkPx,
@@ -840,6 +984,13 @@ export function measure(root: Node2D, isEnemy: (n: Node) => boolean = isEnemyNod
     direction: 1,
     sections,
     tooClose,
+    twoRoutePct: (100 * twoCols) / Math.max(flowCols, 1),
+    twoRouteMidPct: (100 * midTwoCols) / Math.max(midCols, 1),
+    slopedPct: (100 * slopedCols) / Math.max(flowCols, 1),
+    blockingSteps,
+    stepsPerScreen: blockingSteps / routeScreens,
+    hazards,
+    hazardTooClose,
   };
   m.direction = direction(m);
   return m;
@@ -898,10 +1049,15 @@ function ratio(out: Finding[], rule: string, at: Vec2, got: number, want: number
   }
 }
 
-/** Findings for one act measured as `m` against row `t` (Difficulty.targets(d)). */
-export function check(m: Measures, d: number, t: ActTargets, preBoss = false): Finding[] {
+/**
+ * Findings for one act measured as `m` against row `t` (Difficulty.targets(d)).
+ * `enforceFlow`: the flow rules and the 16-screen checkpoint gap are errors
+ * (an act in FLOW_ENFORCED); otherwise they are warnings.
+ */
+export function check(m: Measures, d: number, t: ActTargets, preBoss = false, enforceFlow = false): Finding[] {
   const out: Finding[] = [];
   const at = new Vec2(m.route[0], 0);
+  checkFlow(out, m, d, enforceFlow);
   ratio(out, 'difficulty.screens', at, m.screens, t.screens, 'screens');
   ratio(out, 'difficulty.enemy_density', at, m.density, t.enemies_per_screen, 'enemies per screen');
   ratio(out, 'difficulty.ticket_density', at, m.ticketDensity, t.tickets_per_screen, 'tickets per screen');
@@ -952,6 +1108,35 @@ export function check(m: Measures, d: number, t: ActTargets, preBoss = false): F
     out.push(f);
   }
   return out;
+}
+
+/** Flow, routes, the hard checkpoint gap and hazards (fixture measures without these fields are skipped). */
+function checkFlow(out: Finding[], m: Measures, d: number, enforce: boolean): void {
+  if (m.twoRoutePct === undefined) return;
+  const at = new Vec2(m.route[0], 0);
+  const hard: Severity = enforce ? 'error' : 'warn';
+  if (d >= 1) {
+    if (m.twoRoutePct < ROUTES_MIN_PCT || m.twoRouteMidPct < ROUTES_MID_MIN_PCT) {
+      add(out, hard, 'flow.routes', at, `two stacked routes on ${f0(m.twoRoutePct)} % of the act and ${f0(m.twoRouteMidPct)} % of its middle third (needs ${ROUTES_MIN_PCT} % and ${ROUTES_MID_MIN_PCT} %)`);
+    }
+    if (m.slopedPct < SLOPE_MIN_PCT) add(out, 'warn', 'flow.slope', at, `${f1(m.slopedPct)} % sloped floor (momentum terrain wants at least ${SLOPE_MIN_PCT} %)`);
+    if (m.stepsPerScreen > STEPS_MAX_PER_SCREEN) {
+      add(out, 'warn', 'flow.steps', at, `${m.blockingSteps} blocking steps, ${f2(m.stepsPerScreen)} per screen (at most ${STEPS_MAX_PER_SCREEN})`);
+    }
+    if (m.maxGapScreens > MAX_CHECKPOINT_GAP) {
+      add(out, hard, 'difficulty.checkpoint_gap', at, `largest gap between start, checkpoints and goal is ${f1(m.maxGapScreens)} screens (at most ${MAX_CHECKPOINT_GAP})`);
+    }
+  }
+  for (const h of m.hazards) {
+    if (h.movingSolid && !h.wakes && h.onLowestRoute) {
+      add(out, 'warn', 'hazard.timed_solid', new Vec2(h.x, h.y), `${h.name} (${h.type}) is a moving solid on a fixed timer over the lowest route: give it a wake_radius, or a bypass below it`);
+    }
+  }
+  if (d < 5) {
+    for (const c of m.hazardTooClose) {
+      add(out, c.kind === 'spring' || !enforce ? 'warn' : 'error', 'hazard.safe_spot', new Vec2(c.x, 0), `${c.kind} ${c.name} at x ${f0(c.x)}: hazard ${c.hazard} only ${f0(c.ahead)} px (${f1(c.ahead / SCREEN_W)} screens) ahead (below D5 keep 2 screens clear)`);
+    }
+  }
 }
 
 function checkRamp(out: Finding[], m: Measures, ceiling: number, preBoss: boolean): void {
@@ -1039,7 +1224,10 @@ export function summary(m: Measures): string {
     `${f1(m.screens)} screens, ${m.enemies} enemies (${f2(m.density)}/screen, ${tiers}, max T${m.tierMax}), ` +
     `${m.checkpoints} checkpoints (gap ${f1(m.maxGapScreens)} screens), ${m.tickets} tickets (${f1(m.ticketDensity)}/screen), ` +
     `vertical ${f1(m.verticalScreens)} screens, routes [${m.routes}], dead ends ${m.deadEnds}, leftward ${f1(m.leftwardScreens)} screens, ` +
-    `doors/switches ${m.doorsSwitches}, forced ${m.forced} -> R${m.direction}; ramp: ${ramp}`
+    `doors/switches ${m.doorsSwitches}, forced ${m.forced} -> R${m.direction}; ramp: ${ramp}; ` +
+    `flow: two routes ${f0(m.twoRoutePct)} % (middle third ${f0(m.twoRouteMidPct)} %), sloped ${f0(m.slopedPct)} %, ` +
+    `blocking steps ${m.blockingSteps} (${f2(m.stepsPerScreen)}/screen); hazards ${m.hazards.length}` +
+    (m.hazards.length ? ` (${m.hazards.map((h) => `${h.type} at ${f0(h.x)}`).join(', ')})` : '')
   );
 }
 

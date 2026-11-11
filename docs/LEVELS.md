@@ -264,6 +264,17 @@ are deliberately very difficult** (director):
   screens and dead ends, plus the in-act ramp: finale density at least
   1.3× the middle, and a checkpoint at the finale start and outside every
   boss gate.
-- **Playtest bot:** it must finish every act, and its median time must
-  rise from act to act.
+- The lint also measures flow: the share of the act with two stacked
+  routes (whole act and middle third; wanted 20 % and 25 %), the share of
+  sloped floor (wanted 8 %), blocking steps per screen (at most 0.25) and a
+  longest checkpoint gap of at most 16 screens. These are errors on the acts
+  listed in `FLOW_ENFORCED` (`tools/qa/level_lint.ts`: acts that had their
+  flow pass) and warnings elsewhere. It lists every hazard (group
+  `level_hazard`), warns when a moving solid on a fixed timer stands over
+  the lowest route, and applies the 2-screen safe-spot rule to hazards.
+- Zone 4 is built in code; the lint builds and checks it like the others.
+- **Playtest bot:** it must finish every act that has a level file, and its
+  median time must rise from act to act. Zone 4 is played by its own route
+  pilot (`tests/levels/z4.test.ts`), with every enemy, and once more with
+  the shipped hooks on (item boxes, time limit, hit-stop).
 - **Human playtest:** the director plays every act and gives feedback.
