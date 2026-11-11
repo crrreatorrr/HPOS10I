@@ -128,6 +128,7 @@ export class TimedPlatform extends SetPiecePlatform implements Configurable {
     const edge = blinkOn ? style.warn : style.edge;
     g.rect(0, 0, w, h, style.body);
     g.rect(0, h * 0.5, w, h * 0.5, style.shade);
+    this.drawSurface(g);
     const box = [new Vec2(0, 0), new Vec2(w, 0), new Vec2(w, h), new Vec2(0, h)];
     if (style.neon) {
       g.additive(() => {

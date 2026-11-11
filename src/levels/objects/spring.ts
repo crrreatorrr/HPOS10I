@@ -184,8 +184,11 @@ export class LevelSpring extends PlayerArea implements Configurable {
     // faces the launch direction.
     if (this._kind === SpringKind.DIAGONAL) g.setTransform(new Vec2(-4.0 * f, -9.0), f * Math.PI * 0.25);
     else if (this._kind === SpringKind.SIDE) g.setTransform(new Vec2(-6.0 * f, -WIDTH / 2), f * Math.PI * 0.5);
-    const height = 0.85 + this.extension() * 0.34;
-    if (!drawPropSprite(g, yellow ? PropSprite.goldSpring : PropSprite.spring, new Vec2(0, -Math.round(11 * height)), new Vec2(1, height))) {
+    const extension = this.extension();
+    const pose = extension < 0 ? PropSprite.springCompressed
+      : extension > 0.2 ? PropSprite.springExtended : PropSprite.spring;
+    const height = yellow ? 0.85 + extension * 0.34 : 0.85;
+    if (!drawPropSprite(g, yellow ? PropSprite.goldSpring : pose, new Vec2(0, -11 * height), new Vec2(1, height))) {
       this.drawSpring(g, body, dark);
     }
     g.resetTransform();

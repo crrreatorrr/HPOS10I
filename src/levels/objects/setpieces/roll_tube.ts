@@ -20,6 +20,7 @@ import { tree } from '../../../runtime/tree';
 import { Rect2, Vec2 } from '../../../runtime/vec2';
 import { PlayerArea } from '../../common/player_area';
 import type { Configurable, Props } from '../../common/props';
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { glowLine, resolveArtZone, styleFor, type SetPieceStyle } from './style';
 
 /** Curls `player` into a rolling ball on the ground (no-op when he already is). */
@@ -102,6 +103,12 @@ export class RollTube extends PlayerArea implements Configurable {
     const way = this.direction === 0 ? 1 : this.direction;
     // Glass body.
     g.rect(0, -H, L, H, (style.neon ? style.accent : style.edge).withAlpha(0.08));
+    const count = Math.max(1, Math.ceil(L / 48));
+    const segmentWidth = L / count;
+    for (let i = 0; i < count; i++) {
+      drawPropSprite(g, PropSprite.tubeGlass, new Vec2((i + 0.5) * segmentWidth, -H / 2),
+        new Vec2(segmentWidth / 44, H / 16), 0.15);
+    }
     const top = [new Vec2(0, -H), new Vec2(L, -H)];
     const bottom = [new Vec2(0, -1), new Vec2(L, -1)];
     if (style.neon) {
@@ -116,7 +123,10 @@ export class RollTube extends PlayerArea implements Configurable {
     // Rings at the mouths and every 64 px.
     for (let x = 0; x <= L; x += 64) {
       const rx = Math.min(x, L);
-      g.rect(rx - 1, -H, 2, H, (style.neon ? style.edge : style.shade).withAlpha(0.6));
+      const bracket = style.neon ? PropSprite.neonTubeBracket : PropSprite.tubeBracket;
+      if (!drawPropSprite(g, bracket, new Vec2(rx, -H / 2), new Vec2(0.42, H / 30), 0.72)) {
+        g.rect(rx - 1, -H, 2, H, (style.neon ? style.edge : style.shade).withAlpha(0.6));
+      }
     }
     // Chevrons flowing the way through.
     const flow = (tree.physicsFrames * 2) % 32;

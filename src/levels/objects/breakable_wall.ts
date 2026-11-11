@@ -13,6 +13,7 @@
 // The runtime has no priorities; levels add the player after their objects,
 // so tree order gives the same result.
 
+import { drawPropSprite, PropSprite } from './prop_sprite';
 import { Audio } from '../../core/audio';
 import { GameState } from '../../core/game_state';
 import { Layers } from '../../core/layers';
@@ -155,10 +156,12 @@ export class BreakableWall extends StaticBody2D implements Configurable {
     const size = this._size;
     const rect = new Rect2(-size.x / 2, -size.y, size.x, size.y);
     g.rectR(rect, OUTLINE);
+    g.rect(rect.x + 1, rect.y + 1, size.x - 2, size.y - 2, STONE);
+    const drawn = drawPropSprite(g, PropSprite.breakable, rect.center, new Vec2((size.x - 2) / 32, (size.y - 2) / 28));
     // Stone blocks in a staggered bond, lit from the top left.
     const rows = Math.max(1, Math.round(size.y / 12));
     const rowH = (size.y - 2) / rows;
-    for (let row = 0; row < rows; row++) {
+    for (let row = 0; !drawn && row < rows; row++) {
       const y = rect.y + 1 + row * rowH;
       const offset = row % 2 === 0 ? 0 : size.x / 4;
       let x = rect.x + 1 - offset;

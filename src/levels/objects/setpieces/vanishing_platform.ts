@@ -123,6 +123,7 @@ export class VanishingPlatform extends SetPiecePlatform implements Configurable 
         g.withAlpha(blinkOn ? 0.55 : 1, () => {
           g.rect(0, 0, w, h, style.body);
           g.rect(0, h * 0.5, w, h * 0.5, style.shade);
+          this.drawSurface(g);
           if (style.neon) {
             g.additive(() => {
               glowLine(g, box, style.accent, true, 1);

@@ -1,7 +1,7 @@
-// Small feel effects drawn as simple pixel shapes: dust puffs and ticket
-// sparkles. Purely visual: they never read input or touch physics.
+// Small pixel-art effects for dust puffs and ticket sparkles. Purely visual: they never read input or touch physics.
 // Anyone may call them: Effects.ticketSparkle(globalPosition, parent).
 
+import { drawPropSprite, PropSprite } from '../levels/objects/prop_sprite';
 import { Color } from '../runtime/color';
 import type { Gfx } from '../runtime/gfx';
 import { Node, Node2D } from '../runtime/node';
@@ -30,6 +30,8 @@ class Puff extends Node2D {
     const t = this.age / Puff.LIFE;
     const r = this.radius * (1 + t * 1.5);
     const alpha = 1 - t;
+    const pose = t < 0.5 ? PropSprite.dust : PropSprite.dustCool;
+    if (drawPropSprite(g, pose, Vec2.ZERO, new Vec2(2 * r / 14, 2 * r / 14), alpha)) return;
     g.circle(new Vec2(0.5, 0.5), r, DUST_SHADE.withAlpha(alpha * 0.8));
     g.circle(new Vec2(-0.5, -0.5), r * 0.75, DUST.withAlpha(alpha));
   }
@@ -47,9 +49,12 @@ class Sparkle extends Node2D {
   override draw(g: Gfx): void {
     const t = this.age / Sparkle.LIFE;
     const arm = 6 * Math.sin(t * Math.PI);
-    g.line(new Vec2(-arm, 0), new Vec2(arm, 0), SPARKLE);
-    g.line(new Vec2(0, -arm), new Vec2(0, arm), SPARKLE);
-    g.rect(-1, -1, 2, 2, SPARKLE_CORE);
+    const scale = Math.max(0.14, arm * 2 / 17);
+    if (!drawPropSprite(g, PropSprite.pickupStar, Vec2.ZERO, new Vec2(scale, scale), 1 - t)) {
+      g.line(new Vec2(-arm, 0), new Vec2(arm, 0), SPARKLE);
+      g.line(new Vec2(0, -arm), new Vec2(0, arm), SPARKLE);
+      g.rect(-1, -1, 2, 2, SPARKLE_CORE);
+    }
     const reach = 3 + t * 10;
     for (let i = 0; i < 4; i++) {
       const dir = Vec2.fromAngle(Math.PI / 4 + (i * Math.PI) / 2);

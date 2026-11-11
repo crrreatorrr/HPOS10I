@@ -7,6 +7,7 @@
 // interval_mult. The origin is the emitter, on the ceiling.
 
 import { Layers } from '../../../core/layers';
+import { drawPropSprite, PropSprite } from '../prop_sprite';
 import { Color } from '../../../runtime/color';
 import type { Gfx } from '../../../runtime/gfx';
 import { Node2D } from '../../../runtime/node';
@@ -140,13 +141,17 @@ export class SecurityBeam extends Node2D implements Configurable {
 
   override draw(g: Gfx): void {
     // The emitter housing, hanging from the ceiling.
-    g.rect(-9, -1, 18, 12, OUTLINE);
-    g.rect(-8, 0, 16, 10, EMITTER);
-    g.rect(-8, 7, 16, 3, EMITTER_DARK);
+    const drawn = drawPropSprite(g, PropSprite.beamEmitter, new Vec2(0, 5));
+    if (!drawn) {
+      g.rect(-9, -1, 18, 12, OUTLINE);
+      g.rect(-8, 0, 16, 10, EMITTER);
+      g.rect(-8, 7, 16, 3, EMITTER_DARK);
+    }
     const t = this.timer;
     const blink = this.phase === BeamPhase.WARNING && Math.trunc(t / 3) % 2 === 0;
-    g.circle(new Vec2(0, 10), 3.5, OUTLINE);
-    g.circle(new Vec2(0, 10), 2.5, blink || this.phase === BeamPhase.ON ? LENS : LENS_OFF);
+    const lens = new Vec2(0, drawn ? 5 : 10);
+    g.circle(lens, 3.5, OUTLINE);
+    g.circle(lens, 2.5, blink || this.phase === BeamPhase.ON ? LENS : LENS_OFF);
     if (this.phase === BeamPhase.WARNING) {
       for (let y = 14.0; y < this.length; y += 8) g.rect(-1, y + ((t * 2) % 8), 2, 3, blink ? BEAM : BEAM_HALF);
     } else if (this.phase === BeamPhase.ON) {
