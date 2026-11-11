@@ -116,7 +116,7 @@ first draft, with more checkpoints so a death never sends you far back.
 | Z2 Act 1 | 3 | 55 | 2:00 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves; stone ramps instead of fixed stairs, and a booster run up a long ramp | 5 | 4 |
 | Z2 Act 2 | 4 | 65 | 2:55 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase; hills and ramps in the halls | 7 | 4 |
 | Z2 Boss (Library Demon) | 4.5 | arena | – | – | – | – | – | – | – |
-| Z3 Act 1 | 5 | 65 | 2:20 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run into ballrooms; doors and switches that open shortcuts | 5 | 3.5 |
+| Z3 Act 1 | 5 | 65 | 2:20 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run over pitched roofs into ballrooms; doors and switches that open shortcuts | 6 | 3.5 |
 | Z3 Act 2 | 6 | 75 | 3:10 | 1.2 | T2 35 / T3 45 / T4 20 | R4 | Underground bunker: vertical shafts up AND down, timed security beams, the exit reached by travelling left | 6 | 3.5 |
 | Z3 Boss (Broccoli Head) | **8** | arena | – | – | – | – | – | – | – |
 | Z4 Act 1 | 7 | 75 | 3:35 | 1.3 | T2 30 / T3 40 / T4 30 | R5 | Zone 1 ideas remixed at speed: reverse runs (right to left), vanishing neon platforms | 6 | 3 |

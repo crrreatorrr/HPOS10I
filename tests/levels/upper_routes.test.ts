@@ -56,6 +56,13 @@ const ROUTES: Record<string, Entry[]> = {
     // Staying on the upper floor where the ramp goes down.
     { from: [19560, -832], deckY: -832, deck: [19856, 21264], jumpAt: 19760, speed: 5 },
   ],
+  // Zone 3: the decks stay level where a roof pitches down; each is a running jump over a 64 px gap.
+  'src/levels/data/z3_capital_mansion/act1.json': [
+    { from: [11180, -528], deckY: -528, deck: [11456, 12160], jumpAt: 11360, speed: 5 },
+    { from: [20080, -272], deckY: -272, deck: [20352, 21184], jumpAt: 20256, speed: 5 },
+    { from: [24140, -144], deckY: -144, deck: [24416, 25200], jumpAt: 24320, speed: 5 },
+    { from: [26900, -80], deckY: -80, deck: [27136, 27936], jumpAt: 27040, speed: 4 },
+  ],
 };
 
 const FLOOR = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A | Layers.TERRAIN_TOP_ONLY;
