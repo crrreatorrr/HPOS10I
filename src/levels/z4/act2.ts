@@ -127,7 +127,7 @@ export function buildAct2(): LevelBuilder {
   CP(); // 3: on top of the tower
   // The three-deck run over the tower roof.
   const d = b.decks(3072, { highGaps: 1, midGaps: 1 });
-  b.enemy('armored', new Vec2(d.x0 + 480, d.low), { patrol_distance: 64 });
+  b.enemy('shockwave_pill', new Vec2(d.x0 + 480, d.low));
   b.enemy('dropper', new Vec2(d.x0 + 760, d.mid + 30));
   b.enemy('spike', new Vec2(d.x0 + 980, d.low), { patrol_distance: 48 });
   b.enemy('dropper', new Vec2(d.x0 + 1100, d.high + 12 + 30));
@@ -136,12 +136,12 @@ export function buildAct2(): LevelBuilder {
   b.setPiece(KEYS.LAVA_VENT, new Vec2(d.x0 + 1200, d.low), { height: 44, first_delay: 38 });
   b.enemy('burrower', new Vec2(d.x0 + 2320, d.low), { height: 44, first_delay: 70 });
   b.enemy('diver', new Vec2(d.x0 + 1720, d.high - 130));
-  b.enemy('dropper', new Vec2(d.x0 + 1840, d.mid + 30));
+  b.enemy('orbit_guard', new Vec2(d.x0 + 1840, d.low));
   b.enemy('spike', new Vec2(d.x0 + 2100, d.low), { patrol_distance: 48 });
   b.enemy('sniper', new Vec2(d.x0 + 2400, d.high));
   b.enemy('armored', new Vec2(d.x0 + 2600, d.low), { patrol_distance: 48 });
   b.enemy('sniper', new Vec2(d.x0 + 2200, d.mid));
-  b.enemy('dropper', new Vec2(d.x0 + 2850, d.mid + 30));
+  b.enemy('splitter', new Vec2(d.x0 + 2850, d.low));
   b.setPiece(KEYS.BUMPER, new Vec2(d.x0 + 700, d.high - 72));
   b.setPiece(KEYS.BUMPER, new Vec2(d.x0 + 2000, d.high - 72));
   b.flat(240);

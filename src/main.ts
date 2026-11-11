@@ -12,6 +12,7 @@ import { HubClient } from './hub/hub_client';
 import { migrateGodotSave } from './hub/godot_migration';
 import { installBackdrop } from './levels/common/backdrop';
 import { registerEnemies } from './levels/registry_enemies';
+import { REMIX_ATLAS } from './levels/enemies/neon/remix_art';
 import { HAZARD_ATLAS } from './levels/objects/hazards/hazard_art';
 import { registerObjects } from './levels/registry_objects';
 import { registerLevelScenes } from './levels/scenes';
@@ -123,6 +124,7 @@ async function boot(): Promise<void> {
       assetUrl('assets/sprites/common/emerald/emerald.png'),
       assetUrl('assets/sprites/common/emerald/emerald_small.png'),
       assetUrl(HAZARD_ATLAS),
+      assetUrl(REMIX_ATLAS),
     ].filter((u): u is string => !!u)),
   ]);
 
