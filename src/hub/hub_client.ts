@@ -19,7 +19,7 @@
 // Writes are fire-and-forget: the SDK's IndexedDB outbox resends each key
 // until it is acked.
 
-import { createHubSdk, type HubSdk, type GameId } from '@hub-sdk';
+import { createHubSdk, feedbackTransportFromSdk, type FeedbackTransport, type HubSdk, type GameId } from '@hub-sdk';
 import { GameState } from '../core/game_state';
 import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
@@ -172,6 +172,24 @@ class HubClientImpl {
       /* fall through to plain navigation */
     }
     if (typeof window !== 'undefined') window.location.assign(target);
+  }
+
+  /**
+   * Where the feedback window (ui/feedback.ts) asks whether this player may send, and sends.
+   * It follows whichever SDK init() made: none yet answers `offline` (asked again on the next
+   * press), standalone answers `standalone`.
+   */
+  feedbackTransport(): FeedbackTransport {
+    return {
+      access: async () => {
+        if (this.sdk) return feedbackTransportFromSdk(this.sdk).access();
+        return { ok: false, reason: this.reach === 'pending' ? 'offline' : 'standalone' };
+      },
+      submit: async (input) => {
+        if (!this.sdk) throw new Error('offline');
+        return feedbackTransportFromSdk(this.sdk).submit(input);
+      },
+    };
   }
 
   /** The hub URL players return to (shown in the pause menu). */

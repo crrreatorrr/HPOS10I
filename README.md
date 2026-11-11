@@ -43,6 +43,7 @@ game engine.
 | Menus: choose | Enter, Space or Jump | A (also X / Y, and Start on the zone select) | Tap |
 | Menus: back | Esc (P on the zone select) | B (on the pause list: resume) | BACK button |
 | Return to hub | Zone select HUB, pause EXIT TO HUB | Same | Same |
+| Send feedback | N twice (or pause, SEND FEEDBACK) | Pause, SEND FEEDBACK | Pause, SEND FEEDBACK |
 | Debug overlay | F1 | | |
 
 Any standard controller works with no setup: plug it in (or bring it from the
