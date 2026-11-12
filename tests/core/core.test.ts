@@ -207,6 +207,24 @@ describe('difficulty', () => {
   );
 
   it(
+    'par is 1.5 x the best deathless bot clear, rounded up to 5 s, for every act',
+    checked((c) => {
+      c.eq(Difficulty.parFromBot(29.1), 45, '29.1 s -> 45');
+      c.eq(Difficulty.parFromBot(30), 45, 'an exact multiple is not rounded further');
+      c.eq(Difficulty.parFromBot(30.01), 50, 'rounds up');
+      c.eq(Difficulty.parFromBot(110.9), 170, '110.9 s -> 170');
+      for (let d = 0; d <= Difficulty.MAX; d++) {
+        const frames = Difficulty.BEST_BOT_FRAMES[d]!;
+        c.true(frames > 0, `a recorded bot clear for D${d}`);
+        const par = Difficulty.targets(d).par_seconds;
+        c.eq(par, Difficulty.parFromBot(frames / 60), `D${d}: par follows the formula`);
+        c.eq(par % Difficulty.PAR_STEP, 0, `D${d}: a multiple of 5 s`);
+        c.true(frames / 60 <= 0.7 * par + 1e-9, `D${d}: the bot's own clear earns S`);
+      }
+    }),
+  );
+
+  it(
     'targets never get easier',
     checked((c) => {
       for (let d = 1; d <= Difficulty.MAX; d++) {
