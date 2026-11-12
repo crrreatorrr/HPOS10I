@@ -47,6 +47,10 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [1984, -192], deckY: -272, deck: [2080, 3424] },
     // Staying on the upper level: a running jump over the 64 px gap where the ramp goes down.
     { from: [11560, -640], deckY: -640, deck: [11840, 13520], jumpAt: 11744, speed: 5 },
+    // Level with the third staircase's landing: a running jump where the steps go down.
+    { from: [18960, -704], deckY: -704, deck: [19200, 19824], jumpAt: 19050, speed: 5 },
+    // The gallery after the long banister: a running jump from its foot.
+    { from: [31560, 0], deckY: -80, deck: [31744, 32176], jumpAt: 31580, speed: 6 },
   ],
   'src/levels/data/z2_wizard_academy/act2.json': [
     // Level with the breakable-wall tunnel's roof: a running jump over the 64 px gap.
