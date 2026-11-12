@@ -30,7 +30,10 @@ in your final report.
   No game engine and no runtime dependencies: the runtime in `src/runtime` is
   ours. Two-space indent, single quotes, semicolons, no `any`.
 - **Resolution:** 424×240 game pixels, 1 unit = 1 pixel, y points down.
-  Integer scaling on desktop, fractional on touch. Nearest-neighbour
+  The canvas fills the window (one axis edge to edge, the page colour in the
+  spare bars, never stretched or cropped): integer scaling on desktop when it
+  fills at least 97% of that, else fractional (always on touch). Every menu
+  has FULL SCREEN (the browser Fullscreen API on the page). Nearest-neighbour
   everywhere; positions are rounded to whole pixels when drawn.
 - **Physics tick:** fixed 60 Hz (`physicsProcess(delta)`). Gameplay speeds in
   public APIs are **pixels per frame** (classic units). Convert with
@@ -114,6 +117,7 @@ area (mask bit 5) and call the player API below.
 | `ZoneRegistry` | `allZones(includeTest)`, `getZone(id)`, `stagePath(id, stage)` (a scene id), `nextZoneId(id)`, `isReleased(id)`. Zone: `id`, `name`, `acts`, `boss`, `accessory`, `music`. |
 | `Tuning` | `physics: PhysicsConstants`; read it every tick. |
 | `Settings` | Player options: `extraMoves`, `itemBoxes`, `screenShake`, `speedEffects`, `muted`. |
+| `Controls` | Controller settings (`src/core/controls.ts`, saved as `hpos10i/controls.json`): `bindKey` / `bindButton` (the action's first key or button; taken from another action, or swapped when it was that action's only one), `stepDeadzone`, `resetDefaults`, `load`. Remappable: move, jump, pause, focus. The `ui_*` actions, Esc, F keys, Tab, N and the pad's B and Home are fixed. It rewrites `KEY_BINDINGS` / `PAD_BUTTONS` through `applyBindings()`, before any action exists: nothing past the input layer changes. No vibration (the game never vibrates the pad). |
 | `Audio` | `playSfx(name)`, `playMusic(name)`, `stopMusic()` (see Audio). |
 | `Dev` | `args` (URL options), `play(timeline)`, `sendAction(action, pressed)`. |
 | `Difficulty` | See "Difficulty". |
@@ -137,11 +141,16 @@ in UI text come from the bindings (`InputHints.actionKeys` / `padKeys`), never
 hard-coded. Esc (`pause` + `ui_cancel`) only ever goes back, closes or pauses:
 the title ignores it, while P, Enter and a gamepad's Start start the game.
 
+The table lists the defaults; the player can remap the gameplay rows in
+CONTROLS (`Controls`, below). Esc while the browser is in full screen is the
+browser's (it leaves full screen) and never reaches the game.
+
 **Gamepads** (`src/runtime/gamepad.ts`, the hub's shared controller
 convention): every connected pad is polled once per rendered frame, so
 hot-plug works at any time and any pad drives the single player. Triggers
 count above 0.5 and Home is never read. The left stick has a 0.2 radial
-deadzone; the thresholds above apply to the raw axis on top of it (movement
+deadzone by default (0.1 to 0.7 in CONTROLS; above 0.45 it makes the stick
+need a longer push); the thresholds above apply to the raw axis on top of it (movement
 is digital). **Latch on connect:** whatever is held when a pad appears (page
 load, arriving from the hub, reconnect) is ignored until released, so the
 hub's confirm press never reaches the title. Unplugging releases what that
@@ -346,15 +355,16 @@ Web Audio, unlocked by the first key press, click or tap.
 
 | Screen | |
 |---|---|
-| Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; BACK and HUB (straight to the hub). Acts unlock by progress on a new save (`isActUnlocked`: the act before it cleared, or already cleared itself); a save that existed before progress v2 keeps every act open (`unlock_all`); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`) and best rank, and each act button carries its best rank letter. The dev menu and `?zone=` are not gated. |
+| Title (`title`) | The main menu: START, CONTROLS, FULL SCREEN, HUB (jump, Enter, P or Start chooses; a tap off the menu starts). Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
+| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; MAIN MENU (the title), HUB (straight to the hub), CONTROLS and FULL SCREEN. Acts unlock by progress on a new save (`isActUnlocked`: the act before it cleared, or already cleared itself); a save that existed before progress v2 keeps every act open (`unlock_all`); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`) and best rank, and each act button carries its best rank letter. The dev menu and `?zone=` are not gated. |
 | HUD | Score, time, tickets, lives, power-ups; speed lines; the teaching prompt line |
-| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart (from the checkpoint, no life lost; the run is no longer clean), Restart Act (the whole stage as a fresh attempt from 0:00), Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title, Send feedback. The controls panel lists the moves, the extra ones while they are on |
+| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart (from the checkpoint, no life lost; the run is no longer clean), Restart Act (the whole stage as a fresh attempt from 0:00), Options, Exit to Hub (asks EXIT TO HUB? first), Main menu (asks QUIT TO MAIN MENU? first), Send feedback, Controls, Full screen, in two columns. Options also offers Full screen, Controls, Exit to Hub and Main menu. The controls panel lists the moves, the extra ones while they are on |
+| Controls (`controls/controls_screen.ts`) | Global overlay any menu opens over itself (title, zone select, pause, game over): per action, its keys and pad buttons; choose one and press the new key or button (Esc, B, a tap or 8 s cancel); stick deadzone; RESET TO DEFAULTS; BACK, plus MAIN MENU / HUB as the menu under it offers them, and FULL SCREEN. The menu under it takes no input while it is open. Bindings live in `src/core/controls.ts` |
 | Feedback (`feedback.ts`) | N twice, or SEND FEEDBACK in the pause menu, opens the hub SDK's feedback window (a DOM overlay; `installFeedback`, hub repo `docs/feedback.md`). `Feedback.install(canvas)` runs at boot before any other key listener, so the game never sees N or the keys typed in the window. While it is open `tree.suspended` freezes everything and closing restores the exact state. Sends the scene id, mode, player position and state, level time, build id, crash-guard errors and breadcrumbs (act start, checkpoint, death, act clear, boss start/phase/defeat, scene changes). Signed-in hub players only; standalone shows a one-line toast |
 | Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |
 | Tally | Emits `finished`; the emerald moment; this clear's attempt time with the saved best or NEW BEST! (`HubClient.lastClear`) and its rank; the time bonus from the rank table (`src/core/rank.ts`: time / par, S 20,000, A 12,000, B 8,000, C 3,000, D 1,000, nothing past twice the par; a run that is not clean is capped at A; boss arenas have no par and keep a flat table); "+N Tickets sent to the hub", or "Hub Ticket limit reached" when the hub refused the earn for a cap |
-| Game over | RETRY STAGE (default: a fresh game at the act or boss arena where the last life went) and QUIT TO TITLE; one continue prompt in sandbox scenes |
+| Game over | RETRY STAGE (default: a fresh game at the act or boss arena where the last life went), MAIN MENU, HUB, CONTROLS and FULL SCREEN; one continue prompt in sandbox scenes |
 | Ending | The credits roll, with the saved best rank of all eight acts |
 | Dev menu (`main`), sound hint, rotate hint | |
 

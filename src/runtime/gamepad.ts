@@ -121,12 +121,12 @@ export function stickDirection(pad: PadLike, axis: number, dir: number, threshol
  * `pad:<index>:b<button>:<name>` and `pad:<index>:a<axis><dir>:<name>`; the
  * binding name is always after the last ':'.
  */
-export function readPad(pad: PadLike, buttons: PadButtonBindings, axes: PadAxisBindings, names: readonly string[]): Map<string, boolean> {
+export function readPad(pad: PadLike, buttons: PadButtonBindings, axes: PadAxisBindings, names: readonly string[], deadzone = LEFT_STICK_DEADZONE): Map<string, boolean> {
   const out = new Map<string, boolean>();
   for (const name of names) {
     for (const b of buttons[name] ?? []) out.set(`pad:${pad.index}:b${b}:${name}`, buttonDown(pad, b));
     const axis = axes[name];
-    if (axis) out.set(`pad:${pad.index}:a${axis[0]}${axis[1]}:${name}`, stickDirection(pad, axis[0], axis[1], axis[2]));
+    if (axis) out.set(`pad:${pad.index}:a${axis[0]}${axis[1]}:${name}`, stickDirection(pad, axis[0], axis[1], axis[2], deadzone));
   }
   return out;
 }
@@ -148,7 +148,11 @@ export class PadReader {
   /** Sources held when their pad appeared, ignored until released. */
   private latched = new Set<string>();
   private lastRaw = new Map<string, boolean>();
+  /** Buttons ("<pad>:<button>") to latch on the next poll (latchButton). */
+  private pendingLatch = new Set<string>();
   activity = false;
+  /** Radial deadzone of the left stick (the player's setting in the CONTROLS screen). */
+  deadzone = LEFT_STICK_DEADZONE;
 
   constructor(
     private readonly buttons: PadButtonBindings,
@@ -165,9 +169,13 @@ export class PadReader {
       if (!pad || !pad.connected) continue;
       present.set(pad.index, pad.id);
       const fresh = this.known.get(pad.index) !== pad.id;
-      const states = readPad(pad, this.buttons, this.axes, this.names);
+      const states = readPad(pad, this.buttons, this.axes, this.names, this.deadzone);
       for (const [key, down] of states) {
         raw.set(key, down);
+        if (down && this.pendingLatch.size > 0) {
+          const m = /^pad:(\d+):b(\d+):/.exec(key);
+          if (m && this.pendingLatch.has(`${m[1]}:${m[2]}`)) this.latched.add(key);
+        }
         if (down && !(this.lastRaw.get(key) ?? false)) this.activity = true;
         if (fresh) {
           if (down) this.latched.add(key);
@@ -178,11 +186,20 @@ export class PadReader {
         out.set(key, down && !this.latched.has(key));
       }
     }
+    this.pendingLatch.clear();
     // A pad that went away drops its latches; it latches again if it comes back.
     for (const key of this.latched) if (!raw.has(key)) this.latched.delete(key);
     this.known = present;
     this.lastRaw = raw;
     return out;
+  }
+
+  /**
+   * Ignores a button, under every binding, until it is released (the press
+   * the CONTROLS screen just took for a new binding never reaches the game).
+   */
+  latchButton(padIndex: number, button: number): void {
+    this.pendingLatch.add(`${padIndex}:${button}`);
   }
 
   /** True while a source is being ignored because it was held at connect. */

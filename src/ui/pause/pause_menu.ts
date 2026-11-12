@@ -21,13 +21,21 @@
 //                  banked yet), then HubClient.exitToHub(); always offered,
 //                  like the original. The hub chrome's Return to Hub button
 //                  opens the same question (confirmExitToHub()).
-//   QUIT TO TITLE  SceneRouter.goTitle()
+//   MAIN MENU      asks first (QUIT TO MAIN MENU?: the run ends), then
+//                  SceneRouter.goTitle() (the title is the main menu)
 //   SEND FEEDBACK  the hub's feedback window (ui/feedback.ts; N twice does the
 //                  same anywhere). The menu is still open when it closes.
+//   CONTROLS       the controller settings overlay (ui/controls), over the
+//                  menu; its MAIN MENU and HUB ask the same questions
+//   FULL SCREEN    on/off (ui/fullscreen.ts), where the browser allows it
+// The buttons stand in two columns (the first five, then the rest); up/down
+// walk them in that order. OPTIONS also offers FULL SCREEN, CONTROLS, EXIT TO
+// HUB and MAIN MENU under the toggles.
 // Arrows/WASD/D-pad/stick move, Enter/Space/any jump button choose, mouse and
 // touch tap. Esc or the gamepad's B goes back: on the main page it resumes,
 // like Start (B is also a jump button, so without this it would choose the
-// focused item). Left/right cycle the Relic skin when there is a choice. The
+// focused item). Left/right cycle the Relic skin when there is a choice, and
+// otherwise move between the columns. The
 // panel also lists the controls for every device; key and button names come
 // from the bindings (InputHints), and Esc is never offered for pause. Under
 // the table one line names the classic moves and, while the extra moves are
@@ -53,7 +61,10 @@ import { Signal } from '../../runtime/signal';
 import { tree, VIEW_H, VIEW_W } from '../../runtime/tree';
 import { Rect2 } from '../../runtime/vec2';
 import { InputHints } from '../common/input_hints';
-import { MenuList, type MenuItem } from '../common/menu';
+import { MenuList, type Direction, type MenuItem } from '../common/menu';
+import { CONTROLS_LABEL, fullScreenItem, MAIN_MENU_LABEL } from '../common/standard_items';
+import { ControlsScreen, controlsScreen, openControls } from '../controls/controls_screen';
+import { FullScreen } from '../fullscreen';
 import { COLORS, drawButton, drawCentered, drawPanel, drawText, lineHeight, measure, PANEL_MARGIN_X, PANEL_MARGIN_Y, UiLayer, type ButtonState } from '../common/theme';
 import { Display } from '../display';
 import { Feedback } from '../feedback';
@@ -68,8 +79,15 @@ const BACKDROP = new Color(0.02, 0.03, 0.09, 0.62);
 const HEADER_ACTIVE = COLORS.gold;
 const HEADER_IDLE = COLORS.idle;
 const OPTION_W = 236;
+/** The main page's buttons: this many in the first column, the rest in the second. */
+export const FIRST_COLUMN = 5;
+const COLUMN_SEP = 6;
 /** Under EXIT TO HUB? (tickets bank only when an act is cleared). */
 export const EXIT_CONFIRM_NOTE = 'THIS RUN ENDS HERE. TICKETS FROM THIS ACT ARE NOT BANKED.';
+/** Under QUIT TO MAIN MENU?. */
+export const QUIT_CONFIRM_NOTE = 'THIS RUN ENDS HERE. TICKETS FROM THIS ACT ARE NOT BANKED.';
+export const MAIN_MENU_INDEX = 5;
+export const CONTROLS_INDEX = 7;
 export const MOVES_LINE = 'DOWN: ROLL   HOLD DOWN + JUMP: SPIN DASH   UP: LOOK';
 /** Shown under it only while the extra moves are on (Moves.extrasOn()). One line is wider than the screen. */
 export const EXTRA_MOVES_LINES: readonly string[] = ['JUMP TWICE AND HOLD: DROP DASH   HOLD UP + JUMP: CHARGE RUN', 'JUMP WITH A SHIELD: BOUNCE'];
@@ -123,14 +141,17 @@ export class PauseMenu extends UiLayer {
 
   readonly main: MenuList;
   readonly options: MenuList;
-  /** EXIT TO HUB / KEEP PLAYING: the question before leaving a run for the hub. */
+  /** EXIT TO HUB (or MAIN MENU) / KEEP PLAYING: the question before leaving a run. */
   readonly confirm: MenuList;
   /** 'main', 'options' or 'confirm' while open. */
   page: 'main' | 'options' | 'confirm' = 'main';
+  /** What the confirm page asks about: leaving for the hub or for the main menu. */
+  confirmKind: 'hub' | 'title' = 'hub';
 
   private open = false;
   /** KEEP PLAYING goes back to the pause list, or (asked from the hub chrome) straight back to the game. */
-  private confirmBack: 'main' | 'resume' = 'main';
+  private confirmBack: 'main' | 'options' | 'resume' = 'main';
+  private controlsWasOpen = false;
   private resumePending = false;
   private quietFrames = 0;
   private relicText = '';
@@ -157,12 +178,15 @@ export class PauseMenu extends UiLayer {
       { label: 'RESTART ACT', rect: new Rect2(), onSelect: () => this.onRestartAct() },
       { label: 'OPTIONS', rect: new Rect2(), onSelect: () => this.showOptions() },
       { label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.onExitHub() },
-      { label: 'QUIT TO TITLE', rect: new Rect2(), onSelect: () => this.onQuit() },
-      // Last, so the indices above stay put. The window is the hub SDK's DOM overlay.
+      { label: MAIN_MENU_LABEL, rect: new Rect2(), onSelect: () => this.onQuit() },
+      // After these, so the indices above stay put. The window is the hub SDK's DOM overlay.
       { label: 'SEND FEEDBACK', rect: new Rect2(), onSelect: () => Feedback.open(true) },
+      { label: CONTROLS_LABEL, rect: new Rect2(), onSelect: () => this.showControls('main') },
     ];
+    const fs = fullScreenItem();
+    if (fs) items.push(fs);
     for (const it of items) it.onStep = (step) => this.cycleSkin(step);
-    this.main = new MenuList(items, { onCancel: () => this.requestResume(), repeatHorizontal: false });
+    this.main = new MenuList(items, { onCancel: () => this.requestResume(), repeatHorizontal: false, links: (i, d) => this.mainLink(i, d) });
     const rows: MenuItem[] = OPTION_ROWS.map((row) => ({
       label: row.label,
       rect: new Rect2(),
@@ -174,11 +198,23 @@ export class PauseMenu extends UiLayer {
       },
       draw: (g, item, state) => this.drawOption(g, item, state, row),
     }));
+    const fsRow = fullScreenItem();
+    if (fsRow) {
+      fsRow.onStep = () => {
+        FullScreen.toggle();
+        return true;
+      };
+      fsRow.draw = (g, item, state) => this.drawToggle(g, item, state, 'FULL SCREEN', FullScreen.isOn(), false);
+      rows.push(fsRow);
+    }
+    rows.push({ label: CONTROLS_LABEL, rect: new Rect2(), onSelect: () => this.showControls('options') });
+    rows.push({ label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.showConfirm('options', 'hub') });
+    rows.push({ label: MAIN_MENU_LABEL, rect: new Rect2(), onSelect: () => this.showConfirm('options', 'title') });
     rows.push({ label: 'BACK', rect: new Rect2(), onSelect: () => this.showMain() });
     this.options = new MenuList(rows, { onCancel: () => this.showMain(), repeatHorizontal: false });
     this.confirm = new MenuList(
       [
-        { label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.leave(() => HubClient.exitToHub()) },
+        { label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.confirmLeave() },
         { label: 'KEEP PLAYING', rect: new Rect2(), onSelect: () => this.cancelExit() },
       ],
       { onCancel: () => this.cancelExit(), repeatHorizontal: false },
@@ -232,6 +268,15 @@ export class PauseMenu extends UiLayer {
       return;
     }
     if (this.resumePending) return;
+    if (ControlsScreen.blocking()) {
+      this.controlsWasOpen = true;
+      return;
+    }
+    if (this.controlsWasOpen) {
+      // Back from CONTROLS: the press that closed it never acts here.
+      this.controlsWasOpen = false;
+      this.activeMenu().reset(this.activeMenu().focus);
+    }
     this.refreshRestart();
     const menu = this.activeMenu();
     // Enter is pause and accept: in the menu it chooses, it doesn't close it.
@@ -256,7 +301,7 @@ export class PauseMenu extends UiLayer {
   }
 
   override input(ev: InputEventLike): void {
-    if (!this.open || this.resumePending) return;
+    if (!this.open || this.resumePending || ControlsScreen.blocking()) return;
     this.activeMenu().handleEvent(ev);
   }
 
@@ -345,12 +390,58 @@ export class PauseMenu extends UiLayer {
     if (relayout && this.page === 'main') this.layout();
   }
 
+  /** MAIN MENU: asks first (the run ends), like EXIT TO HUB. */
   private onQuit(): void {
-    this.leave(() => SceneRouter.goTitle());
+    this.showConfirm('main', 'title');
   }
 
   private onExitHub(): void {
-    this.showConfirm('main');
+    this.showConfirm('main', 'hub');
+  }
+
+  /** The confirm page's first item: leave for the hub or the main menu. */
+  private confirmLeave(): void {
+    if (this.confirmKind === 'title') this.leave(() => SceneRouter.goTitle());
+    else this.leave(() => HubClient.exitToHub());
+  }
+
+  /** CONTROLS over the menu; its MAIN MENU and HUB ask the same questions as these pages. */
+  private showControls(from: 'main' | 'options'): void {
+    openControls({
+      mainMenu: () => this.showConfirm(from, 'title'),
+      hub: () => this.showConfirm(from, 'hub'),
+      alive: () => this.open && !this.resumePending,
+    });
+  }
+
+  /** Main page navigation: up/down walk the list in order (skipping greyed items), left/right switch columns. */
+  private mainLink(index: number, dir: Direction): number {
+    const n = this.main.items.length;
+    if (dir === 'up' || dir === 'down') {
+      const delta = dir === 'up' ? -1 : 1;
+      for (let k = 1; k <= n; k++) {
+        const i = (((index + delta * k) % n) + n) % n;
+        if (this.main.isUsable(i)) return i;
+      }
+      return index;
+    }
+    const col = index < FIRST_COLUMN ? 0 : 1;
+    const row = col === 0 ? index : index - FIRST_COLUMN;
+    const other = col === 0 ? FIRST_COLUMN + Math.min(row, n - FIRST_COLUMN - 1) : Math.min(row, FIRST_COLUMN - 1);
+    if (this.main.isUsable(other)) return other;
+    // A greyed item (RESTART while dying): the nearest usable one in that column.
+    const start = col === 0 ? FIRST_COLUMN : 0;
+    const end = col === 0 ? n : FIRST_COLUMN;
+    let best = index;
+    let bestD = Infinity;
+    for (let i = start; i < end; i++) {
+      const d = Math.abs(i - other);
+      if (this.main.isUsable(i) && d < bestD) {
+        best = i;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   /**
@@ -367,11 +458,14 @@ export class PauseMenu extends UiLayer {
     if (!wasOpen) this.openMenu();
     if (!this.open) return;
     this.resumePending = false;
-    this.showConfirm(wasOpen ? 'main' : 'resume');
+    controlsScreen().close();
+    this.showConfirm(wasOpen ? (this.page === 'options' ? 'options' : 'main') : 'resume', 'hub');
   }
 
-  private showConfirm(back: 'main' | 'resume'): void {
+  private showConfirm(back: 'main' | 'options' | 'resume', kind: 'hub' | 'title'): void {
     this.confirmBack = back;
+    this.confirmKind = kind;
+    this.confirm.items[0]!.label = kind === 'title' ? MAIN_MENU_LABEL : 'EXIT TO HUB';
     this.page = 'confirm';
     this.layout();
     // KEEP PLAYING first: a double press never leaves the run by accident.
@@ -384,9 +478,17 @@ export class PauseMenu extends UiLayer {
       this.requestResume();
       return;
     }
+    if (this.confirmBack === 'options') {
+      this.page = 'options';
+      this.layout();
+      const label = this.confirmKind === 'title' ? MAIN_MENU_LABEL : 'EXIT TO HUB';
+      this.options.reset(this.options.items.findIndex((i) => i.label === label));
+      Audio.playSfx('menu_select');
+      return;
+    }
     this.page = 'main';
     this.layout();
-    this.main.reset(4);
+    this.main.reset(this.confirmKind === 'title' ? MAIN_MENU_INDEX : 4);
     Audio.playSfx('menu_select');
   }
 
@@ -492,22 +594,32 @@ export class PauseMenu extends UiLayer {
       return;
     }
     if (this.page === 'options') {
+      // The toggles, then the standard options (FULL SCREEN, CONTROLS, EXIT TO HUB, MAIN MENU) and BACK.
       const n = this.options.items.length;
-      const listH = n * BUTTON_H + (n - 1) * BUTTON_SEP;
       const noteH = lineHeight('outline') * 2;
-      const total = titleH + LAYOUT_SEP + listH + LAYOUT_SEP + noteH;
+      let sep = LAYOUT_SEP;
+      let buttonSep = BUTTON_SEP;
+      let total = 0;
+      const measureAll = () => (total = titleH + sep + n * BUTTON_H + (n - 1) * buttonSep + sep + noteH);
+      measureAll();
+      if (total > VIEW_H - 4) {
+        sep = 3;
+        buttonSep = 1;
+        measureAll();
+      }
       let y = Math.floor((VIEW_H - total) / 2);
       this.titleY = y;
-      y += titleH + LAYOUT_SEP;
+      y += titleH + sep;
       const x = Math.floor((VIEW_W - OPTION_W) / 2);
       for (const it of this.options.items) {
         it.rect = new Rect2(x, y, OPTION_W, BUTTON_H);
-        y += BUTTON_H + BUTTON_SEP;
+        y += BUTTON_H + buttonSep;
       }
-      this.relicY = y - BUTTON_SEP + LAYOUT_SEP;
+      this.relicY = y - buttonSep + sep;
       return;
     }
-    const n = this.main.items.length;
+    // Two columns of buttons: the first FIRST_COLUMN items, then the rest.
+    const n = Math.max(Math.min(FIRST_COLUMN, this.main.items.length), this.main.items.length - FIRST_COLUMN);
     // Controls panel: header, the 4-row grid, the moves lines.
     const smallH = lineHeight('label');
     const gridH = 4 * smallH + 3;
@@ -556,11 +668,13 @@ export class PauseMenu extends UiLayer {
     let y = Math.floor((VIEW_H - total) / 2);
     this.titleY = y;
     y += titleH + sep;
-    const x = Math.floor((VIEW_W - BUTTON_W) / 2);
-    for (const it of this.main.items) {
-      it.rect = new Rect2(x, y, BUTTON_W, buttonH);
-      y += buttonH + buttonSep;
-    }
+    const x = Math.floor((VIEW_W - BUTTON_W * 2 - COLUMN_SEP) / 2);
+    this.main.items.forEach((it, i) => {
+      const col = i < FIRST_COLUMN ? 0 : 1;
+      const row = col === 0 ? i : i - FIRST_COLUMN;
+      it.rect = new Rect2(x + col * (BUTTON_W + COLUMN_SEP), y + row * (buttonH + buttonSep), BUTTON_W, buttonH);
+    });
+    y += n * (buttonH + buttonSep);
     y += sep - buttonSep;
     this.hintY = y;
     y += hintH;
@@ -585,14 +699,15 @@ export class PauseMenu extends UiLayer {
       return;
     }
     if (this.page === 'confirm') {
-      drawCentered(g, 'EXIT TO HUB?', this.titleY, 'title');
-      drawCentered(g, EXIT_CONFIRM_NOTE, this.relicY, 'outline');
+      drawCentered(g, this.confirmKind === 'title' ? 'QUIT TO MAIN MENU?' : 'EXIT TO HUB?', this.titleY, 'title');
+      drawCentered(g, this.confirmKind === 'title' ? QUIT_CONFIRM_NOTE : EXIT_CONFIRM_NOTE, this.relicY, 'outline');
       this.confirm.draw(g);
       return;
     }
     drawCentered(g, 'PAUSED', this.titleY, 'title');
     this.main.draw(g);
-    if (this.restartText !== '') drawCentered(g, this.restartText, this.hintY, 'label', { color: COLORS.soft });
+    const hint = FullScreen.notice() || this.restartText;
+    if (hint !== '') drawCentered(g, hint, this.hintY, 'label', { color: COLORS.soft });
     if (this.relicText !== '') drawCentered(g, this.relicText, this.relicY, 'label');
     const r = this.controls;
     drawPanel(g, r);
@@ -623,15 +738,22 @@ export class PauseMenu extends UiLayer {
   private paintOptions(g: Gfx): void {
     drawCentered(g, 'OPTIONS', this.titleY, 'title');
     this.options.draw(g);
-    const row = this.options.focused?.data as OptionRow | undefined;
-    if (row) drawCentered(g, row.help, this.relicY, 'outline');
+    const data = this.options.focused?.data;
+    const row = data && typeof data === 'object' ? (data as OptionRow) : undefined;
+    const notice = FullScreen.notice();
+    if (notice !== '') drawCentered(g, notice, this.relicY, 'outline');
+    else if (row) drawCentered(g, row.help, this.relicY, 'outline');
+    else if (data === 'fullscreen') drawCentered(g, 'THE WHOLE SCREEN FOR THE GAME (ESC LEAVES IT)', this.relicY, 'outline');
     if (RelicLoadout.resolve().ranked) drawCentered(g, 'RANKED: EXTRA MOVES AND ITEM BOXES ARE OFF', this.relicY + lineHeight('outline'), 'outline');
   }
 
   private drawOption(g: Gfx, item: MenuItem, state: ButtonState, row: OptionRow): void {
-    drawButton(g, item.rect, row.label, state, 'left');
-    const ranked = row.rankedOff && RelicLoadout.resolve().ranked;
-    const on = optionOn(row);
+    this.drawToggle(g, item, state, row.label, optionOn(row), row.rankedOff && RelicLoadout.resolve().ranked);
+  }
+
+  /** An ON/OFF row: the label left, the value right (OFF IN RANKED beside it when ranked). */
+  private drawToggle(g: Gfx, item: MenuItem, state: ButtonState, label: string, on: boolean, ranked: boolean): void {
+    drawButton(g, item.rect, label, state, 'left');
     const value = on ? 'ON' : 'OFF';
     const r = item.rect;
     const ty = Math.round(r.y + (r.h - 11) / 2) + 1 + (state === 'pressed' ? 1 : 0);

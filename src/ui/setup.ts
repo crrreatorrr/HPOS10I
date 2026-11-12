@@ -2,13 +2,15 @@
 // every level its HUD and act-clear tally (LevelHooks), and builds the global
 // overlays the boot code adds with tree.addAutoload(), in this order (later
 // overlays see input first and draw by their layer): sound hint (99), pause
-// menu (101), touch controls (102), rotate hint / display watcher (110).
+// menu (101), the CONTROLS screen (103, opened from any menu), touch controls
+// (102), rotate hint / display watcher (110).
 // The pause menu is also returned on its own: the hub chrome (a DOM bar the
 // boot code adds, src/ui/hub_chrome.ts) asks its EXIT TO HUB? question mid-run.
 
 import { ENDING_SCENE, GAME_OVER_SCENE, MAIN_SCENE, Scenes, TITLE_SCENE, ZONE_SELECT_SCENE } from '../core/scenes';
 import { LevelHooks } from '../levels/common/level_root';
 import type { Node } from '../runtime/node';
+import { ControlsScreen } from './controls/controls_screen';
 import { DevMenu } from './dev_menu';
 import { Display } from './display';
 import { EndingScreen } from './ending/ending';
@@ -37,5 +39,5 @@ export function installUi(): { overlays: Node[]; pause: PauseMenu } {
   ScoreTally.watchBanks();
   if (typeof window !== 'undefined') Display.attachDom(window);
   const pause = new PauseMenu();
-  return { overlays: [new SoundHint(), pause, new TouchControls(), new RotateHint()], pause };
+  return { overlays: [new SoundHint(), pause, new ControlsScreen(), new TouchControls(), new RotateHint()], pause };
 }
