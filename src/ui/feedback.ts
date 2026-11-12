@@ -3,8 +3,11 @@
 // say about "right now", which events to remember, and the window's colours.
 //
 // - The window is a DOM overlay from the SDK (vendor/hub-sdk, feedback.js). It takes the
-//   screenshot of #game before it appears and stops key events at the window, in the capture
-//   phase, so install() runs before any other key listener is added (main.ts, before installUi).
+//   screenshot before it appears and stops key events at the window, in the capture phase, so
+//   install() runs before any other key listener is added (main.ts, before installUi).
+// - The screenshot is the whole page (SDK 0.7.2): #game, named in `canvases`, is copied directly
+//   and the page's HTML (the hub chrome bar) is drawn over it (pageShot.js). The menus, HUD and
+//   pause menu are drawn on #game, so they are in it either way. Leave the SDK's `overlay` on.
 // - Freezing is tree.suspended, not tree.paused: nothing runs, not even the pause menu, so
 //   whatever was on screen (a run, the pause menu, a title, a tally) is exactly the same when the
 //   window closes. Held inputs are released on both sides, so nothing stays down across it.
