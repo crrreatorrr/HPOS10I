@@ -67,5 +67,7 @@ export const SAVE_KEYS = {
   writeKeys: 'hpos10i/write_keys.json',
   relicSlots: 'hpos10i/relic_slots.json',
   settings: 'hpos10i/settings.json',
+  /** Remapped keys and pad buttons, stick deadzone (src/core/controls.ts). */
+  controls: 'hpos10i/controls.json',
   migrated: 'hpos10i/migrated_from_godot',
 } as const;

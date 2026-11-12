@@ -587,14 +587,18 @@ describe('PauseMenu', () => {
     expect(tree.paused).toBe(false);
   });
 
-  it('lists resume, restart, restart act, options, exit to hub, quit to title and send feedback, wrapping', () => {
+  it('lists resume, restart, restart act, options, exit to hub, main menu, send feedback and controls, wrapping', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
     const labels = pm.main.items.map((i) => i.label);
-    expect(labels).toEqual(['RESUME', 'RESTART', 'RESTART ACT', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE', 'SEND FEEDBACK']);
-    // The whole page still fits the 240 px screen.
-    expect(pm.main.items[6]!.rect.bottom).toBeLessThan(240);
+    // No FULL SCREEN here: node has no Fullscreen API (tests/ui/controls.test.ts covers it).
+    expect(labels).toEqual(['RESUME', 'RESTART', 'RESTART ACT', 'OPTIONS', 'EXIT TO HUB', 'MAIN MENU', 'SEND FEEDBACK', 'CONTROLS']);
+    // The whole page still fits the 240 px screen, in two columns.
+    for (const it of pm.main.items) expect(it.rect.bottom).toBeLessThan(240);
+    expect(pm.main.items[5]!.rect.x).toBeGreaterThan(pm.main.items[0]!.rect.right);
+    tapAction('ui_up');
+    expect(pm.main.focus).toBe(7);
     tapAction('ui_up');
     expect(pm.main.focus).toBe(6);
     tapAction('ui_up');
@@ -703,7 +707,8 @@ describe('PauseMenu', () => {
     tapAction('ui_down');
     tapAction('ui_accept'); // OPTIONS
     expect(pm.page).toBe('options');
-    expect(pm.options.items.length).toBe(OPTION_ROWS.length + 1);
+    // The toggles, then CONTROLS, EXIT TO HUB, MAIN MENU and BACK (FULL SCREEN too where the browser has it).
+    expect(pm.options.items.length).toBe(OPTION_ROWS.length + 4);
     expect(Settings.data.extraMoves).toBe(true);
     tapAction('ui_accept');
     expect(Settings.data.extraMoves).toBe(false);
@@ -880,7 +885,7 @@ describe('PauseMenu', () => {
     Input.feedPads([pad]);
     frames(1);
     expect(pm.isOpen()).toBe(true);
-    pm.main.setFocus(5, true); // QUIT TO TITLE
+    pm.main.setFocus(5, true); // MAIN MENU
     pad.buttons[1] = { pressed: true, value: 1 };
     Input.feedPads([pad]);
     frames(1);
@@ -1387,7 +1392,8 @@ describe('screens', () => {
     const title = vi.spyOn(SceneRouter, 'goTitle');
     const go = showScene(() => new GameOverScreen());
     expect(go.menu).not.toBeNull();
-    expect(go.menu!.items.map((i) => i.label)).toEqual(['RETRY STAGE', 'QUIT TO TITLE']);
+    expect(go.menu!.items.map((i) => i.label)).toEqual(['RETRY STAGE', 'MAIN MENU', 'HUB', 'CONTROLS']);
+    for (const it of go.menu!.items) expect(it.rect.bottom).toBeLessThan(240);
     expect(go.finalScore).toBe(900);
     tapAction('jump'); // inside the 1.5 s grace
     expect(go.isLeaving()).toBe(false);
@@ -1404,7 +1410,7 @@ describe('screens', () => {
     expect(SceneRouter.stage).toBe(3);
   });
 
-  it('game over in a stage: QUIT TO TITLE resets the game and goes to the title', () => {
+  it('game over in a stage: MAIN MENU resets the game and goes to the title', () => {
     SceneRouter.startZone('z1_retro_rush_hills', 2);
     frames(2);
     const go = vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);

@@ -7,6 +7,7 @@ import { Dev } from './core/dev';
 import { GameState } from './core/game_state';
 import { SceneRouter } from './core/scene_router';
 import { MAIN_SCENE, Scenes, TITLE_SCENE } from './core/scenes';
+import { Controls } from './core/controls';
 import { Settings } from './core/settings';
 import { HubClient } from './hub/hub_client';
 import { migrateGodotSave } from './hub/godot_migration';
@@ -31,6 +32,7 @@ import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
 import { Display } from './ui/display';
 import { Feedback } from './ui/feedback';
+import { FullScreen } from './ui/fullscreen';
 import { HubChrome } from './ui/hub_chrome';
 
 /** Ticks the run clock (GameState.levelTime) on physics ticks; pauses with the game. */
@@ -57,15 +59,21 @@ class AudioTicker extends Node {
   }
 }
 
+/** Integer scaling only when it fills at least this much of the fractional fit. */
+const FILL_FOR_INTEGER = 0.97;
+
 function fitCanvas(canvas: HTMLCanvasElement): void {
   const dpr = window.devicePixelRatio || 1;
   const w = window.innerWidth;
   const h = window.innerHeight;
   const fractional = Math.min(w / VIEW_W, h / VIEW_H);
-  // Integer scaling in device pixels keeps every game pixel the same size.
+  // The game fills the window: one axis edge to edge, the page colour in the
+  // spare bars, never stretched or cropped. Integer scaling in device pixels
+  // keeps every game pixel the same size, so it is used when it fills nearly
+  // as much (1280x720 is exactly 3x); otherwise the fractional fit wins.
   const deviceScale = Math.floor(Math.min((w * dpr) / VIEW_W, (h * dpr) / VIEW_H));
   const integerCss = deviceScale / dpr;
-  const useInteger = !Display.isTouch && deviceScale >= 2 && integerCss / fractional >= 0.85;
+  const useInteger = !Display.isTouch && deviceScale >= 2 && integerCss / fractional >= FILL_FOR_INTEGER;
   const scale = useInteger ? integerCss : fractional;
   canvas.style.width = `${Math.floor(VIEW_W * scale)}px`;
   canvas.style.height = `${Math.floor(VIEW_H * scale)}px`;
@@ -118,6 +126,8 @@ crashGuard.onHalt((info) => {
 async function boot(): Promise<void> {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   Settings.load();
+  // The player's remapped keys and buttons, before any input is read.
+  Controls.load();
   await migrateGodotSave();
   await Promise.all([
     Fonts.load(),
@@ -161,6 +171,12 @@ async function boot(): Promise<void> {
   };
   window.addEventListener('resize', refit);
   Display.touchModeChanged.connect(refit);
+  // Entering or leaving full screen (a menu's FULL SCREEN, Esc, F11) refits at once too.
+  FullScreen.changed.connect(() => {
+    refit();
+    canvas.focus();
+  });
+  FullScreen.use(document as unknown as Parameters<typeof FullScreen.use>[0]);
   refit();
 
   // The hub: redeems the portal ticket from #t= first thing. Never blocks play.

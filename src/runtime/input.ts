@@ -8,10 +8,17 @@
 // pressed by the first physics tick after it (gameplay) and, separately, by
 // the first rendered frame after it (menus). A tap that starts and ends
 // between two ticks still counts as one press.
+//
+// The player can remap keys and pad buttons (src/core/controls.ts, the
+// CONTROLS screen): applyBindings() rewrites KEY_BINDINGS and PAD_BUTTONS in
+// place, so every reader (hints, the pad reader) follows at once. This happens
+// here, before anything downstream sees an action; the simulation only ever
+// reads actions. captureNext() hands the next key or pad button press to the
+// CONTROLS screen instead of the game (press-to-bind).
 
 import { Vec2 } from './vec2';
 import type { InputEventLike } from './node';
-import { PadReader, sourceName, type PadLike } from './gamepad';
+import { buttonDown, PadReader, sourceName, type PadLike } from './gamepad';
 
 export type Action =
   | 'move_left'
@@ -47,7 +54,7 @@ export const ACTIONS: readonly Action[] = [
 ];
 
 /** Keys per action (KeyboardEvent.code). Gameplay keys first; the UI set follows the usual menu keys. */
-export const KEY_BINDINGS: Record<Action, readonly string[]> = {
+export const DEFAULT_KEY_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   move_left: ['ArrowLeft', 'KeyA'],
   move_right: ['ArrowRight', 'KeyD'],
   move_up: ['ArrowUp', 'KeyW'],
@@ -64,6 +71,9 @@ export const KEY_BINDINGS: Record<Action, readonly string[]> = {
   ui_right: ['ArrowRight'],
 };
 
+/** The live keys per action: the defaults, or the player's remap (applyBindings). */
+export const KEY_BINDINGS: Record<Action, readonly string[]> = { ...DEFAULT_KEY_BINDINGS };
+
 /**
  * Standard-mapping gamepad buttons per action (PAD in gamepad.ts names them).
  * Jump is on every face button, as on the classic pads this genre grew up on,
@@ -71,7 +81,7 @@ export const KEY_BINDINGS: Record<Action, readonly string[]> = {
  * (rare, once per act) is on either bumper. View, the sticks' clicks and
  * Home are unused.
  */
-export const PAD_BUTTONS: Partial<Record<Action, readonly number[]>> = {
+export const DEFAULT_PAD_BUTTONS: Readonly<Partial<Record<Action, readonly number[]>>> = {
   move_left: [14],
   move_right: [15],
   move_up: [12],
@@ -86,6 +96,9 @@ export const PAD_BUTTONS: Partial<Record<Action, readonly number[]>> = {
   ui_left: [14],
   ui_right: [15],
 };
+
+/** The live pad buttons per action: the defaults, or the player's remap (applyBindings). */
+export const PAD_BUTTONS: Partial<Record<Action, readonly number[]>> = { ...DEFAULT_PAD_BUTTONS };
 
 /**
  * Left-stick directions per action: [axis, direction, threshold on the raw
@@ -103,13 +116,44 @@ export const PAD_AXES: Partial<Record<Action, readonly [number, number, number]>
 };
 
 const KEY_TO_ACTIONS = new Map<string, Action[]>();
-for (const action of ACTIONS) {
-  for (const code of KEY_BINDINGS[action]) {
-    const list = KEY_TO_ACTIONS.get(code) ?? [];
-    list.push(action);
-    KEY_TO_ACTIONS.set(code, list);
+
+function rebuildKeyMap(): void {
+  KEY_TO_ACTIONS.clear();
+  for (const action of ACTIONS) {
+    for (const code of KEY_BINDINGS[action]) {
+      const list = KEY_TO_ACTIONS.get(code) ?? [];
+      if (!list.includes(action)) list.push(action);
+      KEY_TO_ACTIONS.set(code, list);
+    }
   }
 }
+rebuildKeyMap();
+
+/** Bindings to apply: actions left out keep their defaults. */
+export interface BindingSet {
+  keys?: Partial<Record<Action, readonly string[]>>;
+  pad?: Partial<Record<Action, readonly number[]>>;
+}
+
+/**
+ * Replaces the live bindings (KEY_BINDINGS, PAD_BUTTONS) with the defaults
+ * overlaid by `set`. Callers release held inputs (InputManager.rebind()).
+ */
+export function applyBindings(set: BindingSet = {}): void {
+  for (const action of ACTIONS) {
+    KEY_BINDINGS[action] = [...(set.keys?.[action] ?? DEFAULT_KEY_BINDINGS[action])];
+    const pad = set.pad?.[action] ?? DEFAULT_PAD_BUTTONS[action];
+    if (pad) PAD_BUTTONS[action] = [...pad];
+    else delete PAD_BUTTONS[action];
+  }
+  rebuildKeyMap();
+}
+
+/** What captureNext() hands over: a key (KeyboardEvent.code) or a pad button index. */
+export type CapturedInput = { kind: 'key'; code: string } | { kind: 'pad'; button: number };
+
+/** Every standard-mapping button index the pad reader can see (Home, 16, is the browser's). */
+export const PAD_BUTTON_COUNT = 16;
 
 export class InputEvent implements InputEventLike {
   handled = false;
@@ -173,6 +217,9 @@ export class InputManager {
   private eventQueue: InputEvent[] = [];
   private padSnapshot = new Map<string, boolean>();
   private readonly pads = new PadReader(PAD_BUTTONS, PAD_AXES, ACTIONS);
+  /** Every pad button's raw state last frame ("<pad>:<button>"), for captureNext(). */
+  private rawButtons = new Map<string, boolean>();
+  private capture: ((input: CapturedInput) => void) | null = null;
   /** True while the tree runs physics (selects the clock for just-pressed). */
   inPhysics = false;
   /** Set when any device was used, for hints (key names vs pad glyphs). */
@@ -216,6 +263,34 @@ export class InputManager {
     return false;
   }
 
+  /** The left stick's radial deadzone (the player's setting; LEFT_STICK_DEADZONE by default). */
+  get stickDeadzone(): number {
+    return this.pads.deadzone;
+  }
+
+  set stickDeadzone(value: number) {
+    this.pads.deadzone = value;
+  }
+
+  /** After applyBindings(): lets go of everything, so no input stays down under its old binding. */
+  rebind(): void {
+    this.releaseAll();
+  }
+
+  /**
+   * Hands the next fresh key press or pad button press to `handler` instead
+   * of the game (press-to-bind). That press never becomes an action: a key
+   * is swallowed, a pad button is ignored until it is released. Null stops
+   * capturing.
+   */
+  captureNext(handler: ((input: CapturedInput) => void) | null): void {
+    this.capture = handler;
+  }
+
+  isCapturing(): boolean {
+    return this.capture !== null;
+  }
+
   // --- Feeding ------------------------------------------------------------------
 
   /** Presses or releases an action as a virtual device (touch, timelines, tests). */
@@ -239,6 +314,14 @@ export class InputManager {
   }
 
   keyDown(code: string, repeat: boolean): boolean {
+    if (this.capture) {
+      this.lastDevice = 'keyboard';
+      if (repeat) return true;
+      const handler = this.capture;
+      this.capture = null;
+      handler({ kind: 'key', code });
+      return true;
+    }
     const actions = KEY_TO_ACTIONS.get(code);
     this.lastDevice = 'keyboard';
     this.eventQueue.push(new InputEvent('key', actions ?? [], true, repeat, code));
@@ -310,7 +393,9 @@ export class InputManager {
 
   /** Feeds one frame of pad states (the browser's list, or fakes in tests). */
   feedPads(pads: Iterable<PadLike | null | undefined>): void {
-    const seen = this.pads.poll(pads);
+    const list = [...pads];
+    this.captureButtons(list);
+    const seen = this.pads.poll(list);
     if (this.pads.activity) this.lastDevice = 'pad';
     for (const [key, down] of seen) {
       const was = this.padSnapshot.get(key) ?? false;
@@ -323,12 +408,37 @@ export class InputManager {
     this.padSnapshot = seen;
   }
 
+  /** Raw presses of any button, for captureNext(); a captured button is latched until released. */
+  private captureButtons(pads: readonly (PadLike | null | undefined)[]): void {
+    const raw = new Map<string, boolean>();
+    for (const pad of pads) {
+      if (!pad || !pad.connected) continue;
+      for (let b = 0; b < PAD_BUTTON_COUNT; b++) {
+        const key = `${pad.index}:${b}`;
+        const down = buttonDown(pad, b);
+        raw.set(key, down);
+        // A pad seen for the first time counts nothing it already holds.
+        if (!down || !this.rawButtons.has(key) || this.rawButtons.get(key)) continue;
+        if (!this.capture) continue;
+        const handler = this.capture;
+        this.capture = null;
+        this.lastDevice = 'pad';
+        this.pads.latchButton(pad.index, b);
+        handler({ kind: 'pad', button: b });
+      }
+    }
+    this.rawButtons = raw;
+  }
+
   // --- DOM ------------------------------------------------------------------------
 
   attach(target: Window): void {
     if (this.attached) return;
     this.attached = true;
     target.addEventListener('keydown', (e) => {
+      // Esc in browser full screen is the browser's (it leaves full screen): the game ignores it,
+      // so one press never both leaves full screen and pauses or backs out of a menu.
+      if (e.code === 'Escape' && target.document.fullscreenElement && !this.capture) return;
       if (this.keyDown(e.code, e.repeat)) {
         // Keep the page from scrolling on arrows and space. F1 is ours too.
         e.preventDefault();
