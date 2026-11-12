@@ -43,6 +43,13 @@ const DOWN: Record<string, [number, number, number][]> = {
     [28064, -768, 128],
     [29024, -640, 128],
   ],
+  // Zone 3 Act 1: the roofs pitch down (they were steps).
+  'src/levels/data/z3_capital_mansion/act1.json': [
+    [11392, -528, 128],
+    [13792, -400, 128],
+    [20288, -272, 128],
+    [24352, -144, 128],
+  ],
 };
 
 /** 1:4 climbs: [x of the foot, y of the floor there, the run in px, the rise in px]. */
@@ -66,6 +73,11 @@ const UP: Record<string, [number, number, number, number][]> = {
   'src/levels/data/z2_wizard_academy/act2.json': [
     [1184, 0, 384, 96],
     [12608, -384, 512, 128],
+  ],
+  'src/levels/data/z3_capital_mansion/act1.json': [
+    [1024, 0, 256, 64],
+    [4480, -320, 512, 128],
+    [5728, -448, 896, 224],
   ],
 };
 
