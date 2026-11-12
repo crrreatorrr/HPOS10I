@@ -12,7 +12,7 @@
 // best time ("m:ss.cc", or "--:--") and best rank, and each act button
 // carries its best rank letter in its top-right corner once it has one.
 //
-// Choosing an act calls SceneRouter.startZone(); BACK
+// Choosing an act calls SceneRouter.startZone(); MAIN MENU
 // (P, Esc, the gamepad B or the button) returns to the title. Arrows / WASD / D-pad /
 // stick move (wrapping), Enter, Space, Start or any jump button chooses
 // (except the gamepad's B, which is cancel here: back to the title); mouse
@@ -20,8 +20,10 @@
 // scene.
 //
 // With two or more Relic skins to choose from, a SKIN row cycles the body
-// slot (RelicLoadout.cycleBody: left/right or choose). HUB, beside BACK,
-// returns to the hub at once (a menu: nothing to confirm). The hub Ticket
+// slot (RelicLoadout.cycleBody: left/right or choose). The bottom row is
+// MAIN MENU, HUB (to the hub at once: a menu, nothing to confirm), CONTROLS
+// (the controller settings overlay) and FULL SCREEN (where the browser allows
+// it); the emerald count sits right of the info line. The hub Ticket
 // balance is in the hub chrome (src/ui/hub_chrome.ts) on every screen. (The
 // old Ticket exchange panel is gone: the hub refuses exchanges for this game.)
 
@@ -45,11 +47,19 @@ import { MenuList, type Direction, type MenuItem } from '../common/menu';
 import { COLORS, drawButton, drawCentered, drawPanel, drawText, UiLayer, PANEL_MARGIN_X, PANEL_MARGIN_Y } from '../common/theme';
 import { Display } from '../display';
 import { EmeraldIcon } from '../emerald/emerald_icon';
+import { CONTROLS_LABEL, fullScreenItem, HUB_LABEL, MAIN_MENU_LABEL } from '../common/standard_items';
+import { ControlsScreen, openControls } from '../controls/controls_screen';
+import { FullScreen } from '../fullscreen';
 
 export const INPUT_GRACE = 0.25;
 const NAME_WIDTH = 132;
 const BUTTON_W = 50;
 const BOSS_W = 46;
+/** The bottom row: MAIN MENU, HUB, CONTROLS, FULL SCREEN. */
+const MAIN_W = 80;
+const HUB_W = 40;
+const CONTROLS_W = 75;
+const FULL_W = 127;
 const BUTTON_H = 22;
 const SLOT = 18;
 const ROW_SEP = 4;
@@ -102,7 +112,10 @@ export function isBossUnlocked(zoneId: string): boolean {
   return !!zone && zone.boss !== '' && HubClient.isCleared(zoneId, zone.acts.length);
 }
 /** On a gamepad B is a jump button too, but here it goes back (ui_cancel wins). */
-export const HINT_PAD = `${InputHints.padKeys('ui_accept')}: START     ${InputHints.padKeys('ui_cancel')}: BACK TO TITLE`;
+export function hintPad(): string {
+  return `${InputHints.padKeys('ui_accept')}: START     ${InputHints.padKeys('ui_cancel')}: BACK TO TITLE`;
+}
+export const HINT_PAD = hintPad();
 
 export interface BossEntry {
   zoneId: string;
@@ -148,16 +161,21 @@ export class ZoneSelect extends Node {
   readonly menu: MenuList;
   readonly acts: ActEntry[] = [];
   readonly bosses: BossEntry[] = [];
-  /** Rows of menu indices (-1 where an act or boss can't be played), then the skin row, then [Back]. */
+  /** Rows of menu indices (-1 where an act or boss can't be played), then the skin row, then [Main menu, Hub, Controls, Full screen]. */
   readonly grid: number[][] = [];
+  /** MAIN MENU (back to the title). */
   readonly backIndex: number;
   readonly hubIndex: number;
+  readonly controlsIndex: number;
+  /** FULL SCREEN, or -1 where the browser can't go full screen. */
+  readonly fullScreenIndex: number;
   readonly skinIndex: number;
   private readonly layer: ZoneSelectLayer;
   private readonly zones: { zone: Zone; open: boolean; y: number }[] = [];
   private panel = new Rect2();
   private infoY = 0;
   private busy = false;
+  private controlsWasOpen = false;
 
   constructor() {
     super('ZoneSelect');
@@ -243,11 +261,22 @@ export class ZoneSelect extends Node {
       this.skinIndex = -1;
     }
     y += BOX_SEP - ROW_SEP;
+    let bx = left;
+    const place = (w: number): Rect2 => {
+      const r = new Rect2(bx, y, w, BUTTON_H);
+      bx += w + COL_SEP;
+      return r;
+    };
     this.backIndex = items.length;
-    items.push({ label: 'BACK', rect: new Rect2(left, y, BUTTON_W, BUTTON_H), onSelect: () => this.back() });
+    items.push({ label: MAIN_MENU_LABEL, rect: place(MAIN_W), onSelect: () => this.back() });
     this.hubIndex = items.length;
-    items.push({ label: 'HUB', rect: new Rect2(left + BUTTON_W + COL_SEP, y, BUTTON_W, BUTTON_H), onSelect: () => this.toHub() });
-    this.grid.push([this.backIndex, this.hubIndex]);
+    items.push({ label: HUB_LABEL, rect: place(HUB_W), onSelect: () => this.toHub() });
+    this.controlsIndex = items.length;
+    items.push({ label: CONTROLS_LABEL, rect: place(CONTROLS_W), onSelect: () => this.showControls() });
+    const fs = fullScreenItem(place(FULL_W));
+    this.fullScreenIndex = fs ? items.length : -1;
+    if (fs) items.push(fs);
+    this.grid.push(fs ? [this.backIndex, this.hubIndex, this.controlsIndex, this.fullScreenIndex] : [this.backIndex, this.hubIndex, this.controlsIndex]);
     this.menu.focus = this.firstButton();
   }
 
@@ -257,13 +286,26 @@ export class ZoneSelect extends Node {
   }
 
   override process(delta: number): void {
+    if (ControlsScreen.blocking()) {
+      this.controlsWasOpen = true;
+      return;
+    }
+    if (this.controlsWasOpen) {
+      this.controlsWasOpen = false;
+      this.menu.reset(this.menu.focus);
+    }
     this.menu.enabled = !this.busy && this.isCurrent();
     this.menu.update(delta);
   }
 
   override input(ev: InputEventLike): void {
-    if (this.busy || !this.isCurrent()) return;
+    if (this.busy || !this.isCurrent() || ControlsScreen.blocking()) return;
     this.menu.handleEvent(ev);
+  }
+
+  /** CONTROLS over the zone select; its MAIN MENU and HUB do what this screen's do. */
+  showControls(): void {
+    openControls({ mainMenu: () => this.back(), hub: () => this.toHub(), alive: () => this.isCurrent() && !this.busy });
   }
 
   private isCurrent(): boolean {
@@ -311,7 +353,7 @@ export class ZoneSelect extends Node {
 
   hintText(): string {
     if (Display.isTouch) return HINT_TOUCH;
-    return Input.lastDevice === 'pad' ? HINT_PAD : hintKeys();
+    return Input.lastDevice === 'pad' ? hintPad() : hintKeys();
   }
 
   /** The line under the zone rows: the focused act's best time, the boss note, or how acts unlock. */
@@ -320,6 +362,11 @@ export class ZoneSelect extends Node {
     if (d?.boss) return HubClient.isCleared(d.zoneId, d.act) ? BOSS_REPLAY_NOTE : 'BOSS ARENA';
     if (d) return `ACT ${d.act}   BEST ${formatActTime(HubClient.bestTime(d.zoneId, d.act))}   RANK ${HubClient.bestRank(d.zoneId, d.act) ?? '-'}`;
     return this.acts.some((a) => !a.open) ? UNLOCK_HINT : '';
+  }
+
+  /** The emerald count ("<NAME>  1 / 8"), right of the info line. */
+  emeraldText(): string {
+    return `${Emeralds.NAME.toUpperCase()}  ${GameState.emeraldCount()} / ${Emeralds.total()}`;
   }
 
   private cycleSkin(step: number, sound = true): boolean {
@@ -390,13 +437,9 @@ export class ZoneSelect extends Node {
       drawText(g, RelicLoadout.resolve().ranked ? 'RELIC  RANKED' : 'RELIC', left, ty, 'hudLabel');
     }
     this.menu.draw(g);
-    drawText(g, this.infoText(), this.panel.x, this.infoY, 'outline', { align: 'center', width: this.panel.w, color: COLORS.soft });
-    const hub = this.menu.items[this.hubIndex]!.rect;
-    const count = `${Emeralds.NAME.toUpperCase()}  ${GameState.emeraldCount()} / ${Emeralds.total()}`;
-    drawText(g, count, hub.right + 10, hub.y + Math.floor((BUTTON_H - 11) / 2) + 1, 'hudValue', {
-      align: 'right',
-      width: this.panel.right - PANEL_MARGIN_X - hub.right - 10,
-    });
-    drawCentered(g, this.hintText(), 225, 'outline');
+    const inner = this.panel.w - PANEL_MARGIN_X * 2;
+    drawText(g, this.infoText(), left, this.infoY, 'outline', { color: COLORS.soft });
+    drawText(g, this.emeraldText(), left, this.infoY, 'label', { align: 'right', width: inner, color: COLORS.gold });
+    drawCentered(g, FullScreen.notice() || this.hintText(), 225, 'outline');
   }
 }

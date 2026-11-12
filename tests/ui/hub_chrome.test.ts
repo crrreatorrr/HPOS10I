@@ -258,7 +258,7 @@ describe('RETURN TO HUB', () => {
     tree.advance(20);
     const hub = zs.menu.items[zs.hubIndex]!;
     expect(hub.label).toBe('HUB');
-    expect(zs.grid[zs.grid.length - 1]).toEqual([zs.backIndex, zs.hubIndex]);
+    expect(zs.grid[zs.grid.length - 1]).toEqual([zs.backIndex, zs.hubIndex, zs.controlsIndex]);
     hub.onSelect!();
     hub.onSelect!();
     expect(exit).toHaveBeenCalledTimes(1);

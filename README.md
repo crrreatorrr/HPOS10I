@@ -41,8 +41,10 @@ game engine.
 | Pause / resume | P or Enter (Esc too, outside fullscreen) | Start | Pause button |
 | Menus: move | Arrow keys / WASD | D-pad / left stick (held: repeats) | Tap |
 | Menus: choose | Enter, Space or Jump | A (also X / Y, and Start on the zone select) | Tap |
-| Menus: back | Esc (P on the zone select) | B (on the pause list: resume) | BACK button |
-| Return to hub | Zone select HUB, pause EXIT TO HUB | Same | Same |
+| Menus: back | Esc (P on the zone select) | B (on the pause list: resume) | BACK or MAIN MENU button |
+| Return to hub | HUB on the title, zone select and game over; pause EXIT TO HUB | Same | Same |
+| Remap keys and buttons | CONTROLS in any menu | Same | |
+| Full screen | FULL SCREEN in any menu (Esc or F11 leaves it) | Use a key or click | Same |
 | Send feedback | N twice (or pause, SEND FEEDBACK) | Pause, SEND FEEDBACK | Pause, SEND FEEDBACK |
 | Debug overlay | F1 | | |
 
@@ -62,6 +64,13 @@ the roll and the spin dash. In menus Enter or Space chooses and Esc goes back;
 Esc never moves forward, so it does nothing on the title. P (or Enter, or Esc
 outside fullscreen) pauses. Time Focus stays on F, a key of its own beside the
 WASD block, because it is an ability rather than an interaction.
+
+Every menu (title, zone select, pause and its options, game over) also
+offers MAIN MENU (except the title, which is the main menu), HUB, CONTROLS
+and FULL SCREEN. CONTROLS shows what every key and button does and remaps
+them: choose a box, press the new key or button (Esc or B cancels); a key
+another action used moves over, or the two swap. It also sets the stick dead
+zone and has RESET TO DEFAULTS. The settings are saved in this browser.
 
 Keys are bound by position, so on AZERTY or QWERTZ keyboards the movement keys
 are the ones in the WASD spot. The charge run, drop dash, shield bounce and
