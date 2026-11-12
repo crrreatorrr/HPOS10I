@@ -1,10 +1,8 @@
 # Vendored @metaverse/hub-sdk
 
 - repo: https://github.com/crrreatorrr/metaverse-hub
-- branch: claude/nifty-einstein-ptgr08
-- sha: 5099cb5
-- note: that branch is not merged to metaverse-hub `main` yet (0.7.2 draws the page's HTML into
-  the feedback screenshot, `dist/pageShot.js` and `dist/third_party/`). Re-vendor from `main` once it is.
+- branch: main
+- sha: c6627e5
 - package: packages/hub-sdk @ 0.7.2
 - built with: `node scripts/vendor-sdk.mjs`
 - iife: dist/hub-sdk.iife.js (global HubSDK; classic script, not a CDN import)
