@@ -8,6 +8,7 @@
 // every tick so live tuning works. The node position is the hitbox centre.
 
 import { Audio } from '../core/audio';
+import { Difficulty } from '../core/difficulty';
 import { GameState } from '../core/game_state';
 import { Layers } from '../core/layers';
 import { accel, FPS, speed, type PhysicsConstants } from '../core/physics_constants';
@@ -269,7 +270,7 @@ export class Player extends Node2D {
         this.kill();
         return;
       }
-      PlayerHooks.scatter?.(this.parent ?? this, this.globalPosition, Math.min(lost, p.max_scattered_tickets));
+      PlayerHooks.scatter?.(this.parent ?? this, this.globalPosition, Math.min(lost, p.max_scattered_tickets, Difficulty.scatterCap()));
     }
     let away = signf(this.globalPosition.x - sourcePosition.x);
     if (away === 0) away = -this.facing;

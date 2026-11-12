@@ -1,11 +1,15 @@
-// Replays the human-like runs recorded in Godot (tests/levels/inputs/*_run.json,
-// made by record_act_run.gd / record_test_zone_run.gd) through Dev's timeline
-// player into a headless act, the way Dev replays ?inputs= in the game. The
-// TypeScript runtime is not bit-identical to Godot, so a recording can desync
-// (miss a jump and die, or stall): that is reported, not failed. A run that
-// does reach the goal must do it cleanly (no death), and the test zone run
-// must show the features it was recorded for. Item boxes are off: the
-// recordings predate them.
+// Replays the recorded runs (tests/levels/inputs/*_run.json) through Dev's
+// timeline player into a headless act, the way Dev replays ?inputs= in the
+// game. Item boxes are off.
+//   - The act runs (Zones 1 to 3) are the QA pilot's own inputs, recorded in
+//     this runtime (meta.tool names tools/qa/playtest_bot.ts). The simulation
+//     is deterministic, so each must reach the goal without a death; one that
+//     does not means the level, the controller or the camera changed since:
+//     record it again.
+//   - The test zone run was recorded in Godot. This runtime is not
+//     bit-identical to Godot, so it may desync: that is reported, not failed,
+//     and when it does reach the goal it must show the features it was
+//     recorded for.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,6 +35,8 @@ const INPUTS = path.join(ROOT_DIR, 'tests/levels/inputs');
 
 interface Replay {
   file: string;
+  /** meta.tool of the recording. */
+  tool: string;
   label: string;
   goalFrame: number;
   result: BotResult;
@@ -42,11 +48,11 @@ interface Replay {
 
 const replays: Replay[] = [];
 
-describe('recorded Godot runs, replayed', () => {
+describe('recorded runs, replayed', () => {
   beforeAll(async () => {
     const files = fs.readdirSync(INPUTS).filter((f) => f.endsWith('_run.json')).sort();
     for (const file of files) {
-      const json = JSON.parse(fs.readFileSync(path.join(INPUTS, file), 'utf8')) as { meta: { goal_frame: number; zone?: string; stage?: number; scene?: string } };
+      const json = JSON.parse(fs.readFileSync(path.join(INPUTS, file), 'utf8')) as { meta: { goal_frame: number; zone?: string; stage?: number; scene?: string; tool?: string } };
       const zone = json.meta.zone ?? 'test_zone';
       const stage = json.meta.stage ?? 1;
       const act = zoneActs().find((a) => a.zone === zone && a.stage === stage);
@@ -81,13 +87,13 @@ describe('recorded Godot runs, replayed', () => {
           survivors = tree.getNodesInGroup<Enemy>('enemies').filter((e) => e.alive).length;
         },
       });
-      replays.push({ file, label: act.label, goalFrame: json.meta.goal_frame, result, progress, features, wallBroken, survivors });
+      replays.push({ file, tool: json.meta.tool ?? '', label: act.label, goalFrame: json.meta.goal_frame, result, progress, features, wallBroken, survivors });
     }
-    log('recorded runs (Godot timelines) replayed headless, item boxes off:');
+    log('recorded runs replayed headless, item boxes off:');
     for (const r of replays) {
       const res = r.result;
       const end = res.completed
-        ? `reached the goal at frame ${res.completedFrame} (Godot ${r.goalFrame}, Dev frame ${res.devCompletedFrame})`
+        ? `reached the goal at frame ${res.completedFrame} (recorded ${r.goalFrame}, Dev frame ${res.devCompletedFrame})`
         : res.deaths.length
           ? `desynced: died at frame ${res.deaths[0]!.frame} (${res.deaths[0]!.cause}) at x ${res.deaths[0]!.x.toFixed(0)}`
           : `desynced: no goal by frame ${res.frames}, ended ${res.final.state} at x ${res.final.x.toFixed(0)}`;
@@ -97,6 +103,15 @@ describe('recorded Godot runs, replayed', () => {
 
   it('replays every recording', () => {
     expect(replays.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('every run recorded in this runtime reaches the goal, at the frame it was recorded', () => {
+    const own = replays.filter((r) => r.tool.includes('playtest_bot'));
+    expect(own.map((r) => r.file).sort()).toEqual(['z1_act1_run.json', 'z1_act2_run.json', 'z2_act1_run.json', 'z2_act2_run.json', 'z3_act1_run.json', 'z3_act2_run.json']);
+    for (const r of own) {
+      expect(r.result.completed, `${r.file}: ended ${r.result.final.state} at x ${r.result.final.x.toFixed(0)} (${(r.progress * 100).toFixed(0)} % of the route); record it again`).toBe(true);
+      expect(r.result.completedFrame, r.file).toBe(r.goalFrame);
+    }
   });
 
   it('a recording that reaches the goal does it without a death or NaN', () => {

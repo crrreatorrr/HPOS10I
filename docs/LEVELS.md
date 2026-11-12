@@ -35,19 +35,37 @@ the lead.
      reachable in a 424 px view.
    - No enemy within 2 screens after a spring landing, a loop exit or a
      checkpoint until difficulty 5.
-4. **Momentum-friendly terrain.** As in the classic games, Sproto can't
-   climb a 1:2 (26.6°) slope from a standstill: the slope's pull beats his
-   acceleration. Landing on an up-slope while falling faster than he moves
-   sideways also turns the fall into backward speed. So:
-   - never drop the player onto the foot of an up-hill;
-   - give every climb a run-up, a booster or a gentler approach;
-   - never put a steep hill right after a checkpoint.
-   - a 1:2 slope tile ramp is only for going DOWN the way the act runs: holding
-     a direction cannot climb one from rest (0.125 x sin 26.6 deg = 0.056 of
-     pull against 0.047 of acceleration), so climbs stay stairs, lifts or
-     gentler curves. `tests/levels/ramps.test.ts` walks every new ramp.
-   - no ground enemy on, or within 112 px past, the top of a climb (lint rule
-     `enemy.crest`): a player knocked back there crawls up and is hit again.
+4. **Momentum-friendly terrain.** As in the classic games, Sproto's
+   acceleration (0.047 px/frame per frame) fights the slope's pull
+   (0.125 x the sine of its angle). What holding a direction can do from a
+   standstill, measured on the real controller (a 96 px rise):
+
+   | Slope | Pull | From rest at the foot | Use |
+   |---|---|---|---|
+   | 1:6 or gentler (under 10 deg) | 0.021 or less | Climbs; about 3.6 s | Swells and rolling ground |
+   | 1:4 (14 deg) | 0.030 | Climbs from anywhere on it; 3.7 s, 2.3 s with a run-up | **The steepest climb.** Every up-slope in Zones 2 and 3 |
+   | 1:3 (18 deg) | 0.040 | Crawls: 4.9 s | Not used |
+   | 22 deg and steeper, the 1:2 slope tile (26.6 deg) | 0.047 and more | Stalls (13 s or more, if at all); standing on a 1:2 slope slides back | **Down only**, the way the act runs |
+
+   Landing on an up-slope while falling faster than he moves sideways also
+   turns the fall into backward speed. So:
+   - a climb is a 1:4 `CurveTerrain` ramp with a flat run-up before it; a
+     player who stops on it, or is knocked back onto it, still walks up;
+   - a 1:2 slope tile ramp only runs DOWN the way the act runs (banisters,
+     pitched roofs, the chute). Zone 1 keeps its 1:2 hills: its acts teach
+     the run-up and the spin dash;
+   - never drop the player onto the foot of an up-hill, and never put a
+     steep hill right after a checkpoint;
+   - no ground enemy on a climb or within 112 px past its top (lint rule
+     `enemy.crest` for the steep ones): a player knocked back there walks up
+     and is hit again. Pills that patrol near a slope get a `patrol_distance`;
+   - a speed set piece (a booster, a banister, a chute) ends in a reward, not
+     a wait: a launch, a roll-out with tickets on the roll line, a cracked
+     wall to roll through. Ground enemies on its line are ones a roll
+     destroys, with tickets after them; the two screens past a chute's foot
+     hold none;
+   - `tests/levels/ramps.test.ts` walks every 1:4 climb from a standstill at
+     its foot and again from half way up, and every 1:2 ramp down.
 5. **Readable direction.** When the way forward isn't simply "right":
    - Signal it with level art (lit doors, ticket trails). There is no
      arrow sign object yet; it needs sprite art.
@@ -60,6 +78,9 @@ the lead.
 6. **Generosity tapers off.**
    - Ticket density and checkpoint frequency drop slowly across the game.
    - Extra lives move from in plain sight to hidden.
+   - A hit costs more as the zones advance: it scatters at most 32, 24, 16
+     and 12 tickets in Zones 1 to 4 (`Difficulty.scatterCap()`), and in
+     Zone 3 the item-box rotation has 2 shields in 7 instead of 3.
 
 ## Enemy tiers (pill robots, see docs/DESIGN.md)
 
@@ -116,25 +137,52 @@ first draft, with more checkpoints so a death never sends you far back.
 | Act | D | Screens | Par time | Enemies/screen | Tier mix | Direction | New idea (teach → test → twist) | Checkpoints | Tickets/screen |
 |---|---|---|---|---|---|---|---|---|---|
 | Test zone | 0 | ~20 | 0:45 | 0.2 | T1 | R1 | Everything, gently | 2 | 6 |
-| Z1 Act 1 | 1 | 45 | 1:20 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
-| Z1 Act 2 | 2 | 55 | 1:55 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 6 | 4.5 |
+| Z1 Act 1 | 1 | 45 | 1:25 | 0.4 | T1 100 | R1 | Loops, springs, boosters | 3 | 5 |
+| Z1 Act 2 | 2 | 55 | 2:00 | 0.6 | T1 75 / T2 25 | R2 | Roll tunnels, quarter pipes, a breakable-wall secret, a first switchback | 6 | 4.5 |
 | Z1 Boss (Rug Pull) | 2.5 | arena | – | – | – | – | – | – | – |
-| Z2 Act 1 | 3 | 55 | 2:00 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves; the stairs that go down are stone ramps | 5 | 4 |
-| Z2 Act 2 | 4 | 65 | 2:55 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase | 7 | 4 |
+| Z2 Act 1 | 3 | 65 | 2:50 | 0.8 | T1 45 / T2 40 / T3 15 | R3 | Shifting staircases, moving bookshelves; gentle stone slopes up, banisters down; the gallery runway and the Great Stair | 6 | 4 |
+| Z2 Act 2 | 4 | 65 | 3:15 | 1.0 | T1 25 / T2 45 / T3 30 | R3 to R4 | Tower climb and hall maze; the flying-broom autoscroll chase | 7 | 4 |
 | Z2 Boss (Library Demon) | 4.5 | arena | – | – | – | – | – | – | – |
-| Z3 Act 1 | 5 | 65 | 2:20 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Rooftop speed run into ballrooms; doors and switches that open shortcuts | 6 | 3.5 |
-| Z3 Act 2 | 6 | 75 | 3:10 | 1.2 | T2 35 / T3 45 / T4 20 | R4 | Underground bunker: vertical shafts up AND down, timed security beams, the exit reached by travelling left | 7 | 3.5 |
+| Z3 Act 1 | 5 | 65 | 2:55 | 1.1 | T2 50 / T3 40 / T4 10 | R4 | Pitched roofs and a rooftop speed run into ballrooms; doors and switches that open shortcuts | 6 | 3.5 |
+| Z3 Act 2 | 6 | 75 | 3:20 | 1.2 | T2 35 / T3 45 / T4 20 | R4 | Underground bunker: the long chute, vertical shafts up AND down, timed security beams, the exit reached by travelling left | 7 | 3.5 |
 | Z3 Boss (Broccoli Head) | **8** | arena | – | – | – | – | – | – | – |
-| Z4 Act 1 | 7 | 75 | 3:35 | 1.3 | T2 30 / T3 40 / T4 30 | R5 | Zone 1 ideas remixed at speed: reverse runs (right to left), vanishing neon platforms | 6 | 3 |
-| Z4 Act 2 | 8 | 85 | 4:30 | 1.4 | T3 50 / T4 50 | R5 | A spiral ascent to the rooftop: everything combined, crossfire, timed platforms over pits | 7 | 3 |
+| Z4 Act 1 | 7 | 75 | 3:50 | 1.3 | T2 30 / T3 40 / T4 30 | R5 | Zone 1 ideas remixed at speed: reverse runs (right to left), vanishing neon platforms | 7 | 3 |
+| Z4 Act 2 | 8 | 85 | 4:30 | 1.4 | T3 50 / T4 50 | R5 | A spiral ascent to the rooftop: everything combined, crossfire, timed platforms over pits | 9 | 3 |
 | Z4 Boss (The Executive) | **10** | arena | – | – | – | – | – | – | – |
 
 ## Par, ranks and replay
 
-Par (`par_seconds` in `src/core/difficulty.ts`) is 1.5 × the best deathless
-bot time on the act (the faster of the QA pilot and the naive runner; the
-route pilot for Zone 4), rounded up to 5 s. It is recomputed when a level
-changes. A clear is ranked by r = time / par, on the attempt clock
+Par is computed in one place, `Difficulty.parFromBot()` in
+`src/core/difficulty.ts`: **par = 1.5 x the best deathless bot clear of the
+act, rounded up to 5 s.** The bot clear is recorded there in frames
+(`BEST_BOT_FRAMES`) and `par_seconds` follows from it:
+
+- test zone and Zones 1 to 3: the faster of the QA pilot (`jumpEvery` 0) and
+  the naive runner (`jumpEvery` 90) with item boxes off, as
+  `tests/qa/playtest.test.ts` plays them;
+- Zone 4: its route pilot with every enemy and no item boxes
+  (`tests/levels/z4.test.ts`).
+
+Both tests fail when a change moves an act's par off its recorded clear:
+re-measure, update the row in `BEST_BOT_FRAMES` and this table. Never edit
+`par_seconds` by hand.
+
+| Act | Best deathless bot | Par | S at or under | A | B | C | D |
+|---|---|---|---|---|---|---|---|
+| Test zone | 29.1 s (naive) | 0:45 | 31.5 s | 38.2 s | 45 s | 67.5 s | 90 s |
+| Z1 Act 1 | 55.4 s (pilot) | 1:25 | 59.5 s | 72.2 s | 85 s | 127.5 s | 170 s |
+| Z1 Act 2 | 77.2 s (pilot) | 2:00 | 84 s | 102 s | 120 s | 180 s | 240 s |
+| Z2 Act 1 | 110.9 s (pilot) | 2:50 | 119 s | 144.5 s | 170 s | 255 s | 340 s |
+| Z2 Act 2 | 129.9 s (pilot) | 3:15 | 136.5 s | 165.7 s | 195 s | 292.5 s | 390 s |
+| Z3 Act 1 | 113.7 s (pilot) | 2:55 | 122.5 s | 148.7 s | 175 s | 262.5 s | 350 s |
+| Z3 Act 2 | 132.3 s (pilot) | 3:20 | 140 s | 170 s | 200 s | 300 s | 400 s |
+| Z4 Act 1 | 152.4 s (route pilot) | 3:50 | 161 s | 195.5 s | 230 s | 345 s | 460 s |
+| Z4 Act 2 | 178.3 s (route pilot) | 4:30 | 189 s | 229.5 s | 270 s | 405 s | 540 s |
+
+Measured 2026-11-12. Zone 2 Act 2 has a longer par than Zone 3 Act 1 because
+its broom chase scrolls at a fixed pace for 27 s.
+
+A clear is ranked by r = time / par, on the attempt clock
 (`GameState.attemptTime`: every tick since the act started, never rewound by
 a death or a restart):
 
@@ -190,7 +238,7 @@ blind drops, and every finale starts at a checkpoint.
 **Hazards** grow along the same curve:
 - Z1: spikes and the odd pit.
 - Z2: candle flames, falling books, crushing shelves, and narrow lava vents and burrower hatches.
-- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A ceiling ram on a route (`wake_radius`) never drops on the clock. Zone 3's starts its rest and warning when Sproto comes near. Zone 4 Act 1's (`dwell_frames`) flashes for as long as he is near and comes down only on a player who has stayed in its lane for 1.5 s, so walking, running or dashing through is safe at any speed and only waiting under it is crushed. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
+- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A floor switch's sensor reaches above a full jump in Act 2 (`trigger_height` 160), so hopping across the plate cannot leave its door shut. A ceiling ram on a route (`wake_radius`) never drops on the clock. Zone 3's starts its rest and warning when Sproto comes near. Zone 4 Act 1's (`dwell_frames`) flashes for as long as he is near and comes down only on a player who has stayed in its lane for 1.5 s, so walking, running or dashing through is safe at any speed and only waiting under it is crushed. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
 - Z4: everything, in neon, with vanishing platforms. Short bubbling lava and poison wells have ticket arcs to mark the jump and shallow basins so a player with tickets can recover. Crushers, vents and burrowers also appear on lower routes with upper bypasses.
 
 ## Bosses
@@ -274,13 +322,23 @@ are deliberately very difficult** (director):
   routes (whole act and middle third; wanted 20 % and 25 %), the share of
   sloped floor (wanted 8 %), blocking steps per screen (at most 0.25) and a
   longest checkpoint gap of at most 16 screens. These are errors on the acts
-  listed in `FLOW_ENFORCED` (`tools/qa/level_lint.ts`: acts that had their
-  flow pass) and warnings elsewhere. It lists every hazard (group
+  listed in `FLOW_ENFORCED` (`tools/qa/level_lint.ts`: all eight acts of the
+  four zones) and warnings on the test zone. It lists every hazard (group
   `level_hazard`), warns when a moving solid on a fixed timer stands over
   the lowest route, and applies the 2-screen safe-spot rule to hazards.
 - Zone 4 is built in code; the lint builds and checks it like the others.
 - **Playtest bot:** it must finish every act that has a level file, and its
   median time must rise from act to act. Zone 4 is played by its own route
   pilot (`tests/levels/z4.test.ts`), with every enemy, and once more with
-  the shipped hooks on (item boxes, time limit, hit-stop).
+  the shipped hooks on (item boxes, time limit, hit-stop). The same runs
+  hold every par to the formula above.
+- **The median rule shapes the levels.** The runner bots hold right and hop
+  blind, and stairs and blocks used to slow them. With slopes in their place
+  an act has to be longer than the one before it, or keep some of its blocks,
+  for its median to stay above. That is why Zone 2 Act 1 runs on past its old
+  goal (its row is 65 screens, as long as Zone 1 Act 2) and why eleven hurdle
+  blocks stay in each Zone 2 act: a player who jumps takes them in stride.
+- **Recorded runs:** `tests/levels/inputs/` holds the pilot's inputs on each
+  act of Zones 1 to 3 (`npm run record:runs`); the replay test requires each
+  to reach the goal on its recorded frame.
 - **Human playtest:** the director plays every act and gives feedback.

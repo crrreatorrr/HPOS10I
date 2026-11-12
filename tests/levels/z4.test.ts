@@ -334,6 +334,8 @@ for (const act of ACTS) {
         expect(run.completed, JSON.stringify(run.log.slice(-8))).toBe(true);
         expect(run.deaths).toBeLessThanOrEqual(3);
         expect(run.frames / 60).toBeLessThan(t.par_seconds);
+        // Par is 1.5 x this run when it is deathless (Difficulty.BEST_BOT_FRAMES records it): re-measure after a level change.
+        if (run.deaths === 0) expect(t.par_seconds, `par against this run (${run.frames} frames)`).toBe(Difficulty.parFromBot(run.frames / 60));
       } finally {
         SceneRouter.zoneId = saved.zone;
         SceneRouter.stage = saved.stage;

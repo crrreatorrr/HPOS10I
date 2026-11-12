@@ -1088,12 +1088,19 @@ describe('ScoreTally', () => {
   });
 
   it('shows this clear\'s time with the saved best, NEW BEST! when it beat it, and still fits', () => {
-    clearAct('z1_retro_rush_hills', 1, 83.456, 4);
-    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 83.456, previousBest: 80.1, newBest: false, rank: 'C', previousRank: 'C', newRank: false, clean: true };
+    // The times sit either side of the act's par (a C, then a B), whatever the par is.
+    const par = Difficulty.parFor('z1_retro_rush_hills', 1)!;
+    const slow = Math.round(par * 1.04) + 0.456;
+    const quick = Math.round(par * 0.9);
+    const clock = (t: number): string => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}.${String(Math.floor((t * 100) % 100)).padStart(2, '0')}`;
+    expect(rankFor(slow, par).rank).toBe('C');
+    expect(rankFor(quick, par).rank).toBe('B');
+    clearAct('z1_retro_rush_hills', 1, slow, 4);
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: slow, previousBest: 80.1, newBest: false, rank: 'C', previousRank: 'C', newRank: false, clean: true };
     HubClient.lastBanked = { amount: 4, acked: false };
     let tally = new ScoreTally('z1_retro_rush_hills');
     tree.root.addChild(tally);
-    expect(tally.timesLine()).toBe('TIME 1:23.45   BEST 1:20.10   RANK C');
+    expect(tally.timesLine()).toBe(`TIME ${clock(slow)}   BEST 1:20.10   RANK C`);
     expect(tally.isNewBest()).toBe(false);
     expect(tally.isNewRank()).toBe(false);
     expect(tally.hasEmeraldMoment()).toBe(true);
@@ -1103,12 +1110,12 @@ describe('ScoreTally', () => {
     drawAll(tally, fakeGfx());
     tally.free();
 
-    clearAct('z1_retro_rush_hills', 1, 70, 4);
-    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 70, previousBest: 80.1, newBest: true, rank: 'B', previousRank: 'C', newRank: true, clean: true };
+    clearAct('z1_retro_rush_hills', 1, quick, 4);
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: quick, previousBest: 80.1, newBest: true, rank: 'B', previousRank: 'C', newRank: true, clean: true };
     HubClient.lastBanked = { amount: 4, acked: false };
     tally = new ScoreTally('z1_retro_rush_hills');
     tree.root.addChild(tally);
-    expect(tally.timesLine()).toBe('TIME 1:10.00   NEW BEST!   RANK B NEW!');
+    expect(tally.timesLine()).toBe(`TIME ${clock(quick)}   NEW BEST!   RANK B NEW!`);
     expect(tally.isNewBest()).toBe(true);
     expect(tally.isNewRank()).toBe(true);
     expect(tally.panelRect().w).toBeLessThanOrEqual(416);
@@ -1121,7 +1128,7 @@ describe('ScoreTally', () => {
     HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 2, time: 70, previousBest: null, newBest: true, rank: 'S', previousRank: null, newRank: true, clean: true };
     tally = new ScoreTally('z1_retro_rush_hills');
     tree.root.addChild(tally);
-    expect(tally.timesLine()).toBe('TIME 1:10.00   RANK B');
+    expect(tally.timesLine()).toBe(`TIME ${clock(quick)}   RANK B`);
     tally.free();
     HubClient.lastClear = null;
   });

@@ -9,12 +9,13 @@
 // (bot_runs.ts, botActs()). Slow: seven bot variants per act.
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { Difficulty } from '../../src/core/difficulty';
 import { registerNewContent } from '../../src/levels/content';
 import { registerEnemies } from '../../src/levels/registry_enemies';
 import { registerObjects } from '../../src/levels/registry_objects';
 import { registerCoreTypes } from '../../src/levels/scenes';
 import { summaryLine } from '../../tools/qa/playtest_bot';
-import { finishedInTime, orderProblems, playAll, released, report, type ActRuns } from './bot_runs';
+import { finishedInTime, log, orderProblems, playAll, released, report, type ActRuns } from './bot_runs';
 
 registerCoreTypes();
 registerObjects();
@@ -52,6 +53,22 @@ describe('playtest bot (item boxes off)', () => {
   it('the median clear time rises from act to act (D >= 1, released acts)', () => {
     expect(results.filter((r) => released(r.act) && r.act.d >= 1).length).toBeGreaterThanOrEqual(4);
     expect(orderProblems(results)).toEqual([]);
+  });
+
+  it("every act's par follows from this run: 1.5 x the faster deathless clear of the pilot and the naive runner, rounded up to 5 s", () => {
+    // Difficulty.BEST_BOT_FRAMES records that clear (src/core/difficulty.ts). When a level, the controller or
+    // the camera changes it, re-measure and update the row there; never edit par_seconds by hand.
+    const stale: string[] = [];
+    for (const r of results.filter((x) => released(x.act))) {
+      const clean = r.runs.filter((x) => ((x.policy === 'pilot' && x.jumpEvery === 0) || (x.policy === 'runner' && x.jumpEvery === 90)) && finishedInTime(x) && x.deaths.length === 0);
+      expect(clean.length, `${r.act.label}: a deathless clear by the pilot or the naive runner`).toBeGreaterThan(0);
+      const best = Math.min(...clean.map((x) => x.completedFrame));
+      const par = Difficulty.targets(r.act.d).par_seconds;
+      const want = Difficulty.parFromBot(best / 60);
+      log(`  ${r.act.label}: best deathless bot ${best} frames (${(best / 60).toFixed(1)} s), par ${par} s, S at or under ${(0.7 * par).toFixed(1)} s`);
+      if (par !== want) stale.push(`${r.act.label}: par ${par} s, but the best deathless bot clear is ${best} frames (${(best / 60).toFixed(1)} s) -> ${want} s; BEST_BOT_FRAMES[${r.act.d}] is ${Difficulty.BEST_BOT_FRAMES[r.act.d]}`);
+    }
+    expect(stale).toEqual([]);
   });
 
   it('the pilot clears the test zone without a death', () => {

@@ -3,7 +3,7 @@
 // arena gate.
 //
 // D8 (docs/LEVELS.md): about 85 screens, 1.4 enemies per screen (T3 50 % /
-// T4 50 %), R5, 7 checkpoints, about 3 tickets per screen. New idea: a
+// T4 50 %), R5, 9 checkpoints, about 3 tickets per screen. New idea: a
 // spiral ascent to the rooftop - everything combined, crossfire, timed
 // platforms over pits.
 //   Opening (teach): timed platforms and crumbling ledges first hovering
@@ -58,6 +58,18 @@ export function buildAct2(): LevelBuilder {
   };
   /** The flat after a checkpoint (no enemy within a screen after it). */
   const AFTER = (): void => b.flat(336, 160, 256);
+  /**
+   * A second route over the guarded flats built by `section`: a jump-through
+   * deck 80 px up (one jump from the floor) with a ticket every 96 px. It
+   * passes over the ground pills and under the droppers, and ends with the
+   * floor beneath it.
+   */
+  const OVER = (section: () => void): void => {
+    const x0 = b.x;
+    section();
+    b.slab(x0 + 48, b.x - 48, b.ground - 80);
+    for (let x = x0 + 96; x <= b.x - 96; x += 96) b.ticketAt(new Vec2(x, b.ground - 80 - 16));
+  };
 
   // --- Opening: teach -------------------------------------------------------------
   b.start(384);
@@ -105,7 +117,7 @@ export function buildAct2(): LevelBuilder {
   G('sniper');
   b.crumbleRun(4);
   P('spike', 'diver', 150);
-  P('armored', 'dropper', 140);
+  OVER(() => P('armored', 'dropper', 140));
   b.flat(320, 64, 192);
   // The spiral ascent: a zigzag tower up four floors (1 and 3 run left).
   const z = b.zigzag(4, 1792);
@@ -146,7 +158,8 @@ export function buildAct2(): LevelBuilder {
   b.setPiece(KEYS.BUMPER, new Vec2(d.x0 + 2000, d.high - 72));
   b.flat(240);
   b.fluidPit(112, 'poison');
-  b.flat(200);
+  CP(); // 4: past the well, half way between the tower and the next climb
+  AFTER();
   G('dropper', 140);
   b.timedPits(3, { pit: 256, shuttle: 1 });
   P('armored', 'sniper', 0);
@@ -156,19 +169,23 @@ export function buildAct2(): LevelBuilder {
   P('spike', 'dropper', 140);
   b.vanishingRun(5, { onFrames: 150, offFrames: 90, ripple: 22, gap: 56 });
   b.enemy('diver', new Vec2(b.x - 360, b.ground - 160));
-  CP(); // 4
+  CP(); // 5
   AFTER();
   H('armored');
   P('sniper', 'diver', 150);
   b.crumbleRun(4);
   P('spike', 'sniper', 0);
   b.bumperRow(320, 2);
-  G('dropper', 140);
-  P('armored', 'dropper', 140);
-  G('sniper');
-  P('spike', 'dropper', 140);
+  OVER(() => {
+    G('dropper', 140);
+    P('armored', 'dropper', 140);
+    G('sniper');
+    P('spike', 'dropper', 140);
+  });
   post();
   b.timedPits(2, { pit: 224 });
+  CP(); // 6: past the timed pits, half way to the finale
+  AFTER();
   P('armored', 'diver', 150);
   P('spike', 'sniper', 0);
   G('dropper', 140);
@@ -176,7 +193,7 @@ export function buildAct2(): LevelBuilder {
   b.loop(true, 384);
   b.flat(512, 64, 192); // a long run-out at loop speed before the void
   b.vanishingRun(4, { onFrames: 150, offFrames: 90, ripple: 24 });
-  CP(); // 5: the finale starts - the boss approach gauntlet
+  CP(); // 7: the finale starts - the boss approach gauntlet
 
   // --- Finale: the boss approach gauntlet ------------------------------------------
   AFTER();
@@ -199,7 +216,7 @@ export function buildAct2(): LevelBuilder {
   b.enemy('sniper', new Vec2(r[2]!.x1 - 120, r[2]!.y));
   b.enemy('armored', new Vec2(r[0]!.x0 + 420, r[0]!.y), { patrol_distance: 48 });
   b.enemy('dropper', new Vec2(r[1]!.x0 + 400, r[2]!.y + 16 + 40));
-  CP(); // 6: halfway through the gauntlet, on the rooftop
+  CP(); // 8: halfway through the gauntlet, on the rooftop
   AFTER();
   b.vanishingRun(5, { onFrames: 140, offFrames: 90, ripple: 22, gap: 56 });
   P('sniper', 'dropper', 140);
@@ -209,16 +226,20 @@ export function buildAct2(): LevelBuilder {
   b.enemy('dropper', new Vec2(b.x - 160, b.ground - 140));
   P('spike', 'sniper', 0);
   P('dropper', 'diver', 150);
-  P('sniper', 'dropper', 140);
-  P('armored', 'dropper', 140);
+  OVER(() => {
+    P('sniper', 'dropper', 140);
+    P('armored', 'dropper', 140);
+  });
   P('sniper', 'diver', 150);
-  P('dropper', 'sniper', 0);
-  P('spike', 'sniper', 0);
+  OVER(() => {
+    P('dropper', 'sniper', 0);
+    P('spike', 'sniper', 0);
+  });
   P('dropper', 'diver', 150);
-  P('sniper', 'dropper', 140);
+  OVER(() => P('sniper', 'dropper', 140));
   // The calm corridor and the checkpoint right outside the arena gate.
   b.corridor(720, 4);
-  b.checkpoint(); // 7
+  b.checkpoint(); // 9
   b.goal(192, 384);
   return b;
 }

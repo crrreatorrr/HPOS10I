@@ -14,7 +14,7 @@ are kept as history.
 | `tools/qa/web_check.mjs` | Static checks on the web build: files, viewport, relative URLs, no dev content, no shared memory, Ogg-only audio, the hub SDK bundled, size budgets. |
 | `tools/qa/smoke.mjs` | Boots the web build in headless Chromium, opens every registered scene for two seconds and fails on any page or console error or a blank screen; then plays title → zone select → act 1 by keyboard. |
 | `tools/qa/level_lint.ts` | Level-design rules (loops, spawns, tunnels, fillets, steps, narrow solids, diver posts) and the difficulty measures against `docs/LEVELS.md` (length, enemy density per section, tier mix, checkpoints, tickets, direction, the in-act ramp). Run by `tests/qa/level_lint.test.ts`. |
-| `tools/qa/playtest_bot.ts` | A headless bot that plays any act through the real input actions, deaths and respawns (runner and pilot policies), and replays recorded input timelines. Run by `tests/qa/playtest*.test.ts` (`npm run test:bots`). |
+| `tools/qa/playtest_bot.ts` | A headless bot that plays any act through the real input actions, deaths and respawns (runner and pilot policies), and replays recorded input timelines. Run by `tests/qa/playtest*.test.ts` (`npm run test:bots`). `tests/qa/record_runs.test.ts` (`npm run record:runs`) records the pilot's inputs on every act of Zones 1 to 3 into `tests/levels/inputs/`. |
 | `tools/qa/checker_check.py` | Is a terrain fill a diamond checker or a square one? (zone art rule). |
 
 ## Running

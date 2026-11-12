@@ -47,14 +47,19 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [1984, -192], deckY: -272, deck: [2080, 3424] },
     // Staying on the upper level: a running jump over the 64 px gap where the ramp goes down.
     { from: [11560, -640], deckY: -640, deck: [11840, 13520], jumpAt: 11744, speed: 5 },
+    // Level with the third staircase's landing: a running jump where the steps go down.
+    { from: [18960, -704], deckY: -704, deck: [19200, 19824], jumpAt: 19050, speed: 5 },
+    // The gallery after the long banister: a running jump from its foot.
+    { from: [31560, 0], deckY: -80, deck: [31744, 32176], jumpAt: 31580, speed: 6 },
   ],
   'src/levels/data/z2_wizard_academy/act2.json': [
     // Level with the breakable-wall tunnel's roof: a running jump over the 64 px gap.
     { from: [14400, -576], deckY: -576, deck: [14656, 15968], jumpAt: 14560, speed: 5 },
     // Staying on the upper floor where the ramp goes down.
     { from: [19650, -832], deckY: -832, deck: [19856, 21264], jumpAt: 19760, speed: 5 },
-    // Staying level where the finale's floor drops.
-    { from: [28800, -640], deckY: -640, deck: [29088, 29920], jumpAt: 28990, speed: 5 },
+    // Staying level where the finale's banisters go down.
+    { from: [27930, -768], deckY: -768, deck: [28256, 28960], jumpAt: 28030, speed: 5 },
+    { from: [28800, -640], deckY: -640, deck: [29152, 29920], jumpAt: 28990, speed: 5 },
     { from: [29860, -512], deckY: -512, deck: [30144, 31008], jumpAt: 30046, speed: 5 },
   ],
   // Zone 3: the decks stay level where a roof pitches down; each is a running jump over a 64 px gap.

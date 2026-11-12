@@ -40,19 +40,54 @@ const ZONE_ACTS: Record<string, number[]> = {
   z4_neon_rush_remix: [7, 8],
 };
 
-// par_seconds: 1.5 x the best deathless bot time (the faster of the QA pilot
-// and the naive runner; the route pilot for Zone 4), rounded up to 5 s. Ranks
-// and the time bonus are read against it (src/core/rank.ts).
+// --- Par ----------------------------------------------------------------------------------
+// The one place the par of an act comes from (docs/LEVELS.md, "Par, ranks and
+// replay"): par = PAR_FACTOR x the best deathless bot clear of the act, rounded
+// up to PAR_STEP seconds. Ranks and the time bonus are read against it
+// (src/core/rank.ts: S at or under 0.70 x par, A 0.85, B 1.00, C 1.50, D 2.00).
+//
+// BEST_BOT_FRAMES is that clear, in frames at 60 per second, by act difficulty:
+//   - test zone and Zones 1 to 3: the faster of the QA pilot (jumpEvery 0) and
+//     the naive runner (jumpEvery 90), item boxes off, as
+//     tests/qa/playtest.test.ts plays them; that test fails when a level change
+//     moves an act's par off its recorded time;
+//   - Zone 4: its route pilot's run with every enemy and no item boxes
+//     (tests/levels/z4.test.ts, which checks the same).
+// Re-measure and update a row whenever its level, the controller or the camera
+// changes. Measured 2026-11-12.
+const PAR_FACTOR = 1.5;
+const PAR_STEP = 5;
+const FRAMES_PER_SECOND = 60;
+
+const BEST_BOT_FRAMES: Record<number, number> = {
+  0: 1748, // test zone: naive runner, 29.1 s
+  1: 3322, // Zone 1 Act 1: pilot, 55.4 s
+  2: 4634, // Zone 1 Act 2: pilot, 77.2 s
+  3: 6652, // Zone 2 Act 1: pilot, 110.9 s
+  4: 7792, // Zone 2 Act 2: pilot, 129.9 s
+  5: 6822, // Zone 3 Act 1: pilot, 113.7 s
+  6: 7940, // Zone 3 Act 2: pilot, 132.3 s
+  7: 9145, // Zone 4 Act 1: route pilot, 152.4 s
+  8: 10699, // Zone 4 Act 2: route pilot, 178.3 s
+};
+
+/** The par (seconds) that follows from a best deathless bot clear of `botSeconds`. */
+function parFromBot(botSeconds: number): number {
+  return Math.ceil((PAR_FACTOR * botSeconds) / PAR_STEP - 1e-9) * PAR_STEP;
+}
+
+const par = (d: number): number => parFromBot(BEST_BOT_FRAMES[d]! / FRAMES_PER_SECOND);
+
 const TARGETS: Record<number, ActTargets> = {
-  0: { screens: 20, par_seconds: 45, enemies_per_screen: 0.2, tiers: { 1: 100 }, direction: 1, checkpoints: 2, tickets_per_screen: 6.0 },
-  1: { screens: 45, par_seconds: 80, enemies_per_screen: 0.4, tiers: { 1: 100 }, direction: 1, checkpoints: 3, tickets_per_screen: 5.0 },
-  2: { screens: 55, par_seconds: 115, enemies_per_screen: 0.6, tiers: { 1: 75, 2: 25 }, direction: 2, checkpoints: 6, tickets_per_screen: 4.5 },
-  3: { screens: 55, par_seconds: 120, enemies_per_screen: 0.8, tiers: { 1: 45, 2: 40, 3: 15 }, direction: 3, checkpoints: 5, tickets_per_screen: 4.0 },
-  4: { screens: 65, par_seconds: 175, enemies_per_screen: 1.0, tiers: { 1: 25, 2: 45, 3: 30 }, direction: 4, checkpoints: 7, tickets_per_screen: 4.0 },
-  5: { screens: 65, par_seconds: 140, enemies_per_screen: 1.1, tiers: { 2: 50, 3: 40, 4: 10 }, direction: 4, checkpoints: 6, tickets_per_screen: 3.5 },
-  6: { screens: 75, par_seconds: 190, enemies_per_screen: 1.2, tiers: { 2: 35, 3: 45, 4: 20 }, direction: 4, checkpoints: 7, tickets_per_screen: 3.5 },
-  7: { screens: 75, par_seconds: 215, enemies_per_screen: 1.3, tiers: { 2: 30, 3: 40, 4: 30 }, direction: 5, checkpoints: 6, tickets_per_screen: 3.0 },
-  8: { screens: 85, par_seconds: 270, enemies_per_screen: 1.4, tiers: { 3: 50, 4: 50 }, direction: 5, checkpoints: 7, tickets_per_screen: 3.0 },
+  0: { screens: 20, par_seconds: par(0), enemies_per_screen: 0.2, tiers: { 1: 100 }, direction: 1, checkpoints: 2, tickets_per_screen: 6.0 },
+  1: { screens: 45, par_seconds: par(1), enemies_per_screen: 0.4, tiers: { 1: 100 }, direction: 1, checkpoints: 3, tickets_per_screen: 5.0 },
+  2: { screens: 55, par_seconds: par(2), enemies_per_screen: 0.6, tiers: { 1: 75, 2: 25 }, direction: 2, checkpoints: 6, tickets_per_screen: 4.5 },
+  3: { screens: 65, par_seconds: par(3), enemies_per_screen: 0.8, tiers: { 1: 45, 2: 40, 3: 15 }, direction: 3, checkpoints: 6, tickets_per_screen: 4.0 },
+  4: { screens: 65, par_seconds: par(4), enemies_per_screen: 1.0, tiers: { 1: 25, 2: 45, 3: 30 }, direction: 4, checkpoints: 7, tickets_per_screen: 4.0 },
+  5: { screens: 65, par_seconds: par(5), enemies_per_screen: 1.1, tiers: { 2: 50, 3: 40, 4: 10 }, direction: 4, checkpoints: 6, tickets_per_screen: 3.5 },
+  6: { screens: 75, par_seconds: par(6), enemies_per_screen: 1.2, tiers: { 2: 35, 3: 45, 4: 20 }, direction: 4, checkpoints: 7, tickets_per_screen: 3.5 },
+  7: { screens: 75, par_seconds: par(7), enemies_per_screen: 1.3, tiers: { 2: 30, 3: 40, 4: 30 }, direction: 5, checkpoints: 7, tickets_per_screen: 3.0 },
+  8: { screens: 85, par_seconds: par(8), enemies_per_screen: 1.4, tiers: { 3: 50, 4: 50 }, direction: 5, checkpoints: 9, tickets_per_screen: 3.0 },
 };
 
 const BOSSES: Record<string, BossTuning> = {
@@ -60,6 +95,17 @@ const BOSSES: Record<string, BossTuning> = {
   z2_wizard_academy: { d: 4.5, weak_window: 1.7, attacks_per_cycle: 2, telegraph: 0.7, escalation: 1.15, desperation: false, ticket_refills: 2 },
   z3_capital_mansion: { d: 8.0, weak_window: 1.1, attacks_per_cycle: 3, telegraph: 0.5, escalation: 1.25, desperation: true, ticket_refills: 1 },
   z4_neon_rush_remix: { d: 10.0, weak_window: 0.9, attacks_per_cycle: 4, telegraph: 0.45, escalation: 1.3, desperation: true, ticket_refills: 1 },
+};
+
+/**
+ * Tickets that scatter (and can be picked up again) when Sproto is hit, by
+ * zone: a hit costs more as the zones advance (docs/LEVELS.md, principle 6).
+ * Zone 1 and anything unlisted keep the physics constant (32).
+ */
+const SCATTER_CAP: Record<string, number> = {
+  z2_wizard_academy: 24,
+  z3_capital_mansion: 16,
+  z4_neon_rush_remix: 12,
 };
 
 const OPENING_END = 0.25;
@@ -77,6 +123,11 @@ export const Difficulty = {
   BOSSES,
   OPENING_END,
   FINALE_START,
+  SCATTER_CAP,
+  PAR_FACTOR,
+  PAR_STEP,
+  BEST_BOT_FRAMES,
+  parFromBot,
   SECTION_DENSITY: { opening: 0.7, middle: 1.0, finale: 1.4 },
   FINALE_TIER_BONUS: 1,
 
@@ -123,6 +174,11 @@ export const Difficulty = {
 
   targets(d: number): ActTargets {
     return TARGETS[clamp(Math.trunc(d), 0, MAX)] ?? TARGETS[DEFAULT]!;
+  },
+
+  /** The most tickets a hit scatters in `zoneId` (default: the current zone); Infinity where the physics constant rules. */
+  scatterCap(zoneId: string = SceneRouter.zoneId): number {
+    return SCATTER_CAP[zoneId] ?? Infinity;
   },
 
   /** Enemy movement speed: +6% per step above D1. */
