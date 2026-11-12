@@ -62,6 +62,17 @@ const BOSSES: Record<string, BossTuning> = {
   z4_neon_rush_remix: { d: 10.0, weak_window: 0.9, attacks_per_cycle: 4, telegraph: 0.45, escalation: 1.3, desperation: true, ticket_refills: 1 },
 };
 
+/**
+ * Tickets that scatter (and can be picked up again) when Sproto is hit, by
+ * zone: a hit costs more as the zones advance (docs/LEVELS.md, principle 6).
+ * Zone 1 and anything unlisted keep the physics constant (32).
+ */
+const SCATTER_CAP: Record<string, number> = {
+  z2_wizard_academy: 24,
+  z3_capital_mansion: 16,
+  z4_neon_rush_remix: 12,
+};
+
 const OPENING_END = 0.25;
 const FINALE_START = 0.75;
 const OPENING_BONUS = -0.5;
@@ -77,6 +88,7 @@ export const Difficulty = {
   BOSSES,
   OPENING_END,
   FINALE_START,
+  SCATTER_CAP,
   SECTION_DENSITY: { opening: 0.7, middle: 1.0, finale: 1.4 },
   FINALE_TIER_BONUS: 1,
 
@@ -123,6 +135,11 @@ export const Difficulty = {
 
   targets(d: number): ActTargets {
     return TARGETS[clamp(Math.trunc(d), 0, MAX)] ?? TARGETS[DEFAULT]!;
+  },
+
+  /** The most tickets a hit scatters in `zoneId` (default: the current zone); Infinity where the physics constant rules. */
+  scatterCap(zoneId: string = SceneRouter.zoneId): number {
+    return SCATTER_CAP[zoneId] ?? Infinity;
   },
 
   /** Enemy movement speed: +6% per step above D1. */

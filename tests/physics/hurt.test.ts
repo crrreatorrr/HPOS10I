@@ -7,6 +7,7 @@
 
 import { afterEach, beforeEach, describe, it } from 'vitest';
 import { GameState } from '../../src/core/game_state';
+import { SceneRouter } from '../../src/core/scene_router';
 import { Tuning } from '../../src/core/tuning';
 import { PlayerHooks, type Player } from '../../src/player/player';
 import type { Node, Node2D } from '../../src/runtime/node';
@@ -158,6 +159,23 @@ describe('hurt', () => {
       player.hurt(player.globalPosition.add(new Vec2(-20, 0)));
       step(1);
       c.eq(ticketCount(), 32, '32 tickets at most');
+    }),
+  );
+
+  it.skipIf(!PlayerHooks.scatter)(
+    'a hit scatters fewer tickets in the later zones (24, 16, 12)',
+    checked((c) => {
+      for (const [zone, cap] of [['z1_retro_rush_hills', 32], ['z2_wizard_academy', 24], ['z3_capital_mansion', 16], ['z4_neon_rush_remix', 12]] as [string, number][]) {
+        flat();
+        SceneRouter.zoneId = zone;
+        GameState.addTickets(50);
+        player.hurt(player.globalPosition.add(new Vec2(-20, 0)));
+        step(1);
+        c.eq(ticketCount(), cap, `${zone}: ${cap} tickets at most`);
+        c.eq(GameState.tickets, 0, `${zone}: every held ticket is lost`);
+        SceneRouter.zoneId = '';
+        GameState.resetGame();
+      }
     }),
   );
 
