@@ -50,6 +50,8 @@ const DOWN: Record<string, [number, number, number][]> = {
     [20288, -272, 128],
     [24352, -144, 128],
   ],
+  // Zone 3 Act 2: the long chute where the first shaft was.
+  'src/levels/data/z3_capital_mansion/act2.json': [[6880, -864, 480]],
 };
 
 /** 1:4 climbs: [x of the foot, y of the floor there, the run in px, the rise in px]. */
@@ -78,6 +80,11 @@ const UP: Record<string, [number, number, number, number][]> = {
     [1024, 0, 256, 64],
     [4480, -320, 512, 128],
     [5728, -448, 896, 224],
+  ],
+  'src/levels/data/z3_capital_mansion/act2.json': [
+    [1312, 0, 256, 64],
+    [3008, -320, 512, 128],
+    [4864, -704, 640, 160],
   ],
 };
 
