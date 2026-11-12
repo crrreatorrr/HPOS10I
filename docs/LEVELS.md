@@ -95,8 +95,9 @@ the lead.
 | T3 | Spike pill | Spikes pop out on a timer (telegraphed) | Hit while retracted |
 | T3 | Burrower | A lit hatch warns before the pill rises from the floor, waits briefly, and sinks again | Jump or roll into the exposed pill, or cross while retracted |
 | T3 | Diver | Hovers, telegraphs, then swoops at where Sproto was | Move after the telegraph |
-| T4 | Splitter | Pops into two mini pills on the first hit | Chain bounces |
-| T4 | Orbit shield | Two capsule shields orbit it | Hit through the gap |
+| T3 | Shockwave pill | Lights outward floor arrows, then releases a short ground pulse in each direction | Jump or roll through a pulse; attack during recovery |
+| T4 | Splitter | Cracks harmlessly on the first hit, then releases two smaller pill robots that hop away | Chain bounces on the minis, or leave while they emerge |
+| T4 | Orbit Guard | Two moving shield satellites deflect attacks while the core is exposed between them | Time a jump or roll through the gap |
 | T4 | Sniper | Aimed 3-shot burst after a long telegraph | Break line of sight |
 | T4 | Dropper | Hangs from the ceiling, drops when Sproto passes under it | Don't linger |
 
@@ -105,7 +106,7 @@ Each zone dresses these behaviours in its own costume (DESIGN.md):
   pill is the Armored pill.
 - **Capital Mansion:** the drone pill is a Floater or Diver with a
   searchlight; the clerk pill is a Pellet pill throwing paper in arcs.
-- **Neon Rush Remix:** neon pills are the T3/T4 versions.
+- **Neon Rush Remix:** neon pills are the T3/T4 versions. The lower decks in both acts introduce the Splitter, Orbit Guard, and Shockwave Pill.
 
 **Aggression scaling.** On top of placement, every enemy reads the act's
 difficulty D (1–8, from `Difficulty.current()`):

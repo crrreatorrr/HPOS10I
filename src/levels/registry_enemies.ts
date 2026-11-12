@@ -11,6 +11,9 @@ import { Diver } from './enemies/diver';
 import { Dropper } from './enemies/dropper';
 import { Floater } from './enemies/floater';
 import { Hopper } from './enemies/hopper';
+import { OrbitGuard } from './enemies/neon/orbit_guard';
+import { ShockwavePill } from './enemies/neon/shockwave_pill';
+import { Splitter } from './enemies/neon/splitter';
 import { PaperSheet } from './enemies/paper_sheet';
 import { Pellet } from './enemies/pellet';
 import { PelletPill } from './enemies/pellet_pill';
@@ -34,6 +37,9 @@ const E = 'res://levels/enemies/';
 
 /** Original scene path -> factory (a fresh node with the scene's defaults). */
 export const ENEMY_SCENES: Readonly<Record<string, () => Node>> = {
+  'hpos://enemies/splitter': () => new Splitter(),
+  'hpos://enemies/orbit_guard': () => new OrbitGuard(),
+  'hpos://enemies/shockwave_pill': () => new ShockwavePill(),
   [`${E}walker.tscn`]: () => new Walker(),
   [`${E}hopper.tscn`]: () => new Hopper(),
   [`${E}chaser.tscn`]: () => new Chaser(),

@@ -64,7 +64,7 @@ export const KEYS = {
   BURROWER: 'hpos://hazards/burrower',
 } as const;
 
-export type EnemyKind = 'walker' | 'hopper' | 'chaser' | 'floater' | 'pellet' | 'armored' | 'spike' | 'diver' | 'sniper' | 'dropper' | 'burrower';
+export type EnemyKind = 'walker' | 'hopper' | 'chaser' | 'floater' | 'pellet' | 'armored' | 'spike' | 'diver' | 'sniper' | 'dropper' | 'burrower' | 'splitter' | 'orbit_guard' | 'shockwave_pill';
 
 /** Tier of each base enemy (docs/LEVELS.md roster). */
 export const ENEMY_TIER: Record<EnemyKind, number> = {
@@ -79,6 +79,9 @@ export const ENEMY_TIER: Record<EnemyKind, number> = {
   sniper: 4,
   dropper: 4,
   burrower: 3,
+  splitter: 4,
+  orbit_guard: 4,
+  shockwave_pill: 3,
 };
 
 const E = 'res://levels/enemies/';
@@ -94,6 +97,9 @@ export const ENEMY_KEYS: Record<EnemyKind, string> = {
   sniper: `${E}sniper.tscn`,
   dropper: `${E}dropper.tscn`,
   burrower: KEYS.BURROWER,
+  splitter: 'hpos://enemies/splitter',
+  orbit_guard: 'hpos://enemies/orbit_guard',
+  shockwave_pill: 'hpos://enemies/shockwave_pill',
 };
 
 /** CurveTerrain shapes (src/terrain/curve_terrain.ts CurveShape). */
@@ -781,7 +787,7 @@ export class LevelBuilder {
       if (dx >= 0 && dx < SAFE_AFTER && at.y <= my + 4 && my - at.y < 160) this.warnings.push(`${kind} at x ${at.x.toFixed(0)} is ${dx.toFixed(0)} px after a ${what}`);
     }
     const key = this.opts.enemyKeys?.[kind] ?? ENEMY_KEYS[kind];
-    const base = kind.charAt(0).toUpperCase() + kind.slice(1);
+    const base = kind.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join('');
     const name = this.next(base);
     this.nodes.push({ name, parent: 'Enemies', type: 'Area2D', scene: key, props: encProps({ position: at, ...props }) });
     this.enemyList.push({ name, kind, at });

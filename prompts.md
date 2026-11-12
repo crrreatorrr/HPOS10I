@@ -73,3 +73,15 @@ into a 64 px cell atlas.
 |---|---|---|---|
 | 28 | `76c84176-7ecd-4ae5-870e-620a9e01d9c3` | `assets/sprites/common/props/floor_hazards.png`, rows 1–4 | Original 4 × 4 side-view pixel sprites on chroma magenta: four looping volcanic lava surfaces, four lime and teal poison surfaces with bubbles, four rooted lava jets, and four poses of a violet-armored chartreuse burrowing pill. |
 | 29 | `b4151aff-d82d-4df0-9b60-35a1690fb4f7` | `assets/sprites/common/props/floor_hazards.png`, rows 5–8 | Original 4 × 4 side-view pixel sprites on chroma magenta: four lamp states on a warning-striped steel crusher, four ceiling mounts, four glowing vent hatches, and four telescoping piston lengths. |
+
+## Neon Rush enemies, 2026-11-11
+
+Both generations used **Seedream 5.0 Lite** at **2K, 1:1, Unlimited**
+on Higgsfield. The account balance stayed at **142.6 credits**.
+The source sprites were keyed, cropped and aligned into four frames
+per row of 48 px cells.
+
+| # | Generation ID | Integrated asset path | Prompt |
+|---|---|---|---|
+| 30 | `cd1838ba-6283-44b0-beec-c518745c34f3` | `assets/sprites/common/pills/remix_enemies.png`, rows 1–4 | 4 × 4 sheet on chroma magenta: a teal and copper capsule idle, compressed, cracked and separating; four poses of its spring-foot mini; an indigo orbit core with a pulsing cyan iris; a low orange shockwave emitter with quiet, charging and cooling poses. |
+| 31 | `6f6a674e-2e9c-439b-98f7-688fcbf9d841` | `assets/sprites/common/pills/remix_enemies.png`, rows 5–8 | 4 × 4 sheet on chroma magenta: compact cyan and indigo orbit satellites, warm ground lightning, teal and copper shell fragments, and animated warning chevrons. |
