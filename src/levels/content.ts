@@ -45,11 +45,12 @@ const BOX_CONTENTS: readonly BoxSlot[] = ['shield', 'speed_shoes', 'shield', 'in
  * Sproto off the platforms: its speed-shoes slots stay empty (no box there).
  */
 /**
- * From Zone 3 on shields are rarer: 2 spots in 7 instead of 3 (the last
- * shield spot stays empty), so a hit costs tickets more often.
+ * In Zone 3 shields are rarer: 2 spots in 7 instead of 3 (the last shield
+ * spot stays empty), so a hit costs tickets more often. Zone 4 keeps its
+ * three: its pits and timed platforms are the test there.
  */
 const BOX_CONTENTS_Z3: readonly BoxSlot[] = BOX_CONTENTS.map((c, i) => (c === 'shield' && i === BOX_CONTENTS.lastIndexOf('shield') ? null : c));
-const BOX_CONTENTS_Z4: readonly BoxSlot[] = BOX_CONTENTS_Z3.map((c) => (c === 'speed_shoes' ? null : c));
+const BOX_CONTENTS_Z4: readonly BoxSlot[] = BOX_CONTENTS.map((c) => (c === 'speed_shoes' ? null : c));
 
 /** The box contents of a zone, in placement order (null = that spot gets no box). */
 export function boxContentsFor(zoneId: string): readonly BoxSlot[] {

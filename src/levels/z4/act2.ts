@@ -183,10 +183,9 @@ export function buildAct2(): LevelBuilder {
     P('spike', 'dropper', 140);
   });
   post();
-  b.flat(32); // a full screen past the post's sniper
-  CP(); // 6: half way to the finale
-  AFTER();
   b.timedPits(2, { pit: 224 });
+  CP(); // 6: past the timed pits, half way to the finale
+  AFTER();
   P('armored', 'diver', 150);
   P('spike', 'sniper', 0);
   G('dropper', 140);

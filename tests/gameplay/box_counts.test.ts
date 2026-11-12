@@ -38,15 +38,13 @@ describe('item box counts', () => {
 describe('item box contents by zone', () => {
   const count = (zone: string, what: string): number => boxContentsFor(zone).filter((c) => c === what).length;
 
-  it('shields are 3 spots in 7 in Zones 1 and 2 and 2 in 7 from Zone 3', () => {
-    for (const zone of ['test_zone', 'z1_retro_rush_hills', 'z2_wizard_academy']) {
+  it('shields are 3 spots in 7, and 2 in 7 in Zone 3', () => {
+    for (const zone of ['test_zone', 'z1_retro_rush_hills', 'z2_wizard_academy', 'z4_neon_rush_remix']) {
       expect(boxContentsFor(zone).length).toBe(7);
       expect(count(zone, 'shield'), zone).toBe(3);
     }
-    for (const zone of ['z3_capital_mansion', 'z4_neon_rush_remix']) {
-      expect(boxContentsFor(zone).length).toBe(7);
-      expect(count(zone, 'shield'), zone).toBe(2);
-    }
+    expect(boxContentsFor('z3_capital_mansion').length).toBe(7);
+    expect(count('z3_capital_mansion', 'shield')).toBe(2);
   });
 
   it('Zone 4 has no speed shoes; every zone keeps an extra life and an invincibility', () => {
