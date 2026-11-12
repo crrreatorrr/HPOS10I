@@ -7,7 +7,8 @@ import { Scenes } from '../../src/core/scenes';
 import { Settings } from '../../src/core/settings';
 import { ZoneRegistry } from '../../src/core/zone_registry';
 import { HubClient } from '../../src/hub/hub_client';
-import { RelicLoadout } from '../../src/hub/relic_loadout';
+import { memoryStore, SAVE_KEYS, Storage } from '../../src/hub/storage';
+import { RELIC_BELT, RELIC_CONES, RELIC_CROWN, RELIC_GENESIS, RelicLoadout } from '../../src/hub/relic_loadout';
 import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
 import { Gfx } from '../../src/runtime/gfx';
 import { Input, KEY_BINDINGS, type Action } from '../../src/runtime/input';
@@ -21,17 +22,24 @@ import { DevMenu } from '../../src/ui/dev_menu';
 import { Display } from '../../src/ui/display';
 import { feedbackContext } from '../../src/ui/feedback';
 import { EmeraldIcon } from '../../src/ui/emerald/emerald_icon';
-import { EndingScreen } from '../../src/ui/ending/ending';
+import { EndingScreen, rankLines } from '../../src/ui/ending/ending';
+import { Difficulty } from '../../src/core/difficulty';
+import { betterRank, rankFor } from '../../src/core/rank';
 import { GameOverScreen } from '../../src/ui/game_over/game_over';
 import { Hud } from '../../src/ui/hud/hud';
-import { OPTION_ROWS, PauseMenu } from '../../src/ui/pause/pause_menu';
+import { SpeedLines } from '../../src/ui/hud/speed_lines';
+import { promptLine } from '../../src/ui/hud/prompt_line';
+import { Prompts } from '../../src/core/prompts';
+import { measure } from '../../src/ui/common/theme';
+import { EXTRA_MOVES_LINES, MOVES_LINE, OPTION_ROWS, PauseMenu } from '../../src/ui/pause/pause_menu';
 import { RotateHint } from '../../src/ui/rotate_hint';
 import { installUi, registerUiScenes } from '../../src/ui/setup';
 import { SoundHint } from '../../src/ui/sound_hint/sound_hint';
 import { ScoreTally } from '../../src/ui/tally/score_tally';
 import { DISCLAIMER, TitleScreen } from '../../src/ui/title/title_screen';
 import { JUMP_CENTER, PAD_CENTER, TouchControls, padActions } from '../../src/ui/touch_controls/touch_controls';
-import { HINT_PAD, ZoneSelect } from '../../src/ui/zone_select/zone_select';
+import { BOSS_REPLAY_NOTE, HINT_PAD, isActUnlocked, isBossUnlocked, UNLOCK_HINT, ZoneSelect } from '../../src/ui/zone_select/zone_select';
+import { formatActTime } from '../../src/ui/common/act_time';
 import { buildMiniLevel } from '../levels/level_world';
 
 // --- Helpers ---------------------------------------------------------------------------
@@ -131,6 +139,8 @@ beforeEach(() => {
   Settings.reset();
   RelicLoadout.reset();
   HubClient.lastBanked = null;
+  HubClient.lastClear = null;
+  HubClient.earnCapped = false;
   showScene(() => new Node('Empty'));
   frames(1);
 });
@@ -242,6 +252,23 @@ describe('MenuList', () => {
 // --- Zone select -------------------------------------------------------------------------
 
 describe('ZoneSelect', () => {
+  /** A save with every act cleared (everything unlocked), as most tests want. */
+  function clearAllActs(): void {
+    for (const zone of ZoneRegistry.allZones(false)) zone.acts.forEach((_, i) => HubClient.save.cleared.add(`${zone.id}:${i + 1}`));
+  }
+
+  beforeEach(() => {
+    HubClient.save.cleared.clear();
+    HubClient.save.bestTimes.clear();
+    clearAllActs();
+  });
+
+  afterEach(() => {
+    HubClient.save.cleared.clear();
+    HubClient.save.bestTimes.clear();
+    HubClient.save.unlockAll = false;
+  });
+
   function open(): ZoneSelect {
     const zs = showScene(() => new ZoneSelect());
     frames(20); // past the input grace
@@ -289,6 +316,8 @@ describe('ZoneSelect', () => {
     tapAction('ui_right');
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:2');
     tapAction('move_right');
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:3'); // the boss
+    tapAction('move_right');
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1'); // wraps in the row
     tapAction('ui_down');
     expect(focusedAct(zs)).toBe('z2_wizard_academy:1');
@@ -302,6 +331,90 @@ describe('ZoneSelect', () => {
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1'); // wraps
     tapAction('ui_up');
     expect(focusedAct(zs)).toBe('back');
+  });
+
+  it('a fresh save opens only the first act; clearing an act opens the next, and the last act opens the boss', () => {
+    HubClient.save.cleared.clear();
+    let zs = open();
+    const openActs = () => zs.acts.filter((a) => a.open).map((a) => `${a.zoneId}:${a.act}`);
+    expect(openActs()).toEqual(['z1_retro_rush_hills:1']);
+    expect(zs.bosses.length).toBe(4);
+    expect(zs.bosses.every((b) => !b.open)).toBe(true);
+    // Navigation skips everything locked: act 1, then BACK.
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1');
+    tapAction('ui_right');
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:1');
+    tapAction('ui_down');
+    expect(focusedAct(zs)).toBe('back');
+    expect(zs.infoText()).toBe(UNLOCK_HINT);
+    for (const b of zs.bosses) expect(zs.menu.stateOf(zs.menu.items.findIndex((i) => (i.data as { zoneId?: string; boss?: boolean } | undefined)?.boss === true && (i.data as { zoneId: string }).zoneId === b.zoneId))).toBe('disabled');
+
+    HubClient.save.cleared.add('z1_retro_rush_hills:1');
+    zs = open();
+    expect(openActs()).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2']);
+    expect(zs.bosses.some((b) => b.open)).toBe(false);
+
+    HubClient.save.cleared.add('z1_retro_rush_hills:2');
+    zs = open();
+    expect(openActs()).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2', 'z2_wizard_academy:1']);
+    expect(zs.bosses.filter((b) => b.open).map((b) => b.zoneId)).toEqual(['z1_retro_rush_hills']);
+
+    // An act cleared before the rule existed stays open, even with a gap before it.
+    HubClient.save.cleared.add('z3_capital_mansion:2');
+    zs = open();
+    expect(openActs()).toContain('z3_capital_mansion:2');
+    expect(openActs()).not.toContain('z3_capital_mansion:1');
+    expect(isActUnlocked('z4_neon_rush_remix', 1)).toBe(true);
+    expect(isBossUnlocked('z3_capital_mansion')).toBe(true);
+    expect(isBossUnlocked('z2_wizard_academy')).toBe(false);
+  });
+
+  it('a save from before the unlock rule (v0 or v1) keeps every act open, whatever it had cleared', () => {
+    for (const old of [
+      { cleared: ['z3_capital_mansion:2'], best_times: {} },
+      { v: 1, cleared: ['z1_retro_rush_hills:1', 'z3_capital_mansion:1'], best_times: {}, emeralds: [] },
+    ]) {
+      Storage.use(memoryStore());
+      Storage.writeJson(SAVE_KEYS.progress, old);
+      HubClient.save.loadAll();
+      const zs = open();
+      expect(zs.acts.every((a) => a.open), JSON.stringify(old)).toBe(true);
+      expect(zs.infoText()).not.toBe(UNLOCK_HINT);
+    }
+    // A new save starts with the first act only.
+    Storage.use(memoryStore());
+    HubClient.save.loadAll();
+    expect(open().acts.filter((a) => a.open).length).toBe(1);
+    HubClient.save.unlockAll = false;
+  });
+
+  it('BOSS starts the boss arena (stage acts + 1) and says when a replay banks nothing', () => {
+    const start = vi.spyOn(SceneRouter, 'startZone').mockImplementation(() => undefined);
+    const zs = open();
+    tapAction('ui_right');
+    tapAction('ui_right');
+    expect(focusedAct(zs)).toBe('z1_retro_rush_hills:3');
+    expect(zs.infoText()).toBe('BOSS ARENA');
+    HubClient.save.cleared.add('z1_retro_rush_hills:3');
+    expect(zs.infoText()).toBe(BOSS_REPLAY_NOTE);
+    tapAction('jump');
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith('z1_retro_rush_hills', 3);
+  });
+
+  it('shows the saved best time of the focused act, or --:--', () => {
+    HubClient.save.bestTimes.set('z1_retro_rush_hills:1', 83.456);
+    const zs = open();
+    HubClient.save.bestRanks.set('z1_retro_rush_hills:1', 'A');
+    expect(zs.infoText()).toBe('ACT 1   BEST 1:23.45   RANK A');
+    tapAction('ui_right');
+    expect(zs.infoText()).toBe('ACT 2   BEST --:--   RANK -');
+    HubClient.save.bestRanks.clear();
+    expect(formatActTime(0)).toBe('0:00.00');
+    expect(formatActTime(59.999)).toBe('0:59.99');
+    expect(formatActTime(600)).toBe('10:00.00');
+    expect(formatActTime(null)).toBe('--:--');
+    drawAll(zs, fakeGfx());
   });
 
   it('choosing an act starts it exactly once', () => {
@@ -420,6 +533,13 @@ describe('ZoneSelect', () => {
 // --- Pause menu --------------------------------------------------------------------------
 
 describe('PauseMenu', () => {
+  function showLevel(): LevelRoot {
+    Scenes.register('test:ui_level2', () => buildMiniLevel());
+    SceneRouter.openScene('test:ui_level2');
+    frames(3);
+    return tree.currentScene as LevelRoot;
+  }
+
   function enterGameplay(): void {
     SceneRouter.openScene(PLAY_SCENE);
     frames(2);
@@ -467,18 +587,18 @@ describe('PauseMenu', () => {
     expect(tree.paused).toBe(false);
   });
 
-  it('lists resume, restart, options, exit to hub, quit to title and send feedback, wrapping', () => {
+  it('lists resume, restart, restart act, options, exit to hub, quit to title and send feedback, wrapping', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
     const labels = pm.main.items.map((i) => i.label);
-    expect(labels).toEqual(['RESUME', 'RESTART', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE', 'SEND FEEDBACK']);
+    expect(labels).toEqual(['RESUME', 'RESTART', 'RESTART ACT', 'OPTIONS', 'EXIT TO HUB', 'QUIT TO TITLE', 'SEND FEEDBACK']);
     // The whole page still fits the 240 px screen.
-    expect(pm.main.items[5]!.rect.bottom).toBeLessThan(240);
+    expect(pm.main.items[6]!.rect.bottom).toBeLessThan(240);
+    tapAction('ui_up');
+    expect(pm.main.focus).toBe(6);
     tapAction('ui_up');
     expect(pm.main.focus).toBe(5);
-    tapAction('ui_up');
-    expect(pm.main.focus).toBe(4);
     const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
     tapAction('ui_up');
     tapAction('jump');
@@ -494,17 +614,44 @@ describe('PauseMenu', () => {
     expect(tree.paused).toBe(false);
   });
 
+  it('RESTART ACT starts the stage again as a fresh attempt: clock at 0:00, lives and score kept', () => {
+    const pm = addOverlay(new PauseMenu());
+    SceneRouter.startZone('z1_retro_rush_hills', 2);
+    frames(2);
+    GameState.lives = 2;
+    GameState.addScore(400);
+    GameState.tick(30);
+    GameState.restartFromCheckpoint();
+    expect(GameState.cleanRun).toBe(false);
+    expect(GameState.attemptTime).toBe(30);
+    const start = vi.spyOn(GameState, 'startLevel');
+    tapAction('pause');
+    expect(pm.isOpen()).toBe(true);
+    tapAction('ui_down');
+    tapAction('ui_down');
+    expect(pm.main.focused?.label).toBe('RESTART ACT');
+    tapAction('jump');
+    expect(pm.isOpen()).toBe(false);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith('z1_retro_rush_hills', 2);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.levelTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+    expect(GameState.lives).toBe(2);
+    expect(GameState.score).toBe(400);
+  });
+
   it('KEEP PLAYING (or cancel) on the exit question goes back to the pause list', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
     const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
-    for (let i = 0; i < 3; i++) tapAction('ui_down'); // EXIT TO HUB
+    for (let i = 0; i < 4; i++) tapAction('ui_down'); // EXIT TO HUB
     tapAction('ui_accept');
     expect(pm.page).toBe('confirm');
     tapAction('ui_accept'); // KEEP PLAYING
     expect(pm.page).toBe('main');
-    expect(pm.main.focus).toBe(3);
+    expect(pm.main.focus).toBe(4);
     expect(pm.isOpen()).toBe(true);
     tapAction('ui_accept');
     expect(pm.page).toBe('confirm');
@@ -551,6 +698,7 @@ describe('PauseMenu', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
+    tapAction('ui_down');
     tapAction('ui_down');
     tapAction('ui_down');
     tapAction('ui_accept'); // OPTIONS
@@ -638,10 +786,11 @@ describe('PauseMenu', () => {
       expect(restartItem.enabled).toBe(false);
       expect(pm.main.stateOf(1)).toBe('disabled');
       expect(pm.restartHint()).toBe('WAIT FOR RESPAWN');
-      // Navigation skips it: RESUME -> OPTIONS.
+      // Navigation skips it and RESTART ACT: RESUME -> OPTIONS.
       expect(pm.main.focus).toBe(0);
+      expect(pm.main.items[2]!.enabled).toBe(false);
       tapAction('ui_down');
-      expect(pm.main.focus).toBe(2);
+      expect(pm.main.focus).toBe(3);
       // Choosing it any way does nothing.
       const restart = vi.spyOn(SceneRouter, 'restart').mockImplementation(() => undefined);
       pm.main.activate(1);
@@ -731,7 +880,7 @@ describe('PauseMenu', () => {
     Input.feedPads([pad]);
     frames(1);
     expect(pm.isOpen()).toBe(true);
-    pm.main.setFocus(4, true); // QUIT TO TITLE
+    pm.main.setFocus(5, true); // QUIT TO TITLE
     pad.buttons[1] = { pressed: true, value: 1 };
     Input.feedPads([pad]);
     frames(1);
@@ -743,6 +892,53 @@ describe('PauseMenu', () => {
     expect(pm.isOpen()).toBe(false);
     expect(SceneRouter.inGameplay()).toBe(true);
     Input.feedPads([null]);
+  });
+
+  it('the moves lines name the extra moves only while they are on, and the page fits the screen', () => {
+    const pm = addOverlay(new PauseMenu());
+    enterGameplay();
+    tapAction('pause');
+    expect(pm.movesLines()).toEqual([MOVES_LINE, ...EXTRA_MOVES_LINES]);
+    const extra = EXTRA_MOVES_LINES.join(' ');
+    expect(extra).toContain('DROP DASH');
+    expect(extra).toContain('CHARGE RUN');
+    expect(extra).toContain('BOUNCE');
+    const b = pm.layoutBounds();
+    expect(b.top).toBeGreaterThanOrEqual(2);
+    expect(b.bottom).toBeLessThanOrEqual(238);
+    expect(b.left).toBeGreaterThanOrEqual(2);
+    expect(b.right).toBeLessThanOrEqual(422);
+    drawAll(pm, fakeGfx());
+    tapAction('pause');
+    frames(3);
+    // The worst case still fits: a Relic line and the restart hint on top of the extra moves.
+    const reach = HubClient.reach;
+    HubClient.reach = 'ready';
+    HubClient.relics = [RELIC_GENESIS, RELIC_CONES, RELIC_CROWN, RELIC_BELT];
+    HubClient.revision++;
+    RelicLoadout.reset();
+    const level = showLevel();
+    level.player!.kill();
+    frames(5);
+    tapAction('pause');
+    expect(pm.isOpen()).toBe(true);
+    expect(pm.restartHint()).not.toBe('');
+    const worst = pm.layoutBounds();
+    expect(worst.top).toBeGreaterThanOrEqual(1);
+    expect(worst.bottom).toBeLessThanOrEqual(239);
+    drawAll(pm, fakeGfx());
+    expect(pm.relicLine()).toContain('SKIN');
+    expect(pm.relicLine()).toContain('CAPE');
+    HubClient.reach = reach;
+    HubClient.relics = [];
+    HubClient.revision++;
+    RelicLoadout.reset();
+    SceneRouter.openScene(PLAY_SCENE);
+    frames(3);
+    Settings.set('extraMoves', false);
+    tapAction('pause');
+    expect(pm.isOpen()).toBe(true);
+    expect(pm.movesLines()).toEqual([MOVES_LINE]);
   });
 
   it('the controls list names gamepad buttons from the bindings', () => {
@@ -771,31 +967,35 @@ describe('ScoreTally', () => {
   function clearAct(zoneId: string, act: number, seconds: number, tickets: number): void {
     GameState.startLevel(zoneId, act);
     GameState.levelTime = seconds;
+    GameState.attemptTime = seconds;
     GameState.tickets = tickets;
     GameState.completeLevel();
   }
 
   it('counts the bonuses into the score and emits finished once', () => {
-    clearAct('z1_retro_rush_hills', 1, 40, 3);
+    // Half of par: rank S and its bonus.
+    clearAct('z1_retro_rush_hills', 1, Difficulty.parFor('z1_retro_rush_hills', 1)! * 0.5, 3);
     const tally = new ScoreTally('z1_retro_rush_hills');
     let finished = 0;
     tally.finished.connect(() => finished++);
     tree.root.addChild(tally);
-    expect(tally.timeBonus).toBe(5000);
+    expect(tally.rank).toBe('S');
+    expect(tally.timeBonus).toBe(20000);
     expect(tally.ticketBonus).toBe(300);
     expect(tally.hasEmeraldMoment()).toBe(true);
     const before = GameState.score;
     for (let i = 0; i < 60 * 10 && finished === 0; i++) frames(1);
     frames(60);
     expect(finished).toBe(1);
-    expect(GameState.score - before).toBe(5300);
+    expect(GameState.score - before).toBe(20300);
     expect(Audio.history).toContain('emerald_get');
     expect(Audio.history).toContain('tally_tick');
     tally.free();
   });
 
   it('jump skips the count, then continues', () => {
-    clearAct('z1_retro_rush_hills', 2, 100, 0);
+    // Twice par less a second: rank D, 1000.
+    clearAct('z1_retro_rush_hills', 2, Difficulty.parFor('z1_retro_rush_hills', 2)! * 2 - 1, 0);
     const tally = new ScoreTally();
     let finished = 0;
     tally.finished.connect(() => finished++);
@@ -809,6 +1009,57 @@ describe('ScoreTally', () => {
     tapAction('jump');
     expect(finished).toBe(1);
     tally.free();
+  });
+
+  it('the time bonus and rank follow time / par; a run with a death is capped at A; a boss keeps the flat table', () => {
+    const par = 100;
+    const cases: [number, string, number][] = [
+      [70, 'S', 20000],
+      [70.5, 'A', 12000],
+      [85, 'A', 12000],
+      [100, 'B', 8000],
+      [150, 'C', 3000],
+      [200, 'D', 1000],
+      [200.5, 'D', 0],
+    ];
+    for (const [seconds, rank, bonus] of cases) {
+      expect(rankFor(seconds, par), `${seconds} s`).toEqual({ rank, bonus });
+      expect(ScoreTally.timeBonusFor(seconds, par)).toBe(bonus);
+    }
+    expect(rankFor(50, par, false)).toEqual({ rank: 'A', bonus: 12000 });
+    expect(rankFor(120, par, false)).toEqual({ rank: 'C', bonus: 3000 });
+    expect(betterRank('S', 'A')).toBe(true);
+    expect(betterRank('B', 'B')).toBe(false);
+    expect(betterRank('D', null)).toBe(true);
+    // No par (a boss arena): the old flat table by seconds.
+    expect(ScoreTally.timeBonusFor(40)).toBe(5000);
+    expect(ScoreTally.timeBonusFor(400)).toBe(0);
+    clearAct('z1_retro_rush_hills', 3, 40, 0);
+    const boss = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(boss);
+    expect(boss.rank).toBeNull();
+    expect(boss.timeBonus).toBe(5000);
+    expect(boss.timesLine()).toBe('');
+    boss.free();
+    // Every act has a par, and a par-pace run is a B.
+    for (const zone of ZoneRegistry.allZones(true)) {
+      zone.acts.forEach((_, i) => {
+        const p = Difficulty.parFor(zone.id, i + 1);
+        expect(p, `${zone.id} act ${i + 1}`).not.toBeNull();
+        expect(rankFor(p!, p!).rank).toBe('B');
+      });
+      expect(Difficulty.parFor(zone.id, zone.acts.length + 1)).toBeNull();
+    }
+    // A death in the run: S pace shows as A on the tally.
+    GameState.startLevel('z1_retro_rush_hills', 1);
+    GameState.attemptTime = 10;
+    GameState.restartFromCheckpoint();
+    GameState.completeLevel();
+    const capped = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(capped);
+    expect(capped.rank).toBe('A');
+    expect(capped.timeBonus).toBe(12000);
+    capped.free();
   });
 
   it('shows no emerald in the test zone or after a boss, a quiet one when won earlier', () => {
@@ -833,6 +1084,58 @@ describe('ScoreTally', () => {
     const r = tally.panelRect();
     expect(r.y).toBeGreaterThanOrEqual(44);
     expect(r.bottom).toBeLessThanOrEqual(223);
+    tally.free();
+  });
+
+  it('shows this clear\'s time with the saved best, NEW BEST! when it beat it, and still fits', () => {
+    clearAct('z1_retro_rush_hills', 1, 83.456, 4);
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 83.456, previousBest: 80.1, newBest: false, rank: 'C', previousRank: 'C', newRank: false, clean: true };
+    HubClient.lastBanked = { amount: 4, acked: false };
+    let tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.timesLine()).toBe('TIME 1:23.45   BEST 1:20.10   RANK C');
+    expect(tally.isNewBest()).toBe(false);
+    expect(tally.isNewRank()).toBe(false);
+    expect(tally.hasEmeraldMoment()).toBe(true);
+    let r = tally.panelRect();
+    expect(r.y).toBeGreaterThanOrEqual(44);
+    expect(r.bottom).toBeLessThanOrEqual(223);
+    drawAll(tally, fakeGfx());
+    tally.free();
+
+    clearAct('z1_retro_rush_hills', 1, 70, 4);
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 1, time: 70, previousBest: 80.1, newBest: true, rank: 'B', previousRank: 'C', newRank: true, clean: true };
+    HubClient.lastBanked = { amount: 4, acked: false };
+    tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.timesLine()).toBe('TIME 1:10.00   NEW BEST!   RANK B NEW!');
+    expect(tally.isNewBest()).toBe(true);
+    expect(tally.isNewRank()).toBe(true);
+    expect(tally.panelRect().w).toBeLessThanOrEqual(416);
+    r = tally.panelRect();
+    expect(r.bottom).toBeLessThanOrEqual(223);
+    drawAll(tally, fakeGfx());
+    tally.free();
+
+    // Another act's record is not this tally's.
+    HubClient.lastClear = { zone: 'z1_retro_rush_hills', act: 2, time: 70, previousBest: null, newBest: true, rank: 'S', previousRank: null, newRank: true, clean: true };
+    tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.timesLine()).toBe('TIME 1:10.00   RANK B');
+    tally.free();
+    HubClient.lastClear = null;
+  });
+
+  it('says when the hub refused the earn for its Ticket limit', () => {
+    ScoreTally.watchBanks();
+    GameState.startLevel('z1_retro_rush_hills', 1);
+    HubClient.lastBanked = { amount: 12, acked: false };
+    const tally = new ScoreTally('z1_retro_rush_hills');
+    tree.root.addChild(tally);
+    expect(tally.bankedLine()).toBe('+12 Tickets sent to the hub');
+    HubClient.earnCapped = true;
+    expect(tally.bankedLine()).toBe('Hub Ticket limit reached');
+    HubClient.earnCapped = false;
     tally.free();
   });
 
@@ -888,6 +1191,51 @@ describe('Hud', () => {
     ]);
     hud.free();
     fake.free();
+  });
+
+  it('speed lines fade in above top running speed and follow the speed effects option', () => {
+    expect(SpeedLines.strengthFor(4)).toBe(0);
+    expect(SpeedLines.strengthFor(6)).toBe(0);
+    expect(SpeedLines.strengthFor(9)).toBeCloseTo(0.5, 6);
+    expect(SpeedLines.strengthFor(-12)).toBe(1);
+    expect(SpeedLines.strengthFor(16)).toBe(1);
+    const lines = new SpeedLines();
+    const runner = { state: 'run', grounded: true, groundSpeed: 9, groundAngle: 0, velocity: new Vec2(9, 0) } as unknown as Parameters<SpeedLines['update']>[1];
+    lines.update(1 / 60, runner);
+    expect(lines.strength).toBeCloseTo(0.5, 6);
+    const streaks = lines.streaks();
+    expect(streaks.length).toBeGreaterThanOrEqual(6);
+    expect(streaks.length).toBeLessThanOrEqual(10);
+    // Edge bands only: never across the middle of the screen.
+    for (const s of streaks) expect(s.y < 64 || s.y > 240 - 64).toBe(true);
+    expect(() => lines.paint(fakeGfx())).not.toThrow();
+    Settings.set('speedEffects', false);
+    lines.update(1 / 60, runner);
+    expect(lines.strength).toBe(0);
+    expect(lines.streaks()).toEqual([]);
+    Settings.set('speedEffects', true);
+    lines.update(1 / 60, { ...(runner as object), groundSpeed: 5 } as never);
+    expect(lines.streaks()).toEqual([]);
+  });
+
+  it('shows the teaching prompt a level asked for, worded for the device, then lets it go', () => {
+    const hud = new Hud();
+    tree.root.addChild(hud);
+    expect(hud.promptText()).toBe('');
+    Prompts.reset();
+    Prompts.show('spindash');
+    expect(hud.promptText()).toBe('HOLD DOWN, TAP Z, LET GO: SPIN DASH');
+    Display.setTouch(true);
+    expect(hud.promptText()).toBe('HOLD DOWN, TAP JUMP, LET GO: SPIN DASH');
+    Display.setTouch(false);
+    expect(measure(hud.promptText(), 'outline')).toBeLessThanOrEqual(416);
+    expect(measure(promptLine('enemy', 'keyboard'), 'outline')).toBeLessThanOrEqual(416);
+    drawAll(hud, fakeGfx());
+    frames(60 * 6);
+    expect(hud.promptText()).toBe('');
+    expect(Prompts.show('spindash')).toBe(false); // once per run
+    Prompts.reset();
+    hud.free();
   });
 
   it('moves the lives box for touch controls', () => {
@@ -1022,16 +1370,93 @@ describe('screens', () => {
     Input.feedPads([null]);
   });
 
-  it('game over resets the game and goes to the title', () => {
+  it('game over in a stage: RETRY STAGE is the default and restarts that stage with fresh lives', () => {
+    const start = vi.spyOn(GameState, 'startLevel');
+    SceneRouter.startZone('z3_capital_mansion', 3);
+    frames(2);
+    start.mockClear();
+    GameState.lives = 0;
+    GameState.addScore(900);
+    const title = vi.spyOn(SceneRouter, 'goTitle');
+    const go = showScene(() => new GameOverScreen());
+    expect(go.menu).not.toBeNull();
+    expect(go.menu!.items.map((i) => i.label)).toEqual(['RETRY STAGE', 'QUIT TO TITLE']);
+    expect(go.finalScore).toBe(900);
+    tapAction('jump'); // inside the 1.5 s grace
+    expect(go.isLeaving()).toBe(false);
+    frames(100);
+    expect(go.menu!.focus).toBe(0);
+    tapAction('jump');
+    tapAction('jump');
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith('z3_capital_mansion', 3);
+    expect(title).not.toHaveBeenCalled();
+    expect(GameState.score).toBe(0);
+    expect(GameState.lives).toBe(3);
+    expect(SceneRouter.zoneId).toBe('z3_capital_mansion');
+    expect(SceneRouter.stage).toBe(3);
+  });
+
+  it('game over in a stage: QUIT TO TITLE resets the game and goes to the title', () => {
+    SceneRouter.startZone('z1_retro_rush_hills', 2);
+    frames(2);
+    const go = vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);
+    const retry = vi.spyOn(SceneRouter, 'retryStage');
+    GameState.lives = 0;
+    GameState.addScore(900);
+    const screen = showScene(() => new GameOverScreen());
+    frames(100);
+    tapAction('ui_down');
+    expect(screen.menu!.focus).toBe(1);
+    tapAction('ui_accept');
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
+    expect(GameState.score).toBe(0);
+    expect(GameState.lives).toBe(3);
+  });
+
+  it('game over: a tap on RETRY STAGE retries', () => {
+    SceneRouter.startZone('z1_retro_rush_hills', 1);
+    frames(2);
+    const retry = vi.spyOn(SceneRouter, 'retryStage').mockImplementation(() => undefined);
+    GameState.lives = 0;
+    const screen = showScene(() => new GameOverScreen());
+    frames(100);
+    const r = screen.menu!.items[0]!.rect;
+    pointer(r.x + 5, r.y + 5, 'down');
+    pointer(r.x + 5, r.y + 5, 'up');
+    frames(1);
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('game over outside a stage (a sandbox scene) keeps the single prompt and goes to the title', () => {
+    SceneRouter.openScene(PLAY_SCENE);
+    frames(2);
     const go = vi.spyOn(SceneRouter, 'goTitle').mockImplementation(() => undefined);
     GameState.lives = 0;
     GameState.addScore(900);
-    showScene(() => new GameOverScreen());
+    const screen = showScene(() => new GameOverScreen());
+    expect(screen.menu).toBeNull();
     frames(100);
     tapAction('ui_accept');
     expect(go).toHaveBeenCalledTimes(1);
     expect(GameState.score).toBe(0);
     expect(GameState.lives).toBe(3);
+  });
+
+  it('the ending lists the best rank of all eight acts', () => {
+    HubClient.save.bestRanks.clear();
+    HubClient.save.bestRanks.set('z1_retro_rush_hills:1', 'S');
+    HubClient.save.bestRanks.set('z4_neon_rush_remix:2', 'C');
+    const lines = rankLines();
+    expect(lines.length).toBe(4);
+    expect(lines[0]).toBe('RETRO RUSH HILLS   S  -');
+    expect(lines[3]).toBe('NEON RUSH REMIX   -  C');
+    const end = showScene(() => new EndingScreen());
+    const texts = end.lines.map((l) => l.text);
+    expect(texts).toContain('BEST RANKS');
+    for (const l of lines) expect(texts).toContain(l);
+    HubClient.save.bestRanks.clear();
   });
 
   it('the ending rolls, then goes to the title', () => {

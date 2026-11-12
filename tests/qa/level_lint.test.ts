@@ -19,6 +19,7 @@ import { ENEMY_SCENES, registerEnemies } from '../../src/levels/registry_enemies
 import { registerObjects } from '../../src/levels/registry_objects';
 import { registerCoreTypes } from '../../src/levels/scenes';
 import { Node, Node2D, ProcessMode } from '../../src/runtime/node';
+import { polygonShape, StaticBody2D } from '../../src/runtime/physics';
 import { Rect2, Vec2 } from '../../src/runtime/vec2';
 import * as L from '../../tools/qa/level_lint';
 import { qa } from '../helpers/qa';
@@ -204,7 +205,133 @@ describe('difficulty lint self-test (fixtures)', () => {
   });
 });
 
+describe('flow and hazard rules self-test (fixtures)', () => {
+  /** A stand-in hazard: in group level_hazard; `moving` makes it a moving solid (it has platformDelta()). */
+  class FakeHazard extends StaticBody2D {
+    wakeRadius = 0;
+    constructor(name: string, moving: boolean) {
+      super(name);
+      this.collisionLayer = 0;
+      this.addToGroup('level_hazard');
+      if (moving) (this as unknown as { platformDelta: () => Vec2 }).platformDelta = () => Vec2.ZERO;
+    }
+  }
+
+  it('a flat single-route act warns on routes and slope; enforced, the routes are an error', () => {
+    const m = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225));
+    expect(m.twoRoutePct).toBe(0);
+    expect(m.slopedPct).toBe(0);
+    expect(m.blockingSteps).toBe(0);
+    const soft = L.check(m, 1, ROW_1);
+    expect(rules(soft, 'warn')).toContain('flow.routes');
+    expect(rules(soft, 'warn')).toContain('flow.slope');
+    expect(rules(soft, 'error')).not.toContain('flow.routes');
+    expect(rules(L.check(m, 1, ROW_1, false, true), 'error')).toContain('flow.routes');
+    // The test zone (D 0) is not held to the flow rules.
+    expect(L.check(m, 0, ROW_1).map((f) => f.rule)).not.toContain('flow.routes');
+  });
+
+  it('an upper deck over a quarter of the act (and the middle third) satisfies flow.routes', () => {
+    const deck = (w: Node2D): void => {
+      qa.rect(w, new Rect2(LENGTH * 0.1, -160, LENGTH * 0.08, 16));
+      qa.rect(w, new Rect2(LENGTH * 0.4, -160, LENGTH * 0.2, 16));
+    };
+    const m = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, deck));
+    expect(m.twoRoutePct).toBeGreaterThanOrEqual(L.ROUTES_MIN_PCT);
+    expect(m.twoRouteMidPct).toBeGreaterThanOrEqual(L.ROUTES_MID_MIN_PCT);
+    expect(L.check(m, 1, ROW_1, false, true).map((f) => f.rule)).not.toContain('flow.routes');
+  });
+
+  it('counts blocking steps and warns above 0.25 per screen', () => {
+    const steps = (w: Node2D): void => {
+      for (let i = 0; i < 20; i++) qa.rect(w, new Rect2(1000 + i * 400, -32, 64, 32));
+    };
+    const m = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, steps));
+    expect(m.blockingSteps).toBe(20);
+    expect(m.stepsPerScreen).toBeGreaterThan(L.STEPS_MAX_PER_SCREEN);
+    expect(rules(L.check(m, 1, ROW_1), 'warn')).toContain('flow.steps');
+  });
+
+  it('a checkpoint gap over 16 screens is a warning, an error once enforced', () => {
+    const m = measureFixture(fixture(rampedEnemies(), [0.1, 0.2, 0.75], 225));
+    expect(m.maxGapScreens).toBeGreaterThan(L.MAX_CHECKPOINT_GAP);
+    expect(rules(L.check(m, 1, ROW_1, false, true), 'error')).toContain('difficulty.checkpoint_gap');
+    expect(rules(L.check(m, 1, ROW_1), 'error')).not.toContain('difficulty.checkpoint_gap');
+    const even = measureFixture(fixture(rampedEnemies(), [0.3, 0.55, 0.75], 225));
+    expect(rules(L.check(even, 1, ROW_1, false, true), 'error')).not.toContain('difficulty.checkpoint_gap');
+  });
+
+  it('a timed moving solid on the lowest route warns; one that wakes on approach, or sits over an upper deck, does not', () => {
+    const make = (wake: number, y: number) => (w: Node2D): void => {
+      qa.rect(w, new Rect2(LENGTH * 0.3, -200, 800, 16));
+      const h = new FakeHazard('Ram1', true);
+      h.wakeRadius = wake;
+      h.position = new Vec2(LENGTH * 0.3 + 400, y);
+      w.addChild(h);
+    };
+    const timed = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, make(0, -60)));
+    expect(timed.hazards.map((h) => h.name)).toEqual(['Ram1']);
+    expect(timed.hazards[0]).toMatchObject({ movingSolid: true, wakes: false, onLowestRoute: true });
+    expect(rules(L.check(timed, 1, ROW_1), 'warn')).toContain('hazard.timed_solid');
+    const waking = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, make(96, -60)));
+    expect(L.check(waking, 1, ROW_1).map((f) => f.rule)).not.toContain('hazard.timed_solid');
+    const upper = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, make(0, -260)));
+    expect(upper.hazards[0]!.onLowestRoute).toBe(false);
+    expect(L.check(upper, 1, ROW_1).map((f) => f.rule)).not.toContain('hazard.timed_solid');
+  });
+
+  it('a hazard within 2 screens after a checkpoint is reported below D5', () => {
+    const vent = (w: Node2D): void => {
+      const h = new FakeHazard('Vent1', false);
+      h.position = new Vec2(xAt(0.55) + 300, 0);
+      w.addChild(h);
+    };
+    const m = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, vent));
+    expect(m.hazardTooClose.length).toBe(1);
+    expect(rules(L.check(m, 1, ROW_1), 'warn')).toContain('hazard.safe_spot');
+    expect(rules(L.check(m, 1, ROW_1, false, true), 'error')).toContain('hazard.safe_spot');
+    expect(L.check(m, 5, ROW_1).map((f) => f.rule)).not.toContain('hazard.safe_spot');
+    // On a shelf above the route it stays a warning even when the act is enforced.
+    const shelf = (w: Node2D): void => {
+      qa.rect(w, new Rect2(xAt(0.55) + 100, -200, 400, 16));
+      const h = new FakeHazard('Vent2', false);
+      h.position = new Vec2(xAt(0.55) + 300, -200);
+      w.addChild(h);
+    };
+    const above = measureFixture(fixture(rampedEnemies(), [0.35, 0.55, 0.75], 225, shelf));
+    expect(above.hazardTooClose[0]).toMatchObject({ hazard: 'Vent2', onLowestRoute: false });
+    expect(rules(L.check(above, 1, ROW_1, false, true), 'error')).not.toContain('hazard.safe_spot');
+    expect(rules(L.check(above, 1, ROW_1, false, true), 'warn')).toContain('hazard.safe_spot');
+  });
+});
+
 describe('enemy placement rules (test_enemy_placement_rules.gd)', () => {
+  it('a ground enemy on or just past the top of a climb is an error; one well past it, or at the foot, is not', () => {
+    for (const [dx, flagged] of [
+      [20, true],
+      [100, true],
+      [200, false],
+      [-360, false],
+    ] as const) {
+      SceneRouter.zoneId = 'test_zone';
+      SceneRouter.stage = 1;
+      const w = qa.world();
+      // Flat at y 0, a 1:2 climb of 96 px from x 0 to x 192, then flat at y -96.
+      qa.rect(w, new Rect2(-600, 0, 1400, 300));
+      const hillBody = new StaticBody2D('Hill');
+      hillBody.collisionLayer = 1;
+      hillBody.addShape(polygonShape([new Vec2(0, 0), new Vec2(192, -96), new Vec2(800, -96), new Vec2(800, 0)]));
+      w.addChild(hillBody);
+      const e = ENEMY_SCENES['res://levels/enemies/walker.tscn']!() as Node2D;
+      if (isConfigurable(e)) e.applyProps(Props.of({}));
+      e.position = new Vec2(192 + dx, dx < -192 ? 0 : -96);
+      e.processMode = ProcessMode.DISABLED;
+      w.addChild(e);
+      step(2);
+      expect(rules(L.lint(w), 'error').includes('enemy.crest'), `enemy ${dx} px past the crest`).toBe(flagged);
+    }
+  });
+
   for (const [height, flagged] of [
     [100, true],
     [140, false],
@@ -253,7 +380,7 @@ describe('every act', () => {
         act,
         lint: findings,
         m,
-        check: L.check(m, act.d, Difficulty.targets(act.d), act.preBoss),
+        check: L.check(m, act.d, Difficulty.targets(act.d), act.preBoss, L.FLOW_ENFORCED.has(`${act.zone}:${act.stage}`)),
         boxes: { enemies: withBoxes.enemies, tickets: withBoxes.tickets, checkpoints: withBoxes.checkpoints, placed },
       });
       root.findChildren((n) => n instanceof ItemBox).forEach((b) => b.free());
@@ -265,10 +392,32 @@ describe('every act', () => {
     for (const r of results) log(`  ${r.act.label} (D${r.act.d}${r.act.preBoss ? ', before the boss' : ''}): ${L.summary(r.m)}`);
   }, 300_000);
 
-  it('finds the test zone and every zone act with a level file', () => {
+  it('finds the test zone and every zone act, the ones built in code (Zone 4) included', () => {
     const labels = results.map((r) => r.act.label);
     expect(labels).toContain('Test zone');
-    for (const l of ['Z1 Act 1', 'Z1 Act 2', 'Z2 Act 1', 'Z2 Act 2']) expect(labels).toContain(l);
+    for (const l of ['Z1 Act 1', 'Z1 Act 2', 'Z2 Act 1', 'Z2 Act 2', 'Z3 Act 1', 'Z3 Act 2', 'Z4 Act 1', 'Z4 Act 2']) expect(labels).toContain(l);
+    expect(results.filter((r) => r.act.code).map((r) => r.act.label)).toEqual(['Z4 Act 1', 'Z4 Act 2']);
+  });
+
+  it('measures the flow of every act and lists its hazards', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.m.twoRoutePct), r.act.label).toBe(true);
+      expect(r.m.twoRoutePct).toBeGreaterThanOrEqual(0);
+      expect(r.m.twoRoutePct).toBeLessThanOrEqual(100);
+      expect(r.m.slopedPct).toBeGreaterThanOrEqual(0);
+      expect(r.m.stepsPerScreen).toBeGreaterThanOrEqual(0);
+    }
+    // Zone 1 is the momentum zone: slopes and loops.
+    expect(results.find((r) => r.act.label === 'Z1 Act 1')!.m.slopedPct).toBeGreaterThan(8);
+    // The known hazards are seen: the Zone 3 Act 1 ram and the Zone 4 Act 1 ram both wake on approach.
+    const rams = results.flatMap((r) => r.m.hazards.filter((h) => h.type === 'CeilingRam').map((h) => ({ act: r.act.label, ...h })));
+    expect(rams.map((h) => h.act).sort()).toEqual(['Z3 Act 1', 'Z4 Act 1']);
+    for (const h of rams) {
+      expect(h.movingSolid, h.act).toBe(true);
+      expect(h.wakes, h.act).toBe(true);
+    }
+    for (const r of results) expect(r.check.filter((f) => f.rule === 'hazard.timed_solid'), r.act.label).toEqual([]);
+    expect(results.some((r) => r.m.hazards.some((h) => h.type === 'FluidWell'))).toBe(true);
   });
 
   it('follow the level-design rules (geometry lint errors fail)', () => {

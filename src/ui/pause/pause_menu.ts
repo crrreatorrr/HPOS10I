@@ -9,7 +9,13 @@
 //                  without losing a life (SceneRouter.restart()). Greyed out,
 //                  with a hint line, unless the level is 'playing'
 //                  (LevelRoot.phase()): restarting while dying would skip the
-//                  life the respawn takes (owner decision HPOS-DEC-01).
+//                  life the respawn takes (owner decision HPOS-DEC-01). The
+//                  HUD clock goes back to the checkpoint; the attempt clock
+//                  that best times and ranks use does not, and the run is no
+//                  longer clean.
+//   RESTART ACT    the whole stage again from 0:00 as a fresh attempt
+//                  (SceneRouter.restartAct()): lives and score are kept, the
+//                  attempt clock starts over. Greyed out with RESTART.
 //   OPTIONS        the Settings toggles (OptionsMenu below)
 //   EXIT TO HUB    asks first (this is mid-run: the act's tickets are not
 //                  banked yet), then HubClient.exitToHub(); always offered,
@@ -23,7 +29,9 @@
 // like Start (B is also a jump button, so without this it would choose the
 // focused item). Left/right cycle the Relic skin when there is a choice. The
 // panel also lists the controls for every device; key and button names come
-// from the bindings (InputHints), and Esc is never offered for pause.
+// from the bindings (InputHints), and Esc is never offered for pause. Under
+// the table one line names the classic moves and, while the extra moves are
+// on, two more name the drop dash, charge run and shield bounce.
 //
 // Pausing releases every held game input. Resuming waits for two physics
 // frames without a fresh jump press, so the key that closed the menu never
@@ -35,6 +43,7 @@ import { SceneRouter } from '../../core/scene_router';
 import { Settings, type SettingsData } from '../../core/settings';
 import { HubClient } from '../../hub/hub_client';
 import { LevelRoot } from '../../levels/common/level_root';
+import { Moves } from '../../player/moves';
 import { RelicLoadout } from '../../hub/relic_loadout';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
@@ -52,8 +61,8 @@ import { skinLabel } from '../zone_select/zone_select';
 
 export const QUIET_FRAMES_TO_RESUME = 2;
 const BUTTON_W = 150;
-const BUTTON_H = 18;
-const BUTTON_SEP = 3;
+const BUTTON_H = 16;
+const BUTTON_SEP = 2;
 const LAYOUT_SEP = 6;
 const BACKDROP = new Color(0.02, 0.03, 0.09, 0.62);
 const HEADER_ACTIVE = COLORS.gold;
@@ -62,11 +71,14 @@ const OPTION_W = 236;
 /** Under EXIT TO HUB? (tickets bank only when an act is cleared). */
 export const EXIT_CONFIRM_NOTE = 'THIS RUN ENDS HERE. TICKETS FROM THIS ACT ARE NOT BANKED.';
 export const MOVES_LINE = 'DOWN: ROLL   HOLD DOWN + JUMP: SPIN DASH   UP: LOOK';
+/** Shown under it only while the extra moves are on (Moves.extrasOn()). One line is wider than the screen. */
+export const EXTRA_MOVES_LINES: readonly string[] = ['JUMP TWICE AND HOLD: DROP DASH   HOLD UP + JUMP: CHARGE RUN', 'JUMP WITH A SHIELD: BOUNCE'];
 /** Under the list while RESTART is greyed out: dying (or the respawn is on its way)... */
 export const RESTART_HINT_DYING = 'WAIT FOR RESPAWN';
 /** ...or the act is being cleared. */
 export const RESTART_HINT_FINISHING = 'STAGE CLEAR';
 const RESTART_INDEX = 1;
+const RESTART_ACT_INDEX = 2;
 
 type Device = 'keyboard' | 'pad' | 'touch';
 const DEVICE_COLUMN: Record<Device, number> = { keyboard: 1, pad: 2, touch: 3 };
@@ -83,7 +95,7 @@ export interface OptionRow {
 }
 
 export const OPTION_ROWS: readonly OptionRow[] = [
-  { key: 'extraMoves', label: 'EXTRA MOVES', rankedOff: true, help: 'DROP DASH, CHARGE RUN AND SHIELD BOUNCE' },
+  { key: 'extraMoves', label: 'EXTRA MOVES', rankedOff: true, help: 'DROP DASH, CHARGE RUN, SHIELD BOUNCE, JUMP ASSIST' },
   { key: 'itemBoxes', label: 'ITEM BOXES', rankedOff: true, help: 'SHIELDS, SPEED SHOES AND INVINCIBILITY' },
   { key: 'screenShake', label: 'SCREEN SHAKE', rankedOff: false, help: 'SHAKE AND HIT-STOP ON BIG IMPACTS' },
   { key: 'speedEffects', label: 'SPEED EFFECTS', rankedOff: false, help: 'SPEED LINES AND THE AFTERIMAGE TRAIL' },
@@ -142,6 +154,7 @@ export class PauseMenu extends UiLayer {
     const items: MenuItem[] = [
       { label: 'RESUME', rect: new Rect2(), onSelect: () => this.requestResume() },
       { label: 'RESTART', rect: new Rect2(), onSelect: () => this.onRestart() },
+      { label: 'RESTART ACT', rect: new Rect2(), onSelect: () => this.onRestartAct() },
       { label: 'OPTIONS', rect: new Rect2(), onSelect: () => this.showOptions() },
       { label: 'EXIT TO HUB', rect: new Rect2(), onSelect: () => this.onExitHub() },
       { label: 'QUIT TO TITLE', rect: new Rect2(), onSelect: () => this.onQuit() },
@@ -301,6 +314,11 @@ export class PauseMenu extends UiLayer {
     this.leave(() => SceneRouter.restart());
   }
 
+  private onRestartAct(): void {
+    if (!this.canRestart()) return;
+    this.leave(() => SceneRouter.restartAct());
+  }
+
   /** RESTART is offered only while the level plays (any scene without a LevelRoot: always). */
   canRestart(): boolean {
     const level = LevelRoot.find(null);
@@ -312,16 +330,18 @@ export class PauseMenu extends UiLayer {
     return this.restartText;
   }
 
-  /** Greys RESTART out (never hides it) while the level isn't playing. */
+  /** Greys RESTART and RESTART ACT out (never hides them) while the level isn't playing. */
   private refreshRestart(relayout = true): void {
     const item = this.main.items[RESTART_INDEX]!;
+    const actItem = this.main.items[RESTART_ACT_INDEX]!;
     const can = this.canRestart();
     const phase = LevelRoot.find(null)?.phase();
     const text = can ? '' : phase === 'finishing' || phase === 'leaving' ? RESTART_HINT_FINISHING : RESTART_HINT_DYING;
-    if (item.enabled === can && text === this.restartText) return;
+    if (item.enabled === can && actItem.enabled === can && text === this.restartText) return;
     item.enabled = can;
+    actItem.enabled = can;
     this.restartText = text;
-    if (!can && this.main.focus === RESTART_INDEX) this.main.focus = this.main.firstUsable();
+    if (!can && (this.main.focus === RESTART_INDEX || this.main.focus === RESTART_ACT_INDEX)) this.main.focus = this.main.firstUsable();
     if (relayout && this.page === 'main') this.layout();
   }
 
@@ -366,7 +386,7 @@ export class PauseMenu extends UiLayer {
     }
     this.page = 'main';
     this.layout();
-    this.main.reset(3);
+    this.main.reset(4);
     Audio.playSfx('menu_select');
   }
 
@@ -379,7 +399,7 @@ export class PauseMenu extends UiLayer {
   private showMain(): void {
     this.page = 'main';
     this.layout();
-    this.main.reset(2);
+    this.main.reset(3);
     Audio.playSfx('menu_select');
   }
 
@@ -425,6 +445,16 @@ export class PauseMenu extends UiLayer {
     ];
   }
 
+  /** The moves lines under the controls table (the second only with the extra moves on). */
+  movesLines(): string[] {
+    return this.extraMoves ? [MOVES_LINE, ...EXTRA_MOVES_LINES] : [MOVES_LINE];
+  }
+
+  /** @internal Tests: the controls panel and the title line of the open page. */
+  layoutBounds(): { top: number; bottom: number; left: number; right: number } {
+    return { top: this.titleY, bottom: this.controls.bottom, left: this.controls.x, right: this.controls.right };
+  }
+
   /** The device column to highlight: the one the player used last. */
   activeColumn(): number {
     const device: Device = Display.isTouch ? 'touch' : Input.lastDevice;
@@ -437,6 +467,8 @@ export class PauseMenu extends UiLayer {
   private relicY = 0;
   private hintY = 0;
   private controls = new Rect2();
+  private extraMoves = false;
+  private controlsHeader = true;
   private columnX: number[] = [];
 
   /** Places the items for the current page (centred vertically, like the VBox). */
@@ -476,30 +508,60 @@ export class PauseMenu extends UiLayer {
       return;
     }
     const n = this.main.items.length;
-    const listH = n * BUTTON_H + (n - 1) * BUTTON_SEP;
-    const relicH = this.relicText !== '' ? lineHeight('label') + LAYOUT_SEP : 0;
-    // With the Relic line under it too, the hint sits tight on it so the page still fits 240 px.
-    const hintH = this.restartText !== '' ? lineHeight('label') + (this.relicText !== '' ? 1 : LAYOUT_SEP) : 0;
-    // Controls panel: header, the 4-row grid, the moves line.
+    // Controls panel: header, the 4-row grid, the moves lines.
     const smallH = lineHeight('label');
     const gridH = 4 * smallH + 3;
-    const panelInner = lineHeight('header') + 3 + gridH + 3 + smallH;
+    this.extraMoves = Moves.extrasOn();
     const rows = this.controlsRows();
     const widths = [0, 1, 2, 3].map((c) => Math.max(...rows.map((r) => measure(r[c]!, 'label'))));
     const gridW = widths.reduce((a, b) => a + b, 0) + 10 * 3;
-    const innerW = Math.max(gridW, measure(MOVES_LINE, 'label'), measure('CONTROLS', 'header'));
-    const panelH = panelInner + PANEL_MARGIN_Y * 2;
+    const innerW = Math.max(gridW, measure(MOVES_LINE, 'label'), ...(this.extraMoves ? EXTRA_MOVES_LINES.map((l) => measure(l, 'label')) : []), measure('CONTROLS', 'header'));
     const panelW = innerW + PANEL_MARGIN_X * 2;
-    const total = titleH + LAYOUT_SEP + listH + LAYOUT_SEP + hintH + relicH + panelH;
+    // The page must fit 240 px with the Relic line, the restart hint and the
+    // extra moves all showing: tighten the gaps first, then drop the panel's header,
+    // then use shorter buttons.
+    let sep = LAYOUT_SEP;
+    let buttonSep = BUTTON_SEP;
+    let buttonH = BUTTON_H;
+    this.controlsHeader = true;
+    let listH = 0;
+    let relicH = 0;
+    let hintH = 0;
+    let panelH = 0;
+    let total = 0;
+    const measureAll = (): void => {
+      listH = n * buttonH + (n - 1) * buttonSep;
+      relicH = this.relicText !== '' ? smallH + sep : 0;
+      // With the Relic line under it too, the hint sits tight on it.
+      hintH = this.restartText !== '' ? smallH + (this.relicText !== '' ? 1 : sep) : 0;
+      const header = this.controlsHeader ? lineHeight('header') + 3 : 0;
+      const panelInner = header + gridH + 3 + smallH + (this.extraMoves ? EXTRA_MOVES_LINES.length * (smallH + 1) : 0);
+      panelH = panelInner + PANEL_MARGIN_Y * 2;
+      total = titleH + sep + listH + sep + hintH + relicH + panelH;
+    };
+    measureAll();
+    if (total > VIEW_H - 4) {
+      sep = 3;
+      buttonSep = 1;
+      measureAll();
+    }
+    if (total > VIEW_H - 4) {
+      this.controlsHeader = false;
+      measureAll();
+    }
+    if (total > VIEW_H - 4) {
+      buttonH = 14;
+      measureAll();
+    }
     let y = Math.floor((VIEW_H - total) / 2);
     this.titleY = y;
-    y += titleH + LAYOUT_SEP;
+    y += titleH + sep;
     const x = Math.floor((VIEW_W - BUTTON_W) / 2);
     for (const it of this.main.items) {
-      it.rect = new Rect2(x, y, BUTTON_W, BUTTON_H);
-      y += BUTTON_H + BUTTON_SEP;
+      it.rect = new Rect2(x, y, BUTTON_W, buttonH);
+      y += buttonH + buttonSep;
     }
-    y += LAYOUT_SEP - BUTTON_SEP;
+    y += sep - buttonSep;
     this.hintY = y;
     y += hintH;
     this.relicY = y;
@@ -535,8 +597,10 @@ export class PauseMenu extends UiLayer {
     const r = this.controls;
     drawPanel(g, r);
     let y = r.y + PANEL_MARGIN_Y;
-    drawText(g, 'CONTROLS', r.x, y, 'header', { align: 'center', width: r.w });
-    y += lineHeight('header') + 3;
+    if (this.controlsHeader) {
+      drawText(g, 'CONTROLS', r.x, y, 'header', { align: 'center', width: r.w });
+      y += lineHeight('header') + 3;
+    }
     const rows = this.controlsRows();
     const active = this.activeColumn();
     const smallH = lineHeight('label');
@@ -551,6 +615,9 @@ export class PauseMenu extends UiLayer {
     });
     y += 2;
     drawText(g, MOVES_LINE, r.x, y, 'label', { align: 'center', width: r.w, color: COLORS.soft });
+    if (this.extraMoves) {
+      EXTRA_MOVES_LINES.forEach((line, i) => drawText(g, line, r.x, y + (i + 1) * (smallH + 1), 'label', { align: 'center', width: r.w, color: COLORS.soft }));
+    }
   }
 
   private paintOptions(g: Gfx): void {

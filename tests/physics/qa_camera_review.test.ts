@@ -63,7 +63,7 @@ describe('QA camera review', () => {
         step(240);
         release('move_right');
         const ahead = cx() - p.globalPosition.x;
-        const expected = 64 * Math.min(Math.max((speed - 5) / 7, 0), 1);
+        const expected = 112 * Math.min(Math.max((speed - 2) / 7, 0), 1);
         c.near(cam.lookAhead, expected, 0.5, `look-ahead at ${speed}`);
         c.true(Math.abs(ahead - expected) <= 8.5, `camera centre within the deadzone of the look-ahead target at ${speed}`);
       }
@@ -91,7 +91,7 @@ describe('QA camera review', () => {
       press('move_left');
       for (let i = 0; i < 240; i++) track();
       release('move_left');
-      c.true(worstStep <= 17.01, `camera never moves more than 16 px/frame plus 1 px of rounding (${worstStep})`);
+      c.true(worstStep <= 21.01, `camera never moves more than 20 px/frame plus 1 px of rounding (${worstStep})`);
       c.true(worstEdge > 0, `Sproto stays fully on screen (${worstEdge})`);
     }),
   );
@@ -365,7 +365,7 @@ describe('QA camera review', () => {
           worstEdge = Math.min(worstEdge, sx - 7, 424 - 7 - sx);
         }
         c.true(worstEdge > 0, `on screen during the hold (${presses} presses)`);
-        c.true(maxStep <= 17.01, `catch-up capped (16 + 1 px rounding) (${maxStep})`);
+        c.true(maxStep <= 21.01, `catch-up capped (20 + 1 px rounding) (${maxStep})`);
       }
     }),
   );

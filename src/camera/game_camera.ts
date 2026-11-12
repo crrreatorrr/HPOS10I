@@ -2,8 +2,12 @@
 // group `player` automatically.
 //
 // - Horizontal: a narrow deadzone around the screen centre; outside it the
-//   camera catches up, capped per frame. A look-ahead shifts the view in the
-//   direction of speed above about top speed, eased in and out.
+//   camera catches up, capped per frame (20 px, above the 16 px/frame speed
+//   cap). A look-ahead shifts the view in the direction of speed: from 2
+//   px/frame up to 112 px at 9 px/frame and above, eased in and out. The
+//   steady lead (camera centre minus Sproto) is the look-ahead less half the
+//   deadzone: 56 px at top running speed (6), 104 px from 9, which leaves
+//   0.74 s of warning at 6 px/frame and 0.44 s at 12 in the 424 px view.
 // - Vertical: on the ground it follows with a cap that is low at walking
 //   speed and high at high ground speed; in the air it holds still while
 //   Sproto is inside a window around the focus.
@@ -35,11 +39,11 @@ function smoothstep(t: number): number {
 
 export class GameCamera extends Node2D implements ViewProvider {
   deadzoneWidth = 16;
-  maxSpeedX = 16;
-  lookAheadMax = 64;
-  lookAheadStartSpeed = 5;
-  lookAheadFullSpeed = 12;
-  lookAheadSmoothTime = 0.35;
+  maxSpeedX = 20;
+  lookAheadMax = 112;
+  lookAheadStartSpeed = 2;
+  lookAheadFullSpeed = 9;
+  lookAheadSmoothTime = 0.3;
   lookAheadMaxRate = 4;
   verticalOffset = 16;
   groundFollowSlow = 6;

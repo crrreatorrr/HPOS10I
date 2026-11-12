@@ -507,8 +507,10 @@ export class Player extends Node2D {
     // 2. Slope factor.
     this.applySlopeFactor(p, dt);
 
-    // 3. Jump (no movement on the jump frame).
-    if (jumpPressed && this.hasJumpClearance()) {
+    // 3. Jump (no movement on the jump frame). With the jump assist, a press
+    //    from just before the landing counts on the first grounded tick.
+    const buffered = this.moves.takeBufferedJump();
+    if ((jumpPressed || buffered) && this.hasJumpClearance()) {
       this.jump(p);
       return;
     }
@@ -622,6 +624,17 @@ export class Player extends Node2D {
     Audio.playSfx('jump');
   }
 
+  /** A jump a few frames after the floor was lost: keeps the horizontal speed, full jump force straight up. */
+  private lateJump(p: PhysicsConstants): void {
+    this._vel = new Vec2(this._vel.x, -speed(p.jump_force));
+    this._airLocked = this._ball;
+    this.setBall(true);
+    this._jumped = true;
+    this.changeState('jump');
+    this.moves.onJump();
+    Audio.playSfx('jump');
+  }
+
   /** Ground and air top speed (Nobu's 1.05 unranked; speed shoes double it). */
   topSpeed(p: PhysicsConstants): number {
     return speed(p.top_speed) * RelicLoadout.resolve().speed_mult * this.moves.topSpeedMult();
@@ -696,6 +709,7 @@ export class Player extends Node2D {
       if (this._gsp !== 0) this.groundWallCheck(p);
       if (!this.groundFloorCheck()) {
         this.leaveGround();
+        this.moves.onFloorLost();
         const remaining = steps - i - 1;
         if (remaining > 0) this.moveInAir(p, this._vel.mul((dt * remaining) / steps));
         return;
@@ -812,7 +826,10 @@ export class Player extends Node2D {
 
   /** Keeps a standing-still player (spin dash) on the ground. */
   private stickToGround(): void {
-    if (!this.groundFloorCheck(SNAP_MAX)) this.leaveGround();
+    if (!this.groundFloorCheck(SNAP_MAX)) {
+      this.leaveGround();
+      this.moves.onFloorLost();
+    }
     const a = degToRad(this.groundAngle);
     this._vel = new Vec2(Math.cos(a), -Math.sin(a)).mul(this._gsp);
   }
@@ -842,8 +859,12 @@ export class Player extends Node2D {
   private airStep(p: PhysicsConstants, dt: number): void {
     const dir = this._state === 'hurt' ? 0 : this.inputDir();
 
-    // 0. Extra moves (drop dash, air dash, shield actions) on a fresh jump press.
-    if (this._state !== 'hurt' && Input.isActionJustPressed('jump')) this.moves.airJumpPressed();
+    // 0. Extra moves on a fresh jump press: a late jump just after running off
+    //    a ledge (jump assist), else the drop dash, shield bounce or early jump.
+    if (this._state !== 'hurt' && Input.isActionJustPressed('jump')) {
+      if (!this._jumped && this.moves.takeCoyoteJump()) this.lateJump(p);
+      else this.moves.airJumpPressed();
+    }
 
     // 1. Variable jump height (real jumps only).
     const release = speed(p.jump_release_speed);

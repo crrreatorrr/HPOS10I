@@ -1,7 +1,18 @@
 // Zone select: the 4 zones x 2 acts from ZoneRegistry, each act with its
-// emerald slot (filled once won). Acts whose scene isn't built yet, and every
-// act of an unreleased zone (ZoneRegistry.isReleased), are greyed out and
-// skipped by navigation. Choosing an act calls SceneRouter.startZone(); BACK
+// emerald slot (filled once won), and a BOSS button per zone. Acts whose
+// scene isn't built yet, and every act of an unreleased zone
+// (ZoneRegistry.isReleased), are greyed out and skipped by navigation.
+//
+// Acts unlock by progress: the first act is always open, and every other act
+// opens once the act before it (the last act of the zone before, for an
+// Act 1) has been cleared on this save. That is for new saves: a save that
+// existed before this rule keeps every act open, as it always had them. BOSS opens once the zone's last act is cleared; it starts the boss
+// arena (stage acts + 1) for practice, and a boss beaten before banks no hub
+// Tickets (HubClient). The line under the rows shows the focused act's saved
+// best time ("m:ss.cc", or "--:--") and best rank, and each act button
+// carries its best rank letter in its top-right corner once it has one.
+//
+// Choosing an act calls SceneRouter.startZone(); BACK
 // (P, Esc, the gamepad B or the button) returns to the title. Arrows / WASD / D-pad /
 // stick move (wrapping), Enter, Space, Start or any jump button chooses
 // (except the gamepad's B, which is cancel here: back to the title); mouse
@@ -27,22 +38,27 @@ import { Input, KEY_BINDINGS } from '../../runtime/input';
 import { posmod } from '../../runtime/math';
 import { Node, type InputEventLike } from '../../runtime/node';
 import { Rect2, Vec2 } from '../../runtime/vec2';
+import { formatActTime } from '../common/act_time';
 import { InputHints } from '../common/input_hints';
 import { MenuBackdrop } from '../common/menu_backdrop';
 import { MenuList, type Direction, type MenuItem } from '../common/menu';
-import { COLORS, drawCentered, drawPanel, drawText, UiLayer, PANEL_MARGIN_X, PANEL_MARGIN_Y } from '../common/theme';
+import { COLORS, drawButton, drawCentered, drawPanel, drawText, UiLayer, PANEL_MARGIN_X, PANEL_MARGIN_Y } from '../common/theme';
 import { Display } from '../display';
 import { EmeraldIcon } from '../emerald/emerald_icon';
 
 export const INPUT_GRACE = 0.25;
 const NAME_WIDTH = 132;
-const BUTTON_W = 58;
+const BUTTON_W = 50;
+const BOSS_W = 46;
 const BUTTON_H = 22;
 const SLOT = 18;
 const ROW_SEP = 4;
 const COL_SEP = 4;
 const BOX_SEP = 6;
-const ROW_W = NAME_WIDTH + (COL_SEP + BUTTON_W + COL_SEP + SLOT) * 2;
+const ROW_W = NAME_WIDTH + (COL_SEP + BUTTON_W + COL_SEP + SLOT) * 2 + COL_SEP + BOSS_W;
+const INFO_H = 9;
+export const UNLOCK_HINT = 'CLEAR AN ACT TO OPEN THE NEXT ONE';
+export const BOSS_REPLAY_NOTE = 'BOSS REPLAY: NO HUB TICKETS';
 const SKIN_W = BUTTON_W * 2 + COL_SEP * 2 + SLOT;
 /** Space between the title and the bottom hint where the panel is centred (zone_select.tscn). */
 const AREA_TOP = 34;
@@ -62,8 +78,40 @@ export function hintKeys(): string {
   return back !== '' ? `${start}: START     ${back}: BACK TO TITLE` : `${start}: START`;
 }
 export const HINT_TOUCH = 'TAP AN ACT TO START     TAP BACK FOR THE TITLE';
+
+/**
+ * Acts unlock by progress: the very first act is open; any other needs the act
+ * before it cleared (across zones, bosses not counted), or to have been
+ * cleared itself already. A save from before the rule (progress v0 or v1,
+ * when every act could be picked) keeps every act open.
+ */
+export function isActUnlocked(zoneId: string, act: number): boolean {
+  const zones = ZoneRegistry.allZones(false);
+  const zi = zones.findIndex((z) => z.id === zoneId);
+  if (zi < 0 || HubClient.allActsUnlocked()) return true;
+  if (HubClient.isCleared(zoneId, act)) return true;
+  if (act > 1) return HubClient.isCleared(zoneId, act - 1);
+  if (zi === 0) return true;
+  const before = zones[zi - 1]!;
+  return HubClient.isCleared(before.id, before.acts.length);
+}
+
+/** The boss arena opens from the zone select once the zone's last act is cleared. */
+export function isBossUnlocked(zoneId: string): boolean {
+  const zone = ZoneRegistry.getZone(zoneId);
+  return !!zone && zone.boss !== '' && HubClient.isCleared(zoneId, zone.acts.length);
+}
 /** On a gamepad B is a jump button too, but here it goes back (ui_cancel wins). */
 export const HINT_PAD = `${InputHints.padKeys('ui_accept')}: START     ${InputHints.padKeys('ui_cancel')}: BACK TO TITLE`;
+
+export interface BossEntry {
+  zoneId: string;
+  /** The boss stage (acts + 1). */
+  stage: number;
+  open: boolean;
+  /** Index in the menu, or -1 when locked. */
+  item: number;
+}
 
 export interface ActEntry {
   zoneId: string;
@@ -99,7 +147,8 @@ class ZoneSelectLayer extends UiLayer {
 export class ZoneSelect extends Node {
   readonly menu: MenuList;
   readonly acts: ActEntry[] = [];
-  /** Rows of menu indices (-1 where an act can't be played), then the skin row, then [Back]. */
+  readonly bosses: BossEntry[] = [];
+  /** Rows of menu indices (-1 where an act or boss can't be played), then the skin row, then [Back]. */
   readonly grid: number[][] = [];
   readonly backIndex: number;
   readonly hubIndex: number;
@@ -107,6 +156,7 @@ export class ZoneSelect extends Node {
   private readonly layer: ZoneSelectLayer;
   private readonly zones: { zone: Zone; open: boolean; y: number }[] = [];
   private panel = new Rect2();
+  private infoY = 0;
   private busy = false;
 
   constructor() {
@@ -123,7 +173,7 @@ export class ZoneSelect extends Node {
     const zones = ZoneRegistry.allZones(false);
     const showSkin = RelicLoadout.resolve().body_choices.length >= 2;
     const rows = zones.length;
-    const contentH = rows * BUTTON_H + (rows - 1) * ROW_SEP + (showSkin ? ROW_SEP + BUTTON_H : 0) + BOX_SEP + BUTTON_H;
+    const contentH = rows * BUTTON_H + (rows - 1) * ROW_SEP + ROW_SEP + INFO_H + (showSkin ? ROW_SEP + BUTTON_H : 0) + BOX_SEP + BUTTON_H;
     const panelW = ROW_W + PANEL_MARGIN_X * 2;
     const panelH = contentH + PANEL_MARGIN_Y * 2;
     this.panel = new Rect2(Math.floor((424 - panelW) / 2), AREA_TOP + Math.floor((AREA_BOTTOM - AREA_TOP - panelH) / 2), panelW, panelH);
@@ -136,7 +186,7 @@ export class ZoneSelect extends Node {
       let x = left + NAME_WIDTH + COL_SEP;
       for (let act = 1; act <= zone.acts.length; act++) {
         const path = ZoneRegistry.stagePath(zone.id, act);
-        const open = released && path !== '' && Scenes.exists(path);
+        const open = released && path !== '' && Scenes.exists(path) && isActUnlocked(zone.id, act);
         anyOpen = anyOpen || open;
         const index = items.length;
         items.push({
@@ -145,6 +195,11 @@ export class ZoneSelect extends Node {
           enabled: open,
           onSelect: () => this.choose(zone.id, act),
           data: { zoneId: zone.id, act },
+          draw: (g, item, state) => {
+            drawButton(g, item.rect, `ACT ${act}`, state);
+            const rank = HubClient.bestRank(zone.id, act);
+            if (rank) drawText(g, rank, item.rect.right - 8, item.rect.y + 1, 'label', { color: COLORS.gold });
+          },
         });
         row.push(open ? index : -1);
         x += BUTTON_W + COL_SEP;
@@ -154,10 +209,26 @@ export class ZoneSelect extends Node {
         this.acts.push({ zoneId: zone.id, act, open, item: open ? index : -1, slot });
         x += SLOT + COL_SEP;
       }
+      if (zone.boss !== '') {
+        const stage = zone.acts.length + 1;
+        const bossOpen = released && Scenes.exists(zone.boss) && isBossUnlocked(zone.id);
+        const index = items.length;
+        items.push({
+          label: 'BOSS',
+          rect: new Rect2(x, y, BOSS_W, BUTTON_H),
+          enabled: bossOpen,
+          onSelect: () => this.choose(zone.id, stage),
+          data: { zoneId: zone.id, act: stage, boss: true },
+        });
+        row.push(bossOpen ? index : -1);
+        this.bosses.push({ zoneId: zone.id, stage, open: bossOpen, item: bossOpen ? index : -1 });
+      }
       this.zones.push({ zone, open: anyOpen, y });
       this.grid.push(row);
       y += BUTTON_H + ROW_SEP;
     }
+    this.infoY = y;
+    y += INFO_H + ROW_SEP;
     if (showSkin) {
       this.skinIndex = items.length;
       items.push({
@@ -243,6 +314,14 @@ export class ZoneSelect extends Node {
     return Input.lastDevice === 'pad' ? HINT_PAD : hintKeys();
   }
 
+  /** The line under the zone rows: the focused act's best time, the boss note, or how acts unlock. */
+  infoText(): string {
+    const d = this.menu.focused?.data as { zoneId: string; act: number; boss?: boolean } | undefined;
+    if (d?.boss) return HubClient.isCleared(d.zoneId, d.act) ? BOSS_REPLAY_NOTE : 'BOSS ARENA';
+    if (d) return `ACT ${d.act}   BEST ${formatActTime(HubClient.bestTime(d.zoneId, d.act))}   RANK ${HubClient.bestRank(d.zoneId, d.act) ?? '-'}`;
+    return this.acts.some((a) => !a.open) ? UNLOCK_HINT : '';
+  }
+
   private cycleSkin(step: number, sound = true): boolean {
     if (!RelicLoadout.cycleBody(step)) return false;
     if (sound) Audio.playSfx('menu_move');
@@ -311,6 +390,7 @@ export class ZoneSelect extends Node {
       drawText(g, RelicLoadout.resolve().ranked ? 'RELIC  RANKED' : 'RELIC', left, ty, 'hudLabel');
     }
     this.menu.draw(g);
+    drawText(g, this.infoText(), this.panel.x, this.infoY, 'outline', { align: 'center', width: this.panel.w, color: COLORS.soft });
     const hub = this.menu.items[this.hubIndex]!.rect;
     const count = `${Emeralds.NAME.toUpperCase()}  ${GameState.emeraldCount()} / ${Emeralds.total()}`;
     drawText(g, count, hub.right + 10, hub.y + Math.floor((BUTTON_H - 11) / 2) + 1, 'hudValue', {

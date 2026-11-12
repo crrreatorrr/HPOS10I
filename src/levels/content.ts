@@ -2,7 +2,7 @@
 // when it starts:
 //   - item boxes, placed by rule along the route (about one every five
 //     screens, alternating the high and the low route), skipped when the
-//     player turned them off or in Ranked;
+//     player turned them off or in Ranked; Zone 4 gets no speed shoes;
 //   - the classic 10:00 time limit per act (time over costs a life);
 //   - impact feel: a short hit-stop and camera shake when an enemy pops or
 //     Sproto is hit (Options: screen shake).
@@ -31,10 +31,25 @@ export const TIME_LIMIT = 600;
 const BOX_SPACING = 424 * 5;
 /** Nothing else this close to a box (px), except tickets. */
 const CLEAR_RADIUS = 56;
+/** No pit (a column with no floor under it at all) this close to a box, either way: about one bounce at running speed. */
+const PIT_CLEAR = 384;
+/** No up-slope this far ahead of a box (to the right, the way acts run). */
+const CLIMB_CLEAR = 512;
 const FLOOR_MASK = Layers.TERRAIN_SOLID | Layers.TERRAIN_PATH_A;
 /** Offsets tried around each target x, nearest first (up to 1.5 screens either way). */
 const SEARCH_OFFSETS: readonly number[] = [0, ...Array.from({ length: 20 }, (_, i) => [(i + 1) * 32, -(i + 1) * 32]).flat()];
-const BOX_CONTENTS: readonly BoxContent[] = ['shield', 'speed_shoes', 'shield', 'invincibility', 'speed_shoes', 'shield', 'life'];
+type BoxSlot = BoxContent | null;
+const BOX_CONTENTS: readonly BoxSlot[] = ['shield', 'speed_shoes', 'shield', 'invincibility', 'speed_shoes', 'shield', 'life'];
+/**
+ * Zone 4 is timed jumps over pits, where doubled speed and acceleration throw
+ * Sproto off the platforms: its speed-shoes slots stay empty (no box there).
+ */
+const BOX_CONTENTS_Z4: readonly BoxSlot[] = BOX_CONTENTS.map((c) => (c === 'speed_shoes' ? null : c));
+
+/** The box contents of a zone, in placement order (null = that spot gets no box). */
+export function boxContentsFor(zoneId: string): readonly BoxSlot[] {
+  return zoneId === 'z4_neon_rush_remix' ? BOX_CONTENTS_Z4 : BOX_CONTENTS;
+}
 
 /** Ends the act with a time over at 10:00, like the classic games. */
 class TimeLimit extends Node {
@@ -81,20 +96,32 @@ function floorNear(x: number, y: number): number | null {
 
 /**
  * True when the ground stays level around x: flat under the box and its
- * approach, and no slope foot or downhill bottom within a few tiles, so a
- * box never stops a runner coming down a hill or sits where a jump over it
- * lands on an up-slope.
+ * approach, no slope foot or downhill bottom within a few tiles, no climb
+ * within 512 px ahead, and no pit within a bounce, so a box never stops a
+ * runner coming down a hill, never sits where a jump over it lands on an
+ * up-slope, never leaves a player who rolled through it rolling into a
+ * climb, and never bounces a player who lands on it into a pit.
  */
-function levelGround(x: number, y: number): boolean {
-  for (let dx = -256; dx <= 256; dx += 16) {
+function levelGround(x: number, y: number, bottom: number): boolean {
+  for (let dx = -PIT_CLEAR; dx <= PIT_CLEAR; dx += 16) {
     const f = floorNear(x + dx, y);
     if (f === null) {
-      // A gap (pit) close by is not a good spot either.
+      // A gap or a ledge close by is not a good spot either.
       if (Math.abs(dx) <= 128) return false;
+      // Further out a lower floor is fine, a pit is not: landing on a box
+      // bounces Sproto, and the bounce must come down on floor.
+      if (!tree.physics.intersectRay(new Vec2(x + dx, y - 40), new Vec2(x + dx, bottom), FLOOR_MASK | Layers.TERRAIN_TOP_ONLY)) return false;
       continue;
     }
+    if (Math.abs(dx) > 256) continue;
     const limit = Math.abs(dx) <= 96 ? 1 : 8;
     if (Math.abs(f - y) > limit) return false;
+  }
+  // No climb within a roll's reach ahead: a player who rolls through the box
+  // must not meet an up-slope before he is back on his feet.
+  for (let dx = 256 + 16; dx <= CLIMB_CLEAR; dx += 16) {
+    const f = floorNear(x + dx, y);
+    if (f !== null && y - f > 8) return false;
   }
   return true;
 }
@@ -127,6 +154,8 @@ export function placeItemBoxes(root: LevelRoot): number {
   const blockers = root.findChildren<Node2D>((n) => n instanceof Node2D && n.parent !== null && !(n instanceof LevelTicket) && isLevelThing(n));
   const parent = root.getNodeOrNull('Objects') ?? root;
   const spans = keepOutSpans(root);
+  const contents = boxContentsFor(root.currentZoneId());
+  let slot = 0;
   let placed = 0;
   let index = 0;
   for (let x = start + BOX_SPACING * 0.6; x < end - 424; x += BOX_SPACING, index++) {
@@ -134,19 +163,21 @@ export function placeItemBoxes(root: LevelRoot): number {
     for (const dx of SEARCH_OFFSETS) {
       const cx = Math.round((x + dx) / 16) * 16;
       if (spans.some(([a, b]) => cx >= a && cx <= b)) continue;
-      const floors = floorsAt(cx, bounds.y, bounds.bottom).filter((y) => levelGround(cx, y));
+      const floors = floorsAt(cx, bounds.y, bounds.bottom).filter((y) => levelGround(cx, y, bounds.bottom));
       if (floors.length === 0) continue;
       // Alternate: even boxes on the highest route, odd ones on the lowest.
       const ordered = index % 2 === 0 ? floors : [...floors].reverse();
       for (const y of ordered) {
         const at = new Vec2(cx, y);
         if (blockers.some((b) => b.globalPosition.distanceTo(at) < CLEAR_RADIUS)) continue;
+        const content = contents[slot++ % contents.length]!;
+        done = true;
+        if (content === null) break;
         const box = new ItemBox(`ItemBox${placed + 1}`);
-        box.content = BOX_CONTENTS[placed % BOX_CONTENTS.length]!;
+        box.content = content;
         box.position = parent instanceof Node2D ? parent.toLocal(at) : at;
         parent.addChild(box);
         placed++;
-        done = true;
         break;
       }
       if (done) break;

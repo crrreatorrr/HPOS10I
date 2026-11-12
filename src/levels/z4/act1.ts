@@ -97,8 +97,8 @@ export function buildAct1(): LevelBuilder {
   b.enemy('spike', new Vec2(d1.x0 + 1500, d1.low), { patrol_distance: 48 });
   b.enemy('diver', new Vec2(d1.x0 + 1700, d1.high - 130));
   b.setPiece(KEYS.CEILING_RAM, new Vec2(d1.x0 + 1184, d1.mid + 12), {
-    width: 48, height: 20, travel: 48, first_delay: 36, telegraph_seconds: 1,
-  }); // under the middle deck; the two upper paths bypass it
+    width: 48, height: 20, travel: 48, wake_radius: 160, dwell_frames: 90, telegraph_seconds: 1,
+  }); // under the middle deck; the two upper paths bypass it. It flashes while the player is near and drops only on one who stays under it for 1.5 s.
   b.enemy('dropper', new Vec2(d1.x0 + 1800, d1.mid + 30));
   b.enemy('pellet', new Vec2(d1.x0 + 2100, d1.low), left);
   b.enemy('floater', new Vec2(d1.x0 + 2300, d1.mid - 40));

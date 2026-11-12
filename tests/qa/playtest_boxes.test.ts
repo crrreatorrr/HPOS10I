@@ -17,9 +17,9 @@ import { ItemBox } from '../../src/levels/objects/item_box';
 import { registerEnemies } from '../../src/levels/registry_enemies';
 import { registerObjects } from '../../src/levels/registry_objects';
 import { registerCoreTypes } from '../../src/levels/scenes';
-import { findLoops, loadLevelData, prepare, zoneActs } from '../../tools/qa/level_lint';
+import { findLoops, loadLevelData, prepare } from '../../tools/qa/level_lint';
 import { playAct, summaryLine, type BotResult } from '../../tools/qa/playtest_bot';
-import { finishedInTime, log, orderProblems, playAll, report, type ActRuns } from './bot_runs';
+import { botActs, finishedInTime, log, orderProblems, playAll, report, type ActRuns } from './bot_runs';
 
 registerCoreTypes();
 registerObjects();
@@ -33,7 +33,7 @@ const misplaced: string[] = [];
 describe('item boxes never block the route', () => {
   beforeAll(async () => {
     Settings.reset();
-    for (const act of zoneActs()) {
+    for (const act of botActs()) {
       SceneRouter.zoneId = act.zone;
       SceneRouter.stage = act.stage;
       const root = await prepare(loadLevelData(act.file));

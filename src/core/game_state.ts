@@ -9,6 +9,8 @@ import { RelicLoadout } from '../hub/relic_loadout';
 
 export const START_LIVES = 3;
 export const TICKETS_PER_LIFE = 100;
+/** Score for the 1st, 2nd, 3rd... enemy popped without touching the ground; the last value repeats. */
+export const CHAIN_SCORES: readonly number[] = [100, 200, 400, 800, 1000];
 
 class GameStateStore {
   readonly ticketsChanged = new Signal<[number]>();
@@ -25,9 +27,22 @@ class GameStateStore {
   lives = START_LIVES;
   zoneId = '';
   act = 1;
-  /** Seconds, counted on physics ticks (so it can't drift), stops while paused. */
+  /**
+   * The act clock the HUD shows: seconds, counted on physics ticks (so it
+   * can't drift), stops while paused. A death or a checkpoint restart rewinds
+   * it to the checkpoint's time.
+   */
   levelTime = 0;
   timerRunning = false;
+  /**
+   * The honest clock of this attempt: every tick the act clock ran since
+   * startLevel(), never rewound. Best times and ranks use it.
+   */
+  attemptTime = 0;
+  /** False once this attempt had a death or a checkpoint restart. */
+  cleanRun = true;
+  /** Enemies popped since Sproto last touched the ground (the chain score). */
+  chain = 0;
   checkpointPosition: Vec2 | null = null;
   checkpointTime = 0;
   /**
@@ -43,7 +58,21 @@ class GameStateStore {
 
   /** Called by the game once per physics tick. */
   tick(delta: number): void {
-    if (this.timerRunning) this.levelTime += delta;
+    if (!this.timerRunning) return;
+    this.levelTime += delta;
+    this.attemptTime += delta;
+  }
+
+  /** The score for the next enemy of an air chain: 100, 200, 400, 800, then 1000 each. Counts it. */
+  chainScore(): number {
+    const score = CHAIN_SCORES[Math.min(this.chain, CHAIN_SCORES.length - 1)]!;
+    this.chain += 1;
+    return score;
+  }
+
+  /** Sproto touched the ground: the next pop starts a new chain. */
+  resetChain(): void {
+    this.chain = 0;
   }
 
   addTickets(amount: number): void {
@@ -92,15 +121,22 @@ class GameStateStore {
     this.emeraldJustWon = false;
     this.checkpointPosition = null;
     this.checkpointTime = 0;
+    this.attemptTime = 0;
+    this.cleanRun = true;
     this.resetLevelCounters();
     this.levelStarted.emit(zoneId, act);
     this.grantGoldenLife();
   }
 
-  /** Respawn after a death: keeps the checkpoint. */
+  /**
+   * Respawn after a death, or the pause menu's RESTART: keeps the checkpoint.
+   * The HUD clock goes back to the checkpoint's time; the attempt clock keeps
+   * counting and the run is no longer clean.
+   */
   restartFromCheckpoint(): void {
     this.resetLevelCounters();
     this.levelTime = this.checkpointTime;
+    this.cleanRun = false;
   }
 
   /** Goal reached: stops the timer and wins the act's emerald (before levelCompleted). */
@@ -142,6 +178,8 @@ class GameStateStore {
     this.act = 1;
     this.checkpointPosition = null;
     this.emeraldJustWon = false;
+    this.attemptTime = 0;
+    this.cleanRun = true;
     this.resetLevelCounters();
     this.scoreChanged.emit(this.score);
     this.livesChanged.emit(this.lives);
@@ -160,6 +198,7 @@ class GameStateStore {
   private resetLevelCounters(): void {
     this.tickets = 0;
     this.nextTicketLife = TICKETS_PER_LIFE;
+    this.chain = 0;
     this.levelTime = 0;
     this.timerRunning = true;
     this.ticketsChanged.emit(this.tickets);

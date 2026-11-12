@@ -107,9 +107,9 @@ area (mask bit 5) and call the player API below.
 
 | Name | What other code may use |
 |---|---|
-| `GameState` | **Signals:** `ticketsChanged`, `scoreChanged`, `livesChanged`, `checkpointReached`, `levelCompleted`, `levelStarted(zone, act)` (fresh attempts only), `emeraldWon(zone, act)`. **Fields:** `tickets`, `score`, `lives`, `levelTime` (seconds, physics-ticked), `timerRunning`, `checkpointPosition`, `zoneId`, `act`, `emeralds`, `emeraldJustWon`. **Methods:** `addTickets`, `loseTickets`, `addScore`, `addLife`, `setCheckpoint`, `completeLevel`, `hasEmerald`, `emeraldCount`. `startLevel`, `restartFromCheckpoint`, `resetGame` and `loseLife` belong to SceneRouter. |
+| `GameState` | **Signals:** `ticketsChanged`, `scoreChanged`, `livesChanged`, `checkpointReached`, `levelCompleted`, `levelStarted(zone, act)` (fresh attempts only), `emeraldWon(zone, act)`. **Fields:** `tickets`, `score`, `lives`, `levelTime` (the HUD's act clock: seconds, physics-ticked, rewound to the checkpoint's time by a death or RESTART), `attemptTime` (the honest clock since `startLevel`, never rewound; best times and ranks use it), `cleanRun` (false after a death or a checkpoint restart), `chain` (enemies popped since Sproto last touched the ground), `timerRunning`, `checkpointPosition`, `zoneId`, `act`, `emeralds`, `emeraldJustWon`. **Methods:** `addTickets`, `loseTickets`, `addScore`, `chainScore` (100, 200, 400, 800, then 1000 per enemy of an air chain), `resetChain`, `addLife`, `setCheckpoint`, `completeLevel`, `hasEmerald`, `emeraldCount`. `startLevel`, `restartFromCheckpoint`, `resetGame` and `loseLife` belong to SceneRouter. |
 | `Emeralds` | One per act of every zone (8). `Emeralds.NAME` is the display name: a director-approved exception to the originality guardrails, allowlisted for one line of `src/core/emeralds.ts` only, so always show it through `Emeralds.NAME` and never write the word elsewhere. `icon(small)`, `total()`, `allKeys()`, `key()`, `isEmeraldAct()`. |
-| `SceneRouter` | `goTitle()`, `goZoneSelect()`, `startZone(id, stage)`, `nextStage()`, `respawn()` (takes a life, except in free scenes), `restart()`, `openScene(id)`, `inGameplay()`, `currentZone()`; `zoneId`, `stage` (1-based; the boss is acts + 1), `freeScene`, `currentId`; `stageStarted`, `sceneChanged`. Only the first scene change per frame takes effect. |
+| `SceneRouter` | `goTitle()`, `goZoneSelect()`, `startZone(id, stage)`, `nextStage()`, `respawn()` (takes a life, except in free scenes), `restart()` (from the checkpoint), `restartAct()` (the whole stage as a fresh attempt, lives and score kept), `retryStage()` / `canRetryStage()` (after a game over: a fresh game at the same stage), `openScene(id)`, `inGameplay()`, `currentZone()`; `zoneId`, `stage` (1-based; the boss is acts + 1), `freeScene`, `currentId`; `stageStarted`, `sceneChanged`. Only the first scene change per frame takes effect. |
 | `Scenes` | The scene registry: `register(id, factory)` (factories may be async), `exists`, `ids`. Menu ids: `main` (dev menu), `title`, `zone_select`, `game_over`, `ending`. Stages: `level:<zone>/<act>`, `level:test_zone`, `boss:<id>`, playgrounds `playground:<name>`. |
 | `ZoneRegistry` | `allZones(includeTest)`, `getZone(id)`, `stagePath(id, stage)` (a scene id), `nextZoneId(id)`, `isReleased(id)`. Zone: `id`, `name`, `acts`, `boss`, `accessory`, `music`. |
 | `Tuning` | `physics: PhysicsConstants`; read it every tick. |
@@ -190,7 +190,10 @@ ticket scatter attach through `PlayerHooks` (`visuals_setup.ts`).
 Scattered tickets and placed tickets both call `GameState.addTickets(1)`,
 `Audio.playSfx('ticket')` and `Effects.ticketSparkle(at, parent)`.
 
-**Extra moves** (`moves.ts`): drop dash, charge run and shield bounce, with
+**Extra moves** (`moves.ts`): drop dash, charge run, shield bounce and the
+jump assist (a late jump up to 5 frames after the ground step loses the floor,
+an early jump buffered up to 6 frames before landing; on one air press the
+shield bounce comes first, then a held drop dash, then the buffered jump), with
 the player's option on and never in Ranked. With them off, the physics are
 exactly the classic model (docs/PHYSICS.md); the tests run that way.
 
@@ -265,11 +268,18 @@ viewRect()
   (`src/levels/builder/`).
 - Added to every act at runtime (`src/levels/content.ts`): item boxes along
   the route (off in Ranked and by option), the 10:00 time limit, impact feel.
+- Teaching prompts: a `PromptZone` (`hpos://objects/prompt_zone`; props
+  `prompt`, `width`, `height`, `on_entry`) calls `Prompts.show(key)`
+  (`src/core/prompts.ts`) when Sproto enters it (`on_entry`) or stands in it
+  under 1 px/frame for 60 frames. The HUD draws the line for 5 s, worded from
+  the bindings of the device in use (`src/ui/hud/prompt_line.ts`). Each key
+  shows once per run (cleared by `GameState.levelStarted`). Text only.
 - Backdrop: 4 parallax layers (scroll 0.1 / 0.3 / 0.6 / 0.9) from
   `assets/backgrounds/<zone>/1_far.png` … `4_near.png` when they exist,
   placeholder layers drawn in code otherwise.
 - Enemy base: `Enemy` (`enemies/enemy_base.ts`). On contact, if
-  `player.isAttacking()` the enemy dies (+100 score, `enemy_pop`) and calls
+  `player.isAttacking()` the enemy dies (`enemy_pop`; +100 score, or the
+  chain score when popped in the air: `GameState.chainScore()`) and calls
   `player.bounceOff(y)`; otherwise `player.hurt(position)`.
 
 ## Difficulty (`src/core/difficulty.ts`, `docs/LEVELS.md`)
@@ -337,14 +347,16 @@ Web Audio, unlocked by the first key press, click or tap.
 | Screen | |
 |---|---|
 | Title (`title`) | Shows the one-line disclaimer: "A free, non-commercial fan parody. All characters and art are original." |
-| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; Relic skin row; BACK and HUB (straight to the hub) |
-| HUD | Score, time, tickets, lives, power-ups |
-| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart, Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title, Send feedback |
+| Zone select (`zone_select`) | `ZoneRegistry` + `SceneRouter.startZone()`; 8 emerald slots; a BOSS button per zone; Relic skin row; BACK and HUB (straight to the hub). Acts unlock by progress on a new save (`isActUnlocked`: the act before it cleared, or already cleared itself); a save that existed before progress v2 keeps every act open (`unlock_all`); BOSS opens once the zone's last act is cleared (`isBossUnlocked`). One line shows the focused act's saved best time (`m:ss.cc`) and best rank, and each act button carries its best rank letter. The dev menu and `?zone=` are not gated. |
+| HUD | Score, time, tickets, lives, power-ups; speed lines; the teaching prompt line |
+| Pause menu | Global overlay, only while `SceneRouter.inGameplay()`: Resume, Restart (from the checkpoint, no life lost; the run is no longer clean), Restart Act (the whole stage as a fresh attempt from 0:00), Options, Exit to Hub (asks EXIT TO HUB? first), Quit to title, Send feedback. The controls panel lists the moves, the extra ones while they are on |
 | Feedback (`feedback.ts`) | N twice, or SEND FEEDBACK in the pause menu, opens the hub SDK's feedback window (a DOM overlay; `installFeedback`, hub repo `docs/feedback.md`). `Feedback.install(canvas)` runs at boot before any other key listener, so the game never sees N or the keys typed in the window. While it is open `tree.suspended` freezes everything and closing restores the exact state. Sends the scene id, mode, player position and state, level time, build id, crash-guard errors and breadcrumbs (act start, checkpoint, death, act clear, boss start/phase/defeat, scene changes). Signed-in hub players only; standalone shows a one-line toast |
 | Hub chrome (`hub_chrome.ts`) | DOM bar over the canvas's top-right on every screen: hub Ticket balance (`HubClient.ticketText()`, `--` with no session; display only) and RETURN TO HUB (straight away from menus, asks through the pause menu mid-run) |
 | Touch controls | Global overlay in touch mode; presses the normal actions |
-| Tally | Emits `finished`; the emerald moment; "+N Tickets sent to the hub" |
-| Game over, ending, dev menu (`main`), sound hint, rotate hint | |
+| Tally | Emits `finished`; the emerald moment; this clear's attempt time with the saved best or NEW BEST! (`HubClient.lastClear`) and its rank; the time bonus from the rank table (`src/core/rank.ts`: time / par, S 20,000, A 12,000, B 8,000, C 3,000, D 1,000, nothing past twice the par; a run that is not clean is capped at A; boss arenas have no par and keep a flat table); "+N Tickets sent to the hub", or "Hub Ticket limit reached" when the hub refused the earn for a cap |
+| Game over | RETRY STAGE (default: a fresh game at the act or boss arena where the last life went) and QUIT TO TITLE; one continue prompt in sandbox scenes |
+| Ending | The credits roll, with the saved best rank of all eight acts |
+| Dev menu (`main`), sound hint, rotate hint | |
 
 ## Hub (`src/hub`)
 
@@ -365,9 +377,18 @@ Web Audio, unlocked by the first key press, click or tap.
 - `npm run e2e:hub` checks the web build against a running hub server (the hub
   repo's `server/docker-compose.yml`): ticket redeem, earn once per attempt,
   reloads, the Relic, the board, outbox recovery and Exit to Hub.
+- A boss arena (stage acts + 1) banks its tickets the first time it is beaten
+  on this save. A boss already in the save's `cleared` list is a replay and
+  banks nothing, however it was started.
+- A game over's RETRY STAGE and the pause menu's RESTART ACT are fresh starts
+  (`GameState.startLevel`): each mints a new run id. Only a clear sends an
+  earn, under the id of the attempt that cleared, so an abandoned or failed
+  attempt never pays and no id can pay twice.
+- `HubClient.bestTime(zone, act)` and `isCleared(zone, stage)` read the local
+  save; `lastClear` holds the clear the tally is showing.
 - Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
   key unique to that attempt (the server grants the HPOS10I Core and pets).
-- Only Zone 1 Act 1 posts to `hpos10i_act_time` (the server keeps one time
+- Only Zone 1 Act 1 posts to `hpos10i_act_time`, only from a clean run, and it posts that run's own time (never the saved best) (the server keeps one time
   per player for this game and ignores unranked runs).
 - The Ticket→Verse exchange is not offered: the server refuses it for this game.
 - `exitToHub()`: flushes the outbox, returns to `<hubUrl>#from=hpos10i`.
@@ -377,6 +398,11 @@ Web Audio, unlocked by the first key press, click or tap.
 - `RelicLoadout.resolve()` is the only reader of Relic ownership: skins
   (Golden, Nobu, Tidebreaker), the cape, and their effects (off in Ranked),
   plus `extras_allowed` for the extra moves and item boxes.
+- `progress.json` is versioned (`PROGRESS_VERSION` 2): `cleared`
+  (`zone:stage`, acts and boss arenas), `best_times` (seconds on the attempt
+  clock), `best_ranks` (`S`..`D` per act; added in v2, empty after migration), `unlock_all` (set by the migration from v0 or v1, never on a new save: every act stays open)
+  and `emeralds`. Every write folds in what another tab saved (clears, lower
+  times, better ranks, emeralds). A blob from a newer build is never rewritten.
 - Saves: `localStorage` keys `hpos10i/progress.json`,
   `hpos10i/write_keys.json`, `hpos10i/relic_slots.json`,
   `hpos10i/settings.json`; imported once from the old Godot build's storage

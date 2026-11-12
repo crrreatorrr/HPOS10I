@@ -70,7 +70,7 @@ describe('camera', () => {
         press(action);
         step(150);
         release(action);
-        const expected = (camera.lookAheadMax * (10 - camera.lookAheadStartSpeed)) / (camera.lookAheadFullSpeed - camera.lookAheadStartSpeed);
+        const expected = camera.lookAheadMax * Math.min(Math.max((10 - camera.lookAheadStartSpeed) / (camera.lookAheadFullSpeed - camera.lookAheadStartSpeed), 0), 1);
         c.near(camera.lookAhead, expected * dir, 0.5, `dir ${dir}: look-ahead at 10 px/frame`);
         const lead = (camera.globalPosition.x - player.globalPosition.x) * dir;
         c.near(lead, expected - camera.deadzoneWidth / 2, 1.5, `dir ${dir}: view ahead of Sproto`);

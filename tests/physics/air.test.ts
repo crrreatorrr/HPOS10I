@@ -4,6 +4,7 @@
 import { afterEach, describe, it } from 'vitest';
 import { Layers } from '../../src/core/layers';
 import { Tuning } from '../../src/core/tuning';
+import { COYOTE_FRAMES, JUMP_BUFFER_FRAMES, Moves } from '../../src/player/moves';
 import { RIGHT_WALL, type Player } from '../../src/player/player';
 import type { Node2D } from '../../src/runtime/node';
 import { Rect2, Vec2 } from '../../src/runtime/vec2';
@@ -294,6 +295,148 @@ describe('air', () => {
           }
         }
       }
+    }),
+  );
+});
+
+describe('jump assist (extra moves on)', () => {
+  /** A ledge: floor up to x = 0, then a drop. Sproto runs right off it at 4 px/frame. */
+  function runOffLedge(extras: boolean): number {
+    world = newWorld();
+    Moves.extraMovesOverride = extras;
+    addFloor(world, -4000, 0);
+    addFloor(world, -4000, 4000, 600);
+    spawn(new Vec2(-60, 0));
+    press('move_right');
+    for (let i = 0; i < 200 && player.grounded; i++) {
+      player.groundSpeed = 4;
+      step(1);
+    }
+    return player.globalPosition.y;
+  }
+
+  afterEach(() => {
+    Moves.extraMovesOverride = false;
+  });
+
+  it(
+    'a jump pressed up to 5 frames after running off a ledge still jumps; later it does not',
+    checked((c) => {
+      for (const late of [1, 3, 5, 6, 9]) {
+        runOffLedge(true);
+        c.true(!player.grounded, `late ${late}: off the ledge`);
+        step(late - 1);
+        const vx = player.velocity.x;
+        press('jump');
+        step(1);
+        if (late <= COYOTE_FRAMES) {
+          c.eq(player.state, 'jump', `late ${late}: jumps`);
+          c.true(player.velocity.y < -6, `late ${late}: full jump force (${player.velocity.y})`);
+          c.near(player.velocity.x, vx, 0.3, `late ${late}: keeps its horizontal speed`);
+          c.true(player.isBall, `late ${late}: in a ball`);
+          // Variable height still works: letting go cuts the rise.
+          release('jump');
+          step(2);
+          c.true(player.velocity.y >= -4.01, `late ${late}: release cuts the jump (${player.velocity.y})`);
+        } else {
+          c.true(player.state !== 'jump', `late ${late}: too late, no jump (${player.state})`);
+          c.true(player.velocity.y > 0, `late ${late}: still falling`);
+        }
+        releaseAll();
+      }
+    }),
+  );
+
+  it(
+    'only one late jump, and never after a real jump',
+    checked((c) => {
+      runOffLedge(true);
+      press('jump');
+      step(1);
+      release('jump');
+      step(1);
+      const vy = player.velocity.y;
+      press('jump');
+      step(1);
+      c.true(player.velocity.y > vy, 'a second press right after does not jump again');
+      releaseAll();
+      // A real jump next to a ledge: pressing again in its first frames is not a late jump.
+      world = newWorld();
+      Moves.extraMovesOverride = true;
+      addFloor(world);
+      spawn();
+      jump();
+      release('jump');
+      step(1);
+      const rising = player.velocity.y;
+      press('jump');
+      step(1);
+      c.true(player.velocity.y > rising, 'no double jump out of a jump');
+    }),
+  );
+
+  it(
+    'a jump pressed up to 6 frames before landing jumps on the first grounded frame; earlier it is forgotten',
+    checked((c) => {
+      for (const early of [1, 4, 6, 8]) {
+        world = newWorld();
+        Moves.extraMovesOverride = true;
+        addFloor(world);
+        spawn();
+        // Find the landing frame of a plain jump, then repeat it with an early press.
+        jump();
+        release('jump');
+        let airFrames = 0;
+        while (!player.grounded && airFrames < 200) {
+          step(1);
+          airFrames++;
+        }
+        step(5);
+        jump();
+        release('jump');
+        step(airFrames - early);
+        c.true(!player.grounded, `early ${early}: still in the air`);
+        press('jump');
+        step(early);
+        release('jump');
+        let jumpedAgain = false;
+        for (let i = 0; i < 3; i++) {
+          if (!player.grounded && player.velocity.y < -3) jumpedAgain = true;
+          step(1);
+        }
+        c.eq(jumpedAgain, early <= JUMP_BUFFER_FRAMES, `early ${early}: buffered jump`);
+        releaseAll();
+      }
+    }),
+  );
+
+  it(
+    'with the extra moves off neither assist exists (classic)',
+    checked((c) => {
+      runOffLedge(false);
+      press('jump');
+      step(1);
+      c.true(player.state !== 'jump' && player.velocity.y > 0, 'no late jump');
+      releaseAll();
+      world = newWorld();
+      addFloor(world);
+      spawn();
+      jump();
+      release('jump');
+      let airFrames = 0;
+      while (!player.grounded && airFrames < 200) {
+        step(1);
+        airFrames++;
+      }
+      step(5);
+      jump();
+      release('jump');
+      step(airFrames - 3);
+      press('jump');
+      step(3);
+      release('jump');
+      step(2);
+      c.true(player.grounded, 'no early jump: he stays on the ground');
     }),
   );
 });

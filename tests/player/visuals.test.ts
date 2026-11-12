@@ -117,7 +117,15 @@ describe('player visuals: blink and afterimage', () => {
     expect(seen.size).toBe(2);
   });
 
-  it('leaves an afterimage above 10 px/f unless speed effects are off', () => {
+  it('leaves an afterimage at 8 px/f but not at top running speed, unless speed effects are off', () => {
+    const { player: runner } = flat();
+    runner.groundSpeed = 6;
+    step(6);
+    expect(runner.getNode<Afterimage>('Afterimage').copyCount()).toBe(0);
+    const { player: roller } = flat();
+    roller.groundSpeed = 8;
+    step(4);
+    expect(roller.getNode<Afterimage>('Afterimage').copyCount()).toBeGreaterThan(0);
     const { player } = flat();
     const after = player.getNode<Afterimage>('Afterimage');
     player.groundSpeed = 12;
