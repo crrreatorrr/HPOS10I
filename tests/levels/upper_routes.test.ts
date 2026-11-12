@@ -57,8 +57,9 @@ const ROUTES: Record<string, Entry[]> = {
     { from: [14400, -576], deckY: -576, deck: [14656, 15968], jumpAt: 14560, speed: 5 },
     // Staying on the upper floor where the ramp goes down.
     { from: [19650, -832], deckY: -832, deck: [19856, 21264], jumpAt: 19760, speed: 5 },
-    // Staying level where the finale's floor drops.
-    { from: [28800, -640], deckY: -640, deck: [29088, 29920], jumpAt: 28990, speed: 5 },
+    // Staying level where the finale's banisters go down.
+    { from: [27930, -768], deckY: -768, deck: [28256, 28960], jumpAt: 28030, speed: 5 },
+    { from: [28800, -640], deckY: -640, deck: [29152, 29920], jumpAt: 28990, speed: 5 },
     { from: [29860, -512], deckY: -512, deck: [30144, 31008], jumpAt: 30046, speed: 5 },
   ],
   // Zone 3: the decks stay level where a roof pitches down; each is a running jump over a 64 px gap.

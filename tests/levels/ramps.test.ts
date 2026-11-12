@@ -36,7 +36,13 @@ const DOWN: Record<string, [number, number, number][]> = {
     [27342, -192, 192],
     [30960, -288, 288],
   ],
-  'src/levels/data/z2_wizard_academy/act2.json': [[19792, -832, 128]],
+  'src/levels/data/z2_wizard_academy/act2.json': [
+    [19792, -832, 128],
+    [20624, -704, 96],
+    [21200, -608, 96],
+    [28064, -768, 128],
+    [29024, -640, 128],
+  ],
 };
 
 /** 1:4 climbs: [x of the foot, y of the floor there, the run in px, the rise in px]. */
@@ -56,6 +62,10 @@ const UP: Record<string, [number, number, number, number][]> = {
     [29200, 0, 640, 160],
     [30160, -160, 512, 128],
     [32320, 0, 128, 32],
+  ],
+  'src/levels/data/z2_wizard_academy/act2.json': [
+    [1184, 0, 384, 96],
+    [12608, -384, 512, 128],
   ],
 };
 
