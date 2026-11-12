@@ -2,8 +2,10 @@
 
 ## 1. Status
 
-Implemented on branch `claude/trusting-ramanujan-63h582` (2026-11-11), except as listed here.
-Sections 2 to 10 are the plan as written and describe the game before the work.
+Implemented in two passes on branch `claude/trusting-ramanujan-63h582`. Sections 2 to 10 are the
+plan as written and describe the game before the work.
+
+### First pass (2026-11-11, merged as PR #32)
 
 - Done: A1 to A7, B1 to B3, C1 to C5, D1, and D4 and D5 for Zones 1 to 3.
 - B2 rides the existing EXTRA MOVES option instead of a row of its own.
@@ -11,15 +13,87 @@ Sections 2 to 10 are the plan as written and describe the game before the work.
   shoes; with that the Zone 4 route pilot finishes both acts with the shipped hooks on.
 - A7: the Zone 4 Act 1 ram drops only on a player who stays in its lane for 1.5 s.
 - 4b applies to new saves only: a save from before progress v2 keeps every act open.
-- D2 and D3 were built, failed QA and were cut back. Holding a direction cannot climb a 1:2 slope
-  from rest, and without the hurdle blocks and stairs the runner bots walked into every enemy.
-  What remains: the staircases that go DOWN in Zone 2 are 1:2 ramps (nine in all). Up-stairs,
-  hurdle blocks, lifts and enemy positions are as before. Zone 3 Act 1 has no ramps: with them
-  the bots cleared it faster than Zone 2 Act 2, which the bot test forbids.
-- Not done: Zone 4 checkpoints and the Zone 4 Act 2 route share (D4, D5 for Zone 4), D6, the
-  recomputation of the pars (C2 keeps the plan's values) and re-recording `tests/levels/inputs/`.
-- Not reached: the sloped-floor, blocking-step and pilot pace targets for Zones 2 and 3.
+- D2 and D3 were built, failed QA and were cut back to the nine Zone 2 down-ramps: holding a
+  direction cannot climb a 1:2 slope from rest, an enemy on a crest soft-locked the player, and
+  the bot test failed.
 - Decisions taken as recommended: 1b, 2b, 3b, 4b, 6. Decision 5 (the emerald's name) is unchanged.
+
+### Second pass (2026-11-12): D2, D3, D4 and D5 for Zone 4, D6, C2, the recorded runs
+
+**The slope rule.** Measured on the controller (`docs/LEVELS.md`, principle 4): a 1:4 slope
+(14 deg) is climbed from a standstill anywhere on it; 1:3 crawls; the 1:2 slope tile is not
+climbed. So every climb in Zones 2 and 3 is a 1:4 `CurveTerrain` ramp with a flat run-up, and
+1:2 tile ramps only run down. `tests/levels/ramps.test.ts` walks all 22 climbs from rest at the
+foot and from half way up, and all 21 ramps down.
+
+**Per act** (QA bots with item boxes off, as `tests/qa/playtest.test.ts` plays them; "before" is
+`main` at `a32236b`):
+
+| Act | Sloped floor | Blocking steps | Pilot pace (px/f) | Pilot time (s) | Naive bot deaths | Median clear (s) |
+|---|---|---|---|---|---|---|
+| Z2 Act 1 | 6 % -> 26 % | 43 -> 14 | 4.53 -> 4.97 | 103.3 -> 110.9 (the act is 5,040 px longer) | 1 -> 0 | 140.3 -> 130.7 |
+| Z2 Act 2 | 1 % -> 8 % | 27 -> 13 | 3.92 -> 4.08 | 135.2 -> 129.9 | did not finish (41) -> 0 | 163.5 -> 157.2 |
+| Z3 Act 1 | 0 % -> 8 % | 13 -> 0 | 4.73 -> 4.96 | 119.3 -> 113.7 | 2 -> 1 | 169.1 -> 162.8 |
+| Z3 Act 2 | 0 % -> 9 % | 11 -> 0 | 4.03 -> 4.69 | 153.9 -> 132.3 | 5 -> 2 | 230.8 -> 225.2 |
+
+Set pieces added:
+
+- Z2 Act 1: the gallery runway (a gentle climb to a boosted runway whose lip launches over the
+  second bookshelf lift), the grand banisters with a launch off the last landing, and the Great
+  Stair, a new finale past the old goal (two gentle flights, a 288 px banister, a cracked wall on
+  the roll line, a launch to the goal). The old goal is a sixth checkpoint.
+- Z2 Act 2: the gallery slide (a booster and three flights down under the upper deck) and two
+  banisters in the finale with a new level deck.
+- Z3 Act 1: the three climbs to the roofs as 1:4 pitches (the longest 896 px) and the four roofs
+  that stepped down as 1:2 pitches. No new booster (it tripled the naive bot's deaths).
+- Z3 Act 2: the long chute where the first shaft was (480 px down a 1:2 slide), five swells, and
+  the five lifts staggered so a run at the pilot's pace finds each one down.
+
+What the bot test taught, and what it cost:
+
+- The median rule (each act's median bot clear above the act before) is carried by the runner
+  bots, which hold right and hop blind. Stairs and blocks were what slowed them. Zone 1 Act 2 is
+  longer than Zone 2 Act 1 was, so with slopes Zone 2 Act 1 fell below it. The fix was length:
+  the act runs 5,040 px further and its row in `src/core/difficulty.ts` is 65 screens and 6
+  checkpoints (was 55 and 5). The margins are now 6.0 s (Z1A2 124.7 -> Z2A1 130.7), 26.5 s, 5.6 s
+  and 62.4 s: small ones, so any later change to these acts needs `npm run test:bots`.
+- Eleven hurdle blocks stay in each Zone 2 act (0.18 and 0.17 blocking steps per screen, under
+  the 0.25 limit). A player who jumps takes them in stride; they hold the runner bots back and
+  stop the knights' patrols.
+- **Not reached:** the plan's pilot pace targets (6.5, 5.5, 5.5, 5.5). The pilot's time in these
+  zones is mostly lifts, shifting staircases, gates and the Zone 2 Act 2 broom chase (27 s at a
+  fixed pace), which are the zones' own ideas and stay. The chute and the staggered lifts were worth 21 s
+  in Zone 3 Act 2; the same could be tried in Zone 2 and Zone 3 Act 1, where the margins above are
+  too thin to risk it without a longer act. The plan's airborne targets were not re-measured.
+- The naive runner that never jumps (`jumpEvery` 0) still does not finish Zone 3 Act 2 (it did
+  not on `main` either); the other four runner variants do, against three on `main`.
+- A floor switch in Zone 3 Act 2 could be hopped over, leaving its door shut: the runner bots
+  stood there until the time limit. Its sensor now reaches above a full jump.
+
+**Zone 4 (D4, D5).** Act 1 has a seventh checkpoint (longest gap 16.5 -> 14.6 screens). Act 2 has
+two more (9; 18.9 -> 15.8 screens) and jump-through decks over five guarded stretches (two
+stacked routes 17 % -> 20 %). The D7 and D8 rows are 7 and 9 checkpoints, and both acts are in
+`FLOW_ENFORCED`. The route pilot clears both without a death (152.4 s and 178.3 s; 12 and 7
+hits). With the shipped hooks on it clears Act 1 deathless (1 death before) and Act 2 with 1
+death (0 before).
+
+**D6.** A hit scatters at most 32, 24, 16 and 12 tickets in Zones 1 to 4, and Zone 3's item-box
+rotation has 2 shields in 7. Zone 4 keeps 3, as the plan asks for no change there. The naive bot
+dies 1 and 2 times in the Zone 3 acts and finishes both. Not done: running the QA runner bots
+on Zone 4 (they do not know its timed platforms), and a human playtest.
+
+**C2.** `Difficulty.parFromBot()` is the one place: par = 1.5 x the best deathless bot clear,
+rounded up to 5 s, from `BEST_BOT_FRAMES`. New pars: 45, 85, 120, 170, 195, 175, 200, 230 and
+270 s (test zone, then Zone 1 Act 1 to Zone 4 Act 2). The bot test and the Zone 4 pilot test
+fail when a change moves an act off its par. `docs/LEVELS.md` has the table with the rank
+thresholds.
+
+**Recorded runs.** `tests/levels/inputs/` was re-recorded for all six acts of Zones 1 to 3 from
+the QA pilot (`npm run record:runs`); the replay test now requires each to reach the goal.
+
+**Still open:** a human playtest of all of the above (section 9); art for the new slopes is the
+existing zone terrain art, not reviewed by a person; D4's "upper route rejoins before each
+checkpoint" was not re-checked for the new Zone 4 decks beyond "ends with floor beneath".
 
 - First audit: 2026-11-09, commit `85fb306`.
 - Re-validated: 2026-11-11, commit `a1041ad` (seven commits later: new sprite and level art,
