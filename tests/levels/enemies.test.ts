@@ -108,6 +108,44 @@ afterEach(() => {
   release('move_down');
 });
 
+describe('chain score', () => {
+  it('enemies popped without touching the ground pay 100, 200, 400...; landing or a roll on the ground starts over', () => {
+    // Three walkers stacked in the air under a falling, attacking Sproto: each pop bounces him onto nothing but the next.
+    const [a, b, c] = setup(
+      [
+        [WALKER, new Vec2(0, -200), { patrol_distance: 0 }],
+        [WALKER, new Vec2(0, -200), { patrol_distance: 0 }],
+        [WALKER, new Vec2(0, -200), { patrol_distance: 0 }],
+      ],
+      new Vec2(-200, 0),
+    );
+    const score0 = GameState.score;
+    dropAttacking(new Vec2(0, -240));
+    expect(waitFor(() => gone(a!) && gone(b!) && gone(c!), 60)).toBeGreaterThanOrEqual(0);
+    expect(player.grounded).toBe(false);
+    expect(GameState.score - score0).toBe(100 + 200 + 400);
+    expect(GameState.chain).toBe(3);
+    // Landing ends the chain.
+    release('jump');
+    expect(waitFor(() => player.grounded, 200)).toBeGreaterThanOrEqual(0);
+    expect(GameState.chain).toBe(0);
+    // Rolling through enemies on the ground pays 100 each.
+    const [d, e] = setup([
+      [WALKER, new Vec2(60, 0), { patrol_distance: 0 }],
+      [WALKER, new Vec2(140, 0), { patrol_distance: 0 }],
+    ], new Vec2(-60, 0));
+    const score1 = GameState.score;
+    player.groundSpeed = 8;
+    press('move_down');
+    step(2);
+    release('move_down');
+    expect(player.state).toBe('roll');
+    expect(waitFor(() => gone(d!) && gone(e!), 80)).toBeGreaterThanOrEqual(0);
+    expect(GameState.score - score1).toBe(200);
+    expect(hurts).toBe(0);
+  });
+});
+
 describe('registry', () => {
   it('registers every enemy scene the levels instance', async () => {
     registerEnemies();
@@ -234,7 +272,7 @@ describe('walker and hopper (T1)', () => {
     expect(hurts).toBe(0);
   });
 
-  it('two walkers in one tick score twice but bounce once', () => {
+  it('two walkers in one tick score as a chain of two but bounce once', () => {
     const enemies = setup([[WALKER, new Vec2(-8, 0), { speed: 0 }], [WALKER, new Vec2(8, 0), { speed: 0 }]]);
     const score = GameState.score;
     dropAttacking(new Vec2(0, -36), 5);
@@ -249,7 +287,8 @@ describe('walker and hopper (T1)', () => {
       }
     }
     expect(gone(enemies[0]!) && gone(enemies[1]!)).toBe(true);
-    expect(GameState.score).toBe(score + 200);
+    // The second pop of the same airborne chain pays 200.
+    expect(GameState.score).toBe(score + 100 + 200);
     expect(Math.abs(after - (-before + Tuning.physics.gravity))).toBeLessThan(0.05);
   });
 

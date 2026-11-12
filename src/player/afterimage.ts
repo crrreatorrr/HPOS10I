@@ -1,4 +1,5 @@
-// A short afterimage trail behind Sproto at very high speed. Draws fading
+// A short afterimage trail behind Sproto above top running speed (7.5 px/frame:
+// any roll down a hill, a spin dash or a booster). Draws fading
 // copies of the current look in world space: the sprite frame when a sprite
 // sheet exists, else simple silhouettes. Purely visual; off when the speed
 // effects option is off.
@@ -13,7 +14,7 @@ import type { Player } from './player';
 import { isBallState, PlayerVisual } from './player_visual';
 
 /** Above this speed (px/frame) the trail shows. */
-export const MIN_SPEED = 10;
+export const MIN_SPEED = 7.5;
 export const COPIES = 4;
 /** A copy every this many frames. */
 export const SPACING_FRAMES = 2;

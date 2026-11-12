@@ -72,6 +72,11 @@ export class HazardCycle {
     }
   }
 
+  /** Jumps to a phase (hazards that time a phase by something other than the clock). */
+  force(phase: Phase): void {
+    this.advance(phase);
+  }
+
   private advance(phase: Phase): void {
     this.phase = phase;
     this.elapsed = 0;

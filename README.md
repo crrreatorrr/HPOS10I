@@ -43,6 +43,7 @@ game engine.
 | Menus: choose | Enter, Space or Jump | A (also X / Y, and Start on the zone select) | Tap |
 | Menus: back | Esc (P on the zone select) | B (on the pause list: resume) | BACK button |
 | Return to hub | Zone select HUB, pause EXIT TO HUB | Same | Same |
+| Send feedback | N twice (or pause, SEND FEEDBACK) | Pause, SEND FEEDBACK | Pause, SEND FEEDBACK |
 | Debug overlay | F1 | | |
 
 Any standard controller works with no setup: plug it in (or bring it from the
@@ -63,8 +64,10 @@ outside fullscreen) pauses. Time Focus stays on F, a key of its own beside the
 WASD block, because it is an ability rather than an interaction.
 
 Keys are bound by position, so on AZERTY or QWERTZ keyboards the movement keys
-are the ones in the WASD spot. The charge run, drop dash and shield bounce can
-be turned off in **Pause → Options**, and are always off in Ranked.
+are the ones in the WASD spot. The charge run, drop dash, shield bounce and
+jump assist (a jump pressed a moment after running off a ledge, or a moment
+before landing, still counts) can be turned off together in
+**Pause → Options → Extra moves**, and are always off in Ranked.
 
 ## Zones
 
@@ -73,7 +76,13 @@ be turned off in **Pause → Options**, and are always off in Ranked.
 3. **Capital Mansion**: rooftops, ballrooms and an underground bunker
 4. **Neon Rush Remix**: the hills again, in synthwave neon
 
-Each zone has two acts and a boss. Item boxes along the routes hold a shield,
+Each zone has two acts and a boss. Acts open in order: clearing an act opens
+the next one, and clearing a zone's second act opens its BOSS button on the
+zone select for practice. The zone select shows your best time for each act.
+After a game over, RETRY STAGE starts the same act or boss again. Every act
+clear is ranked S to D against the act's par time; a death or a checkpoint
+restart caps the rank at A, and the pause menu's RESTART ACT starts a clean
+attempt from 0:00. The zone select keeps your best time and rank per act. Item boxes along the routes hold a shield,
 speed shoes, invincibility or an extra life (never tickets). Each act has a
 10:00 time limit.
 
@@ -81,8 +90,10 @@ speed shoes, invincibility or an extra life (never tickets). Each act has a
 
 HPOS10I is one of the games in the metaverse hub. Opened from a hub portal
 (`#t=<ticket>`), it redeems the ticket, reads your Relics (skins and effects,
-off in Ranked) and banks the tickets you collect in each act as hub Tickets,
-each act once, with retries that can never pay twice. The top-right corner
+off in Ranked) and banks the tickets you hold at the end of each act as hub
+Tickets (at most 20 per clear), once per attempt, with retries that can never
+pay twice. A boss banks its tickets the first time you beat it; boss replays
+from the zone select bank nothing. The top-right corner
 shows your hub Ticket balance (`--` when there is no hub session) and a RETURN
 TO HUB button on every screen: from the menus it leaves at once, during a run
 it asks first. The zone select's HUB button and the pause menu's EXIT TO HUB do

@@ -65,6 +65,32 @@ describe('item boxes', () => {
     expect(p.groundSpeed).toBeGreaterThan(speedAtBreak - 0.2);
   });
 
+  it('a run at 4.5 px/frame or more bursts it without losing speed; a slower run is stopped', () => {
+    for (const [speed, breaks] of [
+      [6, true],
+      [4.6, true],
+      [4.2, false],
+    ] as const) {
+      const { w, b } = box(new Vec2(120, 0), 'shield');
+      const p = spawnPlayer(w, new Vec2(0, 0));
+      settle(p, new Vec2(0, 0));
+      p.groundSpeed = speed;
+      for (let i = 0; i < 40; i++) {
+        // Keep the test speed up to the box (no input: friction would slow the run).
+        if (p.globalPosition.x < 120 - 14 - 10 - 6) p.groundSpeed = speed;
+        step(1);
+      }
+      expect(b.isBroken(), `speed ${speed}`).toBe(breaks);
+      if (breaks) {
+        expect(p.globalPosition.x).toBeGreaterThan(140);
+        expect(p.state).not.toBe('roll');
+        expect(p.moves.shield).toBe(true);
+      } else {
+        expect(p.globalPosition.x).toBeLessThan(120 - 14);
+      }
+    }
+  });
+
   it('a shield absorbs one hit without losing tickets', () => {
     const w = newWorld();
     addFloor(w);
@@ -173,6 +199,68 @@ describe('extra moves', () => {
     expect(p.grounded).toBe(true);
     expect(p.state).toBe('roll');
     expect(Math.abs(p.groundSpeed)).toBeGreaterThanOrEqual(8);
+    Moves.extraMovesOverride = false;
+  });
+
+  it('precedence on one late air press: a held drop dash wins over the buffered jump; a tap buffers a jump', () => {
+    // Held to the landing for 20+ frames: the drop dash fires and no jump follows.
+    let w = newWorld();
+    Moves.extraMovesOverride = true;
+    addFloor(w);
+    let p = spawnPlayer(w, Vec2.ZERO);
+    settle(p, Vec2.ZERO);
+    press('jump');
+    step(1);
+    release('jump');
+    step(4);
+    press('jump');
+    for (let i = 0; i < 80 && !p.grounded; i++) step(1);
+    step(2);
+    expect(p.grounded).toBe(true);
+    expect(p.state).toBe('roll');
+    release('jump');
+
+    // Pressed 3 frames before landing and still held: too short for a drop dash, so it is an early jump.
+    w = newWorld();
+    Moves.extraMovesOverride = true;
+    addFloor(w);
+    p = spawnPlayer(w, Vec2.ZERO);
+    settle(p, Vec2.ZERO);
+    press('jump');
+    step(1);
+    release('jump');
+    let air = 1;
+    while (!p.grounded && air < 200) {
+      step(1);
+      air++;
+    }
+    step(4);
+    press('jump');
+    step(1);
+    release('jump');
+    step(air - 1 - 3);
+    expect(p.grounded).toBe(false);
+    press('jump');
+    step(4);
+    expect(p.state).toBe('jump');
+    expect(p.velocity.y).toBeLessThan(-5);
+    release('jump');
+
+    // With a shield the same press is a shield bounce, not a buffered jump.
+    w = newWorld();
+    Moves.extraMovesOverride = true;
+    addFloor(w);
+    p = spawnPlayer(w, Vec2.ZERO);
+    settle(p, Vec2.ZERO);
+    p.moves.give('shield');
+    press('jump');
+    step(1);
+    release('jump');
+    step(10);
+    press('jump');
+    step(1);
+    release('jump');
+    expect(p.velocity.y).toBeCloseTo(8, 0);
     Moves.extraMovesOverride = false;
   });
 

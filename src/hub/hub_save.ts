@@ -1,10 +1,12 @@
 // Progress and idempotency keys (localStorage, one JSON value per former
-// user:// file). Cleared acts, best times and won emeralds live in progress;
+// user:// file). Cleared acts and boss arenas (stage acts + 1), best act
+// times, best act ranks and won emeralds live in progress;
 // write_keys holds idempotency keys only. Relic ownership and Ticket balances
 // are server-side and are never written here.
 //
 // The progress blob is versioned ({v: PROGRESS_VERSION, ...}); migrateProgress()
-// brings an older one up step by step (no `v` = v0, before emeralds were saved).
+// brings an older one up step by step (no `v` = v0, before emeralds were
+// saved; v1 had no ranks).
 // A blob from a newer build is read for what this build knows, never rewritten.
 //
 // An earn key is the attempt's run id (one UUIDv7 per startLevel). It is
@@ -13,6 +15,7 @@
 // the stored copy in instead of replacing it, and an ack never comes undone.
 
 import { Emeralds } from '../core/emeralds';
+import { betterRank, isRank, type Rank } from '../core/rank';
 import { mintUuidV7 } from '../core/uuid_v7';
 import { SAVE_KEYS, Storage } from './storage';
 
@@ -28,12 +31,17 @@ function isObj(v: unknown): v is Json {
 }
 
 /** The progress blob version this build writes. */
-export const PROGRESS_VERSION = 1;
+export const PROGRESS_VERSION = 2;
 
 /** One step per old version: PROGRESS_MIGRATIONS[n] turns a vn blob into v(n + 1). */
 const PROGRESS_MIGRATIONS: Record<number, (old: Json) => Json> = {
   // v0 (no `v`): cleared and best_times only. v1 adds the won emeralds (none yet).
   0: (old) => ({ ...old, v: 1, emeralds: [] }),
+  // v2 adds the best rank per act (none yet: old best times came from the
+  // rewinding clock and earn no rank until the act is cleared again).
+  // unlock_all: every act could be picked before v2, so a save from then keeps
+  // every act open (progress-based unlocking is for saves that start on v2).
+  1: (old) => ({ ...old, v: 2, best_ranks: {}, unlock_all: true }),
 };
 
 function progressVersion(blob: Json): number {
@@ -64,6 +72,9 @@ function emeraldKeys(value: unknown): string[] {
 export class HubSave {
   cleared = new Set<string>();
   bestTimes = new Map<string, number>();
+  bestRanks = new Map<string, Rank>();
+  /** True for a save that existed before acts unlocked by progress (v0, v1): every act stays open. */
+  unlockAll = false;
   /** Emeralds.key of every emerald won on this save. */
   emeralds = new Set<string>();
   private keys: Json = {};
@@ -73,9 +84,16 @@ export class HubSave {
   private runOnDisk = false;
 
   loadAll(): void {
-    const progress = migrateProgress(Storage.readJson(SAVE_KEYS.progress));
+    const stored = Storage.readJson(SAVE_KEYS.progress);
+    // No save at all is a new player (v2 rules); anything older is migrated and keeps every act open.
+    const progress = Object.keys(stored).length === 0 ? stored : migrateProgress(stored);
+    this.unlockAll = progress.unlock_all === true;
     this.cleared = new Set();
     this.bestTimes = new Map();
+    this.bestRanks = new Map();
+    if (isObj(progress.best_ranks)) {
+      for (const [id, v] of Object.entries(progress.best_ranks)) if (isRank(v)) this.bestRanks.set(String(id), v);
+    }
     if (Array.isArray(progress.cleared)) for (const item of progress.cleared) this.cleared.add(String(item));
     if (isObj(progress.best_times)) {
       for (const [id, v] of Object.entries(progress.best_times)) this.bestTimes.set(String(id), Number(v));
@@ -96,15 +114,28 @@ export class HubSave {
     return this.bestTimes.get(`${zone}:${act}`) ?? null;
   }
 
-  /** Records a cleared act and its best (lowest) time. Returns that best time. */
-  recordClear(zone: string, act: number, timeSec: number): number {
+  bestRank(zone: string, act: number): Rank | null {
+    return this.bestRanks.get(`${zone}:${act}`) ?? null;
+  }
+
+  /** Records a cleared act, its best (lowest) time and, when given, its best rank. Returns that best time. */
+  recordClear(zone: string, act: number, timeSec: number, rank: Rank | null = null): number {
     const id = `${zone}:${act}`;
     this.cleared.add(id);
     const prev = this.bestTimes.get(id);
     const best = prev === undefined ? timeSec : Math.min(prev, timeSec);
     this.bestTimes.set(id, best);
+    if (rank && betterRank(rank, this.bestRanks.get(id) ?? null)) this.bestRanks.set(id, rank);
     this.writeProgress();
     return best;
+  }
+
+  /** Records a cleared stage that keeps no time (a boss arena: stage acts + 1). */
+  recordStageClear(zone: string, stage: number): void {
+    const id = `${zone}:${stage}`;
+    if (this.cleared.has(id)) return;
+    this.cleared.add(id);
+    this.writeProgress();
   }
 
   /** Saves a won emerald (acts without one are ignored). */
@@ -257,19 +288,37 @@ export class HubSave {
   }
 
   private writeProgress(): void {
-    const disk = migrateProgress(Storage.readJson(SAVE_KEYS.progress));
+    const onDisk = Storage.readJson(SAVE_KEYS.progress);
+    const disk = Object.keys(onDisk).length === 0 ? onDisk : migrateProgress(onDisk);
     if (progressVersion(disk) > PROGRESS_VERSION) {
       console.warn(`[HubSave] progress is v${progressVersion(disk)} (a newer build); not overwriting it`);
       return;
     }
-    // Emeralds are only ever won, so another tab's are folded in, never dropped.
+    // Progress only ever grows or improves, so another tab's is folded in,
+    // never dropped: emeralds, cleared stages, lower times and better ranks.
     for (const key of emeraldKeys(disk.emeralds)) this.emeralds.add(key);
+    if (disk.unlock_all === true) this.unlockAll = true;
+    if (Array.isArray(disk.cleared)) for (const item of disk.cleared) this.cleared.add(String(item));
+    if (isObj(disk.best_times)) {
+      for (const [id, v] of Object.entries(disk.best_times)) {
+        const t = Number(v);
+        const mine = this.bestTimes.get(id);
+        if (Number.isFinite(t) && (mine === undefined || t < mine)) this.bestTimes.set(id, t);
+      }
+    }
+    if (isObj(disk.best_ranks)) {
+      for (const [id, v] of Object.entries(disk.best_ranks)) {
+        if (isRank(v) && betterRank(v, this.bestRanks.get(id) ?? null)) this.bestRanks.set(id, v);
+      }
+    }
     const list = [...this.cleared].sort();
     Storage.writeJson(SAVE_KEYS.progress, {
       v: PROGRESS_VERSION,
       cleared: list,
       best_times: Object.fromEntries(this.bestTimes),
+      best_ranks: Object.fromEntries(this.bestRanks),
       emeralds: [...this.emeralds].sort(),
+      ...(this.unlockAll ? { unlock_all: true } : {}),
     });
   }
 

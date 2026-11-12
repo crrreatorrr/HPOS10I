@@ -2,7 +2,7 @@
 //
 // D7 (docs/LEVELS.md): about 75 screens, 1.3 enemies per screen (T2 30 % /
 // T3 40 % / T4 30 %), R5 (several routes with very different risk and a
-// forced reverse run), 6 checkpoints, about 3 tickets per screen. New idea:
+// forced reverse run), 7 checkpoints, about 3 tickets per screen. New idea:
 // Zone 1's ideas remixed at speed, reverse runs (right to left) and
 // vanishing neon platforms.
 //   Opening (teach): loops, a booster, an up spring, bumpers, a first roll
@@ -97,8 +97,8 @@ export function buildAct1(): LevelBuilder {
   b.enemy('spike', new Vec2(d1.x0 + 1500, d1.low), { patrol_distance: 48 });
   b.enemy('diver', new Vec2(d1.x0 + 1700, d1.high - 130));
   b.setPiece(KEYS.CEILING_RAM, new Vec2(d1.x0 + 1184, d1.mid + 12), {
-    width: 48, height: 20, travel: 48, first_delay: 36, telegraph_seconds: 1,
-  }); // under the middle deck; the two upper paths bypass it
+    width: 48, height: 20, travel: 48, wake_radius: 160, dwell_frames: 90, telegraph_seconds: 1,
+  }); // under the middle deck; the two upper paths bypass it. It flashes while the player is near and drops only on one who stays under it for 1.5 s.
   b.enemy('splitter', new Vec2(d1.x0 + 1800, d1.low));
   b.enemy('pellet', new Vec2(d1.x0 + 2100, d1.low), left);
   b.enemy('floater', new Vec2(d1.x0 + 2300, d1.mid - 40));
@@ -144,6 +144,9 @@ export function buildAct1(): LevelBuilder {
   b.rollTunnel(384);
   b.enemy('dropper', new Vec2(b.x + 128, b.ground - 140));
   G('armored');
+  b.flat(368, 64, 192); // a full screen past the dropper over the tunnel's mouth
+  b.checkpoint(); // 5: half way between the spring gate and the finale
+  b.flat(336, 64, 192);
   b.vanishingRun(5, { onFrames: 150, offFrames: 90, ripple: 22, gap: 56 });
   G('spike');
   const d2 = b.decks(2048, { highGaps: 1, midGaps: 1 });
@@ -158,7 +161,7 @@ export function buildAct1(): LevelBuilder {
   G('diver', 150);
   b.descent(64);
   b.flat(336, 64, 192);
-  b.checkpoint(); // 5: the finale starts
+  b.checkpoint(); // 6: the finale starts
 
   // --- Finale: twist ---------------------------------------------------------------
   b.flat(336, 64, 192);
@@ -178,7 +181,7 @@ export function buildAct1(): LevelBuilder {
   P('armored', 'diver', 150);
   G('sniper');
   b.flat(336, 64, 192);
-  b.checkpoint(); // 6
+  b.checkpoint(); // 7
   b.flat(336, 64, 192);
   G('sniper');
   G('dropper', 140);

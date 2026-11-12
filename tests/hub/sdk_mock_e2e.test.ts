@@ -34,6 +34,7 @@ function clearAct(zone: string, act: number, tickets: number, seconds: number): 
   GameState.startLevel(zone, act);
   GameState.addTickets(tickets);
   GameState.levelTime = seconds;
+  GameState.attemptTime = seconds;
   GameState.completeLevel();
 }
 

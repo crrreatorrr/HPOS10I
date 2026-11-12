@@ -8,6 +8,8 @@
 // GameState.levelTime for the clock (read every frame). At 0 tickets the
 // TICKETS counter flashes red: the next hit costs a life. In touch mode the
 // lives box moves under the counters so the on-screen pad does not cover it.
+// Under the counters it draws the speed lines (speed_lines.ts), and near the
+// bottom of the screen the teaching prompt a PromptZone asked for (Prompts).
 
 import { GameState } from '../../core/game_state';
 import { Color } from '../../runtime/color';
@@ -17,6 +19,11 @@ import type { Player } from '../../player/player';
 import { PixelArt } from '../common/pixel_art';
 import { COLORS, drawText, UiLayer } from '../common/theme';
 import { Display } from '../display';
+import { Prompts } from '../../core/prompts';
+import { Input } from '../../runtime/input';
+import { drawCentered } from '../common/theme';
+import { promptLine } from './prompt_line';
+import { SpeedLines } from './speed_lines';
 
 /** Seconds per on/off cycle of the 0-ticket warning flash. */
 export const FLASH_PERIOD = 0.5;
@@ -29,6 +36,8 @@ export const DESKTOP_LIVES_POSITION = new Vec2(6, 216);
 /** Power-up row: right of the counters, under the sound hint band. */
 export const POWER_UPS_POSITION = new Vec2(142, 18);
 const POWER_UP_STEP = 30;
+/** The teaching prompt's line. */
+export const PROMPT_Y = 196;
 /** Timers flash in their last seconds. */
 const POWER_UP_WARN_SECONDS = 3;
 
@@ -49,6 +58,7 @@ export class Hud extends UiLayer {
   private flashClock = 0;
   private warningLit = false;
   private clock = 0;
+  readonly speedLines = new SpeedLines();
 
   constructor() {
     super('HUD', 10);
@@ -75,6 +85,8 @@ export class Hud extends UiLayer {
 
   override process(delta: number): void {
     this.clock += delta;
+    this.speedLines.update(delta, this.isInsideTree() ? this.tree.getFirstNodeInGroup<Player>('player') : null);
+    Prompts.tick(delta);
     this.updateTime();
     this.flashClock = (this.flashClock + delta) % FLASH_PERIOD;
     this.updateWarning();
@@ -92,6 +104,12 @@ export class Hud extends UiLayer {
 
   static formatLives(lives: number): string {
     return `x ${Math.min(Math.max(Math.trunc(lives), 0), MAX_LIVES_SHOWN)}`;
+  }
+
+  /** The teaching prompt on show ('' = none), worded for the device in use. */
+  promptText(): string {
+    if (Prompts.current === '') return '';
+    return promptLine(Prompts.current, Display.isTouch ? 'touch' : Input.lastDevice);
   }
 
   /** True while the TICKETS counter is drawn in the warning colour. */
@@ -144,6 +162,7 @@ export class Hud extends UiLayer {
   };
 
   protected override paint(g: Gfx): void {
+    this.speedLines.paint(g);
     // Counters (offsets from hud.tscn).
     drawText(g, 'SCORE', 18, 5, 'hudLabel');
     drawText(g, this.scoreText, 74, 5, 'hudValue', { align: 'right', width: 62 });
@@ -164,6 +183,12 @@ export class Hud extends UiLayer {
     drawText(g, 'SPROTO', l.x + 19, l.y, 'outline', { color: COLORS.gold });
     drawText(g, this.livesText, l.x + 19, l.y + 8, 'hudValue');
     this.paintPowerUps(g);
+    const prompt = this.promptText();
+    if (prompt !== '') {
+      // Fades out over its last half second; above the touch pad and the lives box.
+      const alpha = Math.min(1, Prompts.secondsLeft / 0.5);
+      drawCentered(g, prompt, PROMPT_Y, 'outline', { alpha });
+    }
   }
 
   private paintPowerUps(g: Gfx): void {

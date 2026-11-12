@@ -1,14 +1,15 @@
 // The ending (scene id 'ending', after the last zone's boss): a short credits
 // roll over the hills, music `ending`, then the title. Jump, accept, pause
 // (a gamepad's Start, as on the title and game over) or a tap skips to the
-// end of the roll; pressing again (or waiting) goes on. Every
-// name here is the game's own.
+// end of the roll; pressing again (or waiting) goes on. The roll lists the
+// saved best rank of all eight acts. Every name here is the game's own.
 
 import { Audio } from '../../core/audio';
 import { Emeralds } from '../../core/emeralds';
 import { GameState } from '../../core/game_state';
 import { SceneRouter } from '../../core/scene_router';
 import { ZoneRegistry } from '../../core/zone_registry';
+import { HubClient } from '../../hub/hub_client';
 import type { Gfx } from '../../runtime/gfx';
 import { Input } from '../../runtime/input';
 import { Node, type InputEventLike } from '../../runtime/node';
@@ -30,6 +31,14 @@ export interface CreditLine {
   gap?: number;
 }
 
+/** One line per zone with the saved best rank of each act ("-" for none): "RETRO RUSH HILLS   A  S". */
+export function rankLines(): string[] {
+  return ZoneRegistry.allZones(false).map((zone) => {
+    const ranks = zone.acts.map((_, i) => HubClient.bestRank(zone.id, i + 1) ?? '-');
+    return `${zone.name.toUpperCase()}   ${ranks.join('  ')}`;
+  });
+}
+
 /** The roll, top to bottom. */
 export function creditLines(): CreditLine[] {
   const lines: CreditLine[] = [
@@ -41,6 +50,9 @@ export function creditLines(): CreditLine[] {
   lines.push({ text: '', style: 'label', gap: 6 });
   lines.push({ text: Emeralds.NAME.toUpperCase(), style: 'header' });
   lines.push({ text: `${GameState.emeraldCount()} / ${Emeralds.total()}`, style: 'hudValue', gap: 28 });
+  lines.push({ text: 'BEST RANKS', style: 'header' });
+  for (const text of rankLines()) lines.push({ text, style: 'hudValue' });
+  lines.push({ text: '', style: 'label', gap: 14 });
   lines.push({ text: 'FINAL SCORE', style: 'header' });
   lines.push({ text: String(GameState.score), style: 'hudValue', gap: 28 });
   lines.push({ text: 'MADE BY THE HPOS10I CREW', style: 'outline' });

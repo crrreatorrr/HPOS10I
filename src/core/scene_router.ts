@@ -77,6 +77,38 @@ class SceneRouterImpl {
     else this.loadStage();
   }
 
+  /** True when a game over can retry the stage it happened in (not in sandboxes). */
+  canRetryStage(): boolean {
+    return this.freeScene === '' && this.zoneId !== '' && Scenes.exists(ZoneRegistry.stagePath(this.zoneId, this.stage));
+  }
+
+  /**
+   * After a game over: a fresh game (lives and score reset) that starts again
+   * at the stage where the last life went, act or boss arena. A fresh start,
+   * so the hub attempt id is new; the failed attempt never paid.
+   */
+  retryStage(): void {
+    if (!this.canRetryStage()) {
+      GameState.resetGame();
+      this.goTitle();
+      return;
+    }
+    if (!this.claim('retryStage')) return;
+    const zoneId = this.zoneId;
+    const stage = this.stage;
+    GameState.resetGame();
+    this.doStartZone(zoneId, stage);
+  }
+
+  /** The pause menu's Restart Act: the whole stage from 0:00, lives and score kept. */
+  restartAct(): void {
+    if (this.freeScene !== '' || this.zoneId === '') {
+      this.restart();
+      return;
+    }
+    if (this.claim('restartAct')) this.doStartZone(this.zoneId, this.stage);
+  }
+
   /** Opens any scene directly (dev menu, sandboxes). Not tied to a zone. */
   openScene(id: string): void {
     if (!Scenes.exists(id)) {

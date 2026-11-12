@@ -34,6 +34,13 @@ export class SceneTree {
   readonly physics = new PhysicsWorld();
   currentScene: Node | null = null;
   paused = false;
+  /**
+   * The main loop stands still: no ticks, no process pass, no input, no redraw (the canvas keeps
+   * its last picture). Unlike `paused` this stops ALWAYS nodes too, so every bit of game state,
+   * `paused` and the pause menu included, is the same when it is cleared. Set while the feedback
+   * window is open (ui/feedback.ts). `advance()` (tests, bots) ignores it.
+   */
+  suspended = false;
   /** Engine.time_scale: slows the game clock (Time Focus). */
   timeScale = 1;
   physicsFrames = 0;
@@ -270,6 +277,8 @@ export class SceneTree {
     const t = now / 1000;
     let real = this.lastTime < 0 ? PHYSICS_DT : t - this.lastTime;
     this.lastTime = t;
+    // Suspended: the clock keeps moving (no catch-up afterwards), the game does not.
+    if (this.suspended) return 0;
     // A hidden tab or a breakpoint: don't try to catch up minutes of game.
     if (real > 0.25) real = 0.25;
     this.accumulator += real * this.timeScale;

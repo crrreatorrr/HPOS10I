@@ -30,6 +30,7 @@ import { tree, VIEW_H, VIEW_W } from './runtime/tree';
 import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
 import { Display } from './ui/display';
+import { Feedback } from './ui/feedback';
 import { HubChrome } from './ui/hub_chrome';
 
 /** Ticks the run clock (GameState.levelTime) on physics ticks; pauses with the game. */
@@ -136,6 +137,8 @@ async function boot(): Promise<void> {
   registerLevelScenes();
   registerNewContent();
   registerBosses();
+  // N twice: the feedback window. First, so its key listener runs before every other one.
+  Feedback.install(canvas);
   const ui = installUi();
 
   // Autoloads (before the first scene), then the global overlays.
@@ -203,6 +206,7 @@ function exposeDebugApi(): void {
     state: GameState,
     hub: HubClient,
     dev: Dev,
+    feedback: Feedback,
     scenes: () => Scenes.ids(),
     play: (timeline: unknown) => Dev.play(timeline, SceneRouter.currentId),
   };

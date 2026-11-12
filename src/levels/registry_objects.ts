@@ -14,6 +14,7 @@ import { DemoConveyor } from './objects/playground/demo_conveyor';
 import { DemoMovingPlatform } from './objects/playground/demo_moving_platform';
 import { DummyEnemy } from './objects/playground/dummy_enemy';
 import { PlaygroundTicket } from './objects/playground/playground_ticket';
+import { PromptZone } from './objects/prompt_zone';
 import { SpeedBooster } from './objects/speed_booster';
 import { Spikes } from './objects/spikes';
 import { LevelSpring, SpringKind } from './objects/spring';
@@ -40,6 +41,7 @@ export function registerObjects(): void {
   LevelTypes.register(`${O}checkpoint.tscn`, () => new Checkpoint());
   LevelTypes.register(`${O}goal_sign.tscn`, () => new GoalSign());
   LevelTypes.register(`${O}spikes.tscn`, () => new Spikes());
+  LevelTypes.register('hpos://objects/prompt_zone', () => new PromptZone());
   LevelTypes.register('hpos://hazards/fluid_well', () => new FluidWell());
   LevelTypes.register('hpos://hazards/lava_vent', () => new LavaVent());
   LevelTypes.register('hpos://hazards/ceiling_ram', () => new CeilingRam());

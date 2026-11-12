@@ -7,10 +7,14 @@
 //   tickets collected as hub Tickets with that id as the idempotency key, so
 //   a retry, a reload or a second tab can never pay twice. Unacked earns are
 //   resent after the next successful init.
+// - A boss arena banks its tickets the first time it is beaten on this save
+//   only: replays (the zone select's BOSS button) bank nothing, so the short
+//   fight is never the best Ticket source.
 // - Every act clear is reported as hpos10i.level_complete {zone, act}: the
 //   server grants the HPOS10I Core for Zone 1 Act 1 and pets for later acts.
 // - The act-time board keeps one time per player, so only Zone 1 Act 1 posts
-//   to it (a like-for-like time trial; the server ignores unranked runs).
+//   to it (a like-for-like time trial; the server ignores unranked runs), and
+//   only from a clean run. Times are the attempt clock (GameState.attemptTime).
 // - Exit to Hub flushes the SDK outbox and returns to <hubUrl>#from=hpos10i.
 // - With a session, the Ticket balance is read once after init
 //   (getTicketBalance) and then follows earn answers. ticketText() is what
@@ -19,8 +23,10 @@
 // Writes are fire-and-forget: the SDK's IndexedDB outbox resends each key
 // until it is acked.
 
-import { createHubSdk, type HubSdk, type GameId } from '@hub-sdk';
+import { createHubSdk, feedbackTransportFromSdk, type FeedbackTransport, type HubSdk, type GameId } from '@hub-sdk';
+import { Difficulty } from '../core/difficulty';
 import { GameState } from '../core/game_state';
+import { betterRank, rankFor, type Rank } from '../core/rank';
 import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
 import { HubSave } from './hub_save';
@@ -45,6 +51,25 @@ const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount
 const REFRESH_EVERY_MS = 120_000;
 
 export type Reach = 'offline' | 'pending' | 'ready';
+
+export interface ClearResult {
+  zone: string;
+  act: number;
+  /** Seconds this clear took on the attempt clock (GameState.attemptTime: never rewound). */
+  time: number;
+  /** The best time saved before this clear (null: the first clear). */
+  previousBest: number | null;
+  /** True when this clear is the first or beat the saved best. */
+  newBest: boolean;
+  /** This clear's rank against the act's par (null: the act has no par). */
+  rank: Rank | null;
+  /** The best rank saved before this clear. */
+  previousRank: Rank | null;
+  /** True when this clear's rank beat the saved one (or is the first). */
+  newRank: boolean;
+  /** False when the attempt had a death or a checkpoint restart (its rank is capped at A). */
+  clean: boolean;
+}
 
 type Payload = Record<string, unknown>;
 
@@ -73,6 +98,11 @@ class HubClientImpl {
   revision = 0;
   /** Last banked earn, for the tally ("+N Tickets to the hub"). */
   lastBanked: { amount: number; acked: boolean } | null = null;
+  /**
+   * The act clear that just happened (null from the next act start): its time,
+   * the best time saved before it and whether it beat that. For the tally.
+   */
+  lastClear: ClearResult | null = null;
   /** Bumped by every balance source, so a slow balance read never overwrites a newer earn answer. */
   private balanceStamp = 0;
 
@@ -174,6 +204,44 @@ class HubClientImpl {
     if (typeof window !== 'undefined') window.location.assign(target);
   }
 
+  /** The saved best time of an act in seconds, or null. */
+  bestTime(zone: string, act: number): number | null {
+    return this.save.bestTime(zone, act);
+  }
+
+  /** The saved best rank of an act, or null. */
+  bestRank(zone: string, act: number): Rank | null {
+    return this.save.bestRank(zone, act);
+  }
+
+  /** True for a save from before acts unlocked by progress: every act stays open. */
+  allActsUnlocked(): boolean {
+    return this.save.unlockAll;
+  }
+
+  /** True when a stage was cleared on this save (acts 1..n, the boss arena n + 1). */
+  isCleared(zone: string, stage: number): boolean {
+    return this.save.isCleared(zone, stage);
+  }
+
+  /**
+   * Where the feedback window (ui/feedback.ts) asks whether this player may send, and sends.
+   * It follows whichever SDK init() made: none yet answers `offline` (asked again on the next
+   * press), standalone answers `standalone`.
+   */
+  feedbackTransport(): FeedbackTransport {
+    return {
+      access: async () => {
+        if (this.sdk) return feedbackTransportFromSdk(this.sdk).access();
+        return { ok: false, reason: this.reach === 'pending' ? 'offline' : 'standalone' };
+      },
+      submit: async (input) => {
+        if (!this.sdk) throw new Error('offline');
+        return feedbackTransportFromSdk(this.sdk).submit(input);
+      },
+    };
+  }
+
   /** The hub URL players return to (shown in the pause menu). */
   get hubTarget(): string {
     return this.hubUrl;
@@ -240,6 +308,7 @@ class HubClientImpl {
   // --- Level hooks -------------------------------------------------------------------
 
   private onLevelStarted(zone: string, act: number): void {
+    this.lastClear = null;
     // Respawns keep the attempt; only a fresh start (startLevel) mints a run id.
     if (SceneRouter.freeScene !== '' || zone === '') return;
     if (!this.save.beginAttempt(zone, act)) {
@@ -254,15 +323,37 @@ class HubClientImpl {
     const act = GameState.act;
     if (zone === '') return;
     // Boss arenas are stage acts + 1: they bank tickets but are not acts.
-    const timeMs = Math.round(GameState.levelTime * 1000);
+    // Times are the attempt clock: a death or a restart never shortens them.
+    const timeMs = Math.round(GameState.attemptTime * 1000);
     const timeSec = timeMs / 1000;
     const tickets = Math.trunc(GameState.tickets);
     const zoneDef = SceneRouter.currentZone();
     const isAct = !!zoneDef && act >= 1 && act <= zoneDef.acts.length;
+    // A boss beaten before on this save is a replay: it banks nothing.
+    const bossReplay = !isAct && !!zoneDef && act === zoneDef.acts.length + 1 && this.save.isCleared(zone, act);
+    if (!isAct && zoneDef && act === zoneDef.acts.length + 1) this.save.recordStageClear(zone, act);
     if (isAct) {
-      const best = this.save.recordClear(zone, act, timeSec);
-      if (zone === BOARD_ZONE && act === BOARD_ACT) {
-        void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, best, { zone, act }));
+      const clean = GameState.cleanRun;
+      const par = Difficulty.parFor(zone, act);
+      const rank = par === null ? null : rankFor(timeSec, par, clean).rank;
+      const previousBest = this.save.bestTime(zone, act);
+      const previousRank = this.save.bestRank(zone, act);
+      this.save.recordClear(zone, act, timeSec, rank);
+      this.lastClear = {
+        zone,
+        act,
+        time: timeSec,
+        previousBest,
+        newBest: previousBest === null || timeSec < previousBest,
+        rank,
+        previousRank,
+        newRank: betterRank(rank, previousRank),
+        clean,
+      };
+      // The board takes a clean run's honest time only (and only Zone 1 Act 1).
+      // This run's own time: the saved best may come from an unclean run or the old rewinding clock.
+      if (zone === BOARD_ZONE && act === BOARD_ACT && clean) {
+        void this.call(() => this.sdk!.submitScore(BOARD_ACT_TIME, timeSec, { zone, act }));
       }
       // One key per clear: the attempt's run id is part of the id, so two
       // attempts that clear the same act in the same time are two reports.
@@ -270,7 +361,7 @@ class HubClientImpl {
       const eventKey = this.save.keyFor('relic', `${zone}:${act}:${this.save.currentRunId()}:${timeMs}`);
       void this.call(() => this.sdk!.reportEvent(EVENT_LEVEL_COMPLETE, { zone, act, time: timeSec }, eventKey));
     }
-    if (tickets > 0) this.bankTickets(zone, act, tickets);
+    if (tickets > 0 && !bossReplay) this.bankTickets(zone, act, tickets);
   }
 
   private bankTickets(zone: string, act: number, tickets: number): void {

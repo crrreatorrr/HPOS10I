@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseTimeline } from '../../src/core/dev';
 import { Difficulty } from '../../src/core/difficulty';
 import { Emeralds } from '../../src/core/emeralds';
-import { GameState, START_LIVES } from '../../src/core/game_state';
+import { CHAIN_SCORES, GameState, START_LIVES } from '../../src/core/game_state';
+import { Vec2 } from '../../src/runtime/vec2';
 import { Layers } from '../../src/core/layers';
 import { accel, defaultPhysics, frames, speed } from '../../src/core/physics_constants';
 import { SceneRouter } from '../../src/core/scene_router';
@@ -206,6 +207,24 @@ describe('difficulty', () => {
   );
 
   it(
+    'par is 1.5 x the best deathless bot clear, rounded up to 5 s, for every act',
+    checked((c) => {
+      c.eq(Difficulty.parFromBot(29.1), 45, '29.1 s -> 45');
+      c.eq(Difficulty.parFromBot(30), 45, 'an exact multiple is not rounded further');
+      c.eq(Difficulty.parFromBot(30.01), 50, 'rounds up');
+      c.eq(Difficulty.parFromBot(110.9), 170, '110.9 s -> 170');
+      for (let d = 0; d <= Difficulty.MAX; d++) {
+        const frames = Difficulty.BEST_BOT_FRAMES[d]!;
+        c.true(frames > 0, `a recorded bot clear for D${d}`);
+        const par = Difficulty.targets(d).par_seconds;
+        c.eq(par, Difficulty.parFromBot(frames / 60), `D${d}: par follows the formula`);
+        c.eq(par % Difficulty.PAR_STEP, 0, `D${d}: a multiple of 5 s`);
+        c.true(frames / 60 <= 0.7 * par + 1e-9, `D${d}: the bot's own clear earns S`);
+      }
+    }),
+  );
+
+  it(
     'targets never get easier',
     checked((c) => {
       for (let d = 1; d <= Difficulty.MAX; d++) {
@@ -342,6 +361,43 @@ describe('emeralds and GameState', () => {
   );
 });
 
+describe('attempt clock, clean runs and the chain score', () => {
+  it('the attempt clock counts with the act clock and is never rewound; a restart makes the run unclean', () => {
+    GameState.resetGame();
+    GameState.startLevel(Z1, 1);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+    GameState.tick(12);
+    GameState.setCheckpoint(new Vec2(50, 0));
+    GameState.tick(8);
+    expect(GameState.levelTime).toBe(20);
+    expect(GameState.attemptTime).toBe(20);
+    GameState.restartFromCheckpoint();
+    expect(GameState.levelTime).toBe(12);
+    expect(GameState.attemptTime).toBe(20);
+    expect(GameState.cleanRun).toBe(false);
+    GameState.tick(3);
+    GameState.completeLevel();
+    GameState.tick(5); // the clock is stopped
+    expect(GameState.levelTime).toBe(15);
+    expect(GameState.attemptTime).toBe(23);
+    // A fresh start resets both and is clean again.
+    GameState.startLevel(Z1, 1);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+  });
+
+  it('chain score: 100, 200, 400, 800, then 1000 each, until the chain is reset', () => {
+    GameState.resetGame();
+    expect(CHAIN_SCORES).toEqual([100, 200, 400, 800, 1000]);
+    expect([1, 2, 3, 4, 5, 6].map(() => GameState.chainScore())).toEqual([100, 200, 400, 800, 1000, 1000]);
+    GameState.resetChain();
+    expect(GameState.chainScore()).toBe(100);
+    GameState.startLevel(Z1, 1);
+    expect(GameState.chain).toBe(0);
+  });
+});
+
 describe('SceneRouter', () => {
   beforeEach(() => {
     registerDummies();
@@ -473,5 +529,42 @@ describe('SceneRouter', () => {
     expect(sceneId()).toBe('level:z1_retro_rush_hills/act2');
     expect(GameState.lives).toBe(START_LIVES);
     expect(GameState.tickets).toBe(0);
+  });
+
+  it('retryStage after a game over keeps the zone and stage and resets lives and score', () => {
+    const started: string[] = [];
+    const onStart = (zone: string, act: number) => started.push(`${zone}:${act}`);
+    GameState.levelStarted.connect(onStart);
+    SceneRouter.startZone(Z1, 3);
+    flush();
+    GameState.addScore(700);
+    GameState.lives = 1;
+    SceneRouter.respawn();
+    flush();
+    expect(sceneId()).toBe(GAME_OVER_SCENE);
+    expect(SceneRouter.canRetryStage()).toBe(true);
+    SceneRouter.retryStage();
+    flush();
+    expect(sceneId()).toBe('boss:rug_pull');
+    expect(SceneRouter.zoneId).toBe(Z1);
+    expect(SceneRouter.stage).toBe(3);
+    expect(GameState.zoneId).toBe(Z1);
+    expect(GameState.act).toBe(3);
+    expect(GameState.lives).toBe(START_LIVES);
+    expect(GameState.score).toBe(0);
+    // One fresh attempt per start: the first start and the retry.
+    expect(started).toEqual([`${Z1}:3`, `${Z1}:3`]);
+    GameState.levelStarted.disconnect(onStart);
+  });
+
+  it('retryStage from a sandbox scene falls back to the title', () => {
+    SceneRouter.openScene('level:z1_retro_rush_hills/act1');
+    flush();
+    expect(SceneRouter.canRetryStage()).toBe(false);
+    GameState.lives = 0;
+    SceneRouter.retryStage();
+    flush();
+    expect(sceneId()).toBe(TITLE_SCENE);
+    expect(GameState.lives).toBe(START_LIVES);
   });
 });

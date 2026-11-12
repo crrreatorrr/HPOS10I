@@ -13,7 +13,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { HubSdk, HubSessionInfo } from '@hub-sdk';
 import { Emeralds } from '../../src/core/emeralds';
+import { Difficulty } from '../../src/core/difficulty';
 import { GameState } from '../../src/core/game_state';
+import { Vec2 } from '../../src/runtime/vec2';
 import { SceneRouter } from '../../src/core/scene_router';
 import { MAIN_SCENE, Scenes } from '../../src/core/scenes';
 import { ZoneRegistry } from '../../src/core/zone_registry';
@@ -477,11 +479,105 @@ describe('hub reports', () => {
     c.done();
   });
 
+  it('a boss beaten before on this save banks nothing on a replay, and a failed attempt never pays', async () => {
+    const c = new Checks();
+    const sdk = await boot();
+    const zone = ZoneRegistry.getZone(ZONE_A)!;
+    const boss = zone.acts.length + 1;
+    // A failed attempt (never cleared) and a game-over retry: two fresh ids, no earn.
+    const failed = playAttempt(ZONE_A, boss, 0);
+    GameState.addTickets(5);
+    const retried = playAttempt(ZONE_A, boss, 0);
+    c.true(failed !== retried, 'a retry is a fresh attempt with its own id');
+    c.eq(sdk.earns().length, 0, 'an attempt that is not cleared sends nothing');
+    // The first clear banks, once, under the retry's id.
+    GameState.addTickets(5);
+    GameState.completeLevel();
+    c.eq(sdk.earns().length, 1, 'the first boss clear banks');
+    c.eq(sdk.earns()[0]?.key, retried, 'under the clearing attempt id');
+    c.eq(Number(earnRow(failed).amount ?? 0), 0, 'the failed attempt id never got an earn');
+    c.true(HubClient.isCleared(ZONE_A, boss), 'the boss clear is saved');
+    // Replays (the zone select BOSS button, or a later run): nothing more.
+    playAttempt(ZONE_A, boss, 9);
+    playAttempt(ZONE_A, boss, 20);
+    c.eq(sdk.earns().length, 1, `a boss replay banks nothing (${sdk.ledger()})`);
+    c.eq(pendingEarnKeys().length, 1, 'and saves no earn row');
+    // Another zone's boss is its own first clear.
+    playAttempt(ZONE_B, ZoneRegistry.getZone(ZONE_B)!.acts.length + 1, 3);
+    c.eq(sdk.earns().length, 2, 'another boss banks its first clear');
+    c.done();
+  });
+
+  it('remembers the clear for the tally: the time, the best before it and whether it beat it', async () => {
+    await boot();
+    playAttempt(ZONE_A, 2, 0);
+    expect(HubClient.lastClear).toBeNull();
+    GameState.attemptTime = 50;
+    GameState.completeLevel();
+    // Par for Zone 1 Act 2 is read from the curve: 50 s is well under 0.7 of it.
+    expect(HubClient.lastClear).toEqual({ zone: ZONE_A, act: 2, time: 50, previousBest: null, newBest: true, rank: 'S', previousRank: null, newRank: true, clean: true });
+    expect(HubClient.bestRank(ZONE_A, 2)).toBe('S');
+    expect(HubClient.bestTime(ZONE_A, 2)).toBe(50);
+    playAttempt(ZONE_A, 2, 0);
+    expect(HubClient.lastClear).toBeNull();
+    GameState.attemptTime = 61.5;
+    GameState.completeLevel();
+    expect(HubClient.lastClear).toMatchObject({ zone: ZONE_A, act: 2, time: 61.5, previousBest: 50, newBest: false, previousRank: 'S', newRank: false });
+    expect(HubClient.bestTime(ZONE_A, 2)).toBe(50);
+    playAttempt(ZONE_A, 2, 0);
+    GameState.attemptTime = 44;
+    GameState.completeLevel();
+    expect(HubClient.lastClear).toMatchObject({ previousBest: 50, newBest: true });
+    expect(HubClient.bestTime(ZONE_A, 2)).toBe(44);
+  });
+
+  it('times and ranks use the attempt clock: a death adds the lost segment, caps the rank at A and keeps the run off the board', async () => {
+    const sdk = await boot();
+    const par = Difficulty.parFor(ZONE_A, 1)!;
+    SceneRouter.zoneId = ZONE_A;
+    SceneRouter.stage = 1;
+    GameState.startLevel(ZONE_A, 1);
+    // 20 s to a checkpoint, 10 s more, then a death: the HUD clock rewinds, the attempt clock does not.
+    GameState.tick(20);
+    GameState.setCheckpoint(new Vec2(100, 0));
+    GameState.tick(10);
+    GameState.restartFromCheckpoint();
+    expect(GameState.levelTime).toBe(20);
+    expect(GameState.attemptTime).toBe(30);
+    expect(GameState.cleanRun).toBe(false);
+    GameState.tick(5);
+    GameState.completeLevel();
+    expect(GameState.levelTime).toBe(25);
+    expect(HubClient.lastClear).toMatchObject({ time: 35, clean: false, rank: 'A', newBest: true });
+    expect(35 / par).toBeLessThan(0.7); // S pace, capped at A by the death
+    expect(HubClient.bestTime(ZONE_A, 1)).toBe(35);
+    expect(HubClient.bestRank(ZONE_A, 1)).toBe('A');
+    expect(sdk.of('submitScore').length).toBe(0);
+    const event = sdk.of('reportEvent')[0]!.args[1] as { time: number };
+    expect(event.time).toBe(35);
+    // A clean run at the same pace earns the S and posts.
+    GameState.startLevel(ZONE_A, 1);
+    expect(GameState.attemptTime).toBe(0);
+    expect(GameState.cleanRun).toBe(true);
+    GameState.tick(34);
+    GameState.completeLevel();
+    expect(HubClient.lastClear).toMatchObject({ time: 34, clean: true, rank: 'S', previousRank: 'A', newRank: true, previousBest: 35, newBest: true });
+    expect(sdk.of('submitScore').length).toBe(1);
+    expect(sdk.of('submitScore')[0]!.args[1]).toBe(34);
+    // A slower clean run posts its own time, never the saved best (which an unclean or older run may have set).
+    GameState.startLevel(ZONE_A, 1);
+    GameState.tick(40);
+    GameState.completeLevel();
+    expect(sdk.of('submitScore').length).toBe(2);
+    expect(sdk.of('submitScore')[1]!.args[1]).toBe(40);
+    expect(HubClient.bestTime(ZONE_A, 1)).toBe(34);
+  });
+
   it('only Zone 1 Act 1 submits the act-time score', async () => {
     const c = new Checks();
     const sdk = await boot();
     playAttempt(ZONE_A, 1, 0);
-    GameState.levelTime = 61.25;
+    GameState.attemptTime = 61.25;
     GameState.completeLevel();
     playAttempt(ZONE_A, 2, 2);
     playAttempt(ZONE_B, 1, 2);
@@ -490,13 +586,13 @@ describe('hub reports', () => {
     const scores = sdk.of('submitScore');
     c.eq(scores.length, 1, `one score, for Zone 1 Act 1 (${sdk.ledger()})`);
     c.eq(scores[0]?.args[0], BOARD_ACT_TIME, 'board');
-    c.eq(scores[0]?.args[1], 61.25, 'the act time in seconds (the best so far)');
+    c.eq(scores[0]?.args[1], 61.25, 'the act time in seconds');
     c.eq(JSON.stringify(scores[0]?.args[2]), JSON.stringify({ zone: ZONE_A, act: 1 }), 'meta');
-    // A slower clear posts the best time again.
+    // A slower clean clear posts its own time.
     playAttempt(ZONE_A, 1, 0);
-    GameState.levelTime = 70;
+    GameState.attemptTime = 70;
     GameState.completeLevel();
-    c.eq(sdk.of('submitScore')[1]?.args[1], 61.25, 'the best time, not the slower one');
+    c.eq(sdk.of('submitScore')[1]?.args[1], 70, "this run's own time (the board keeps the best)");
     c.done();
   });
 
@@ -529,27 +625,84 @@ function progressData(): Record<string, unknown> {
   return Storage.readJson(SAVE_KEYS.progress);
 }
 
-describe('progress save (v1, emeralds)', () => {
-  it('migrates an old unversioned blob (v0) to v1 with no emeralds', () => {
-    expect(PROGRESS_VERSION).toBe(1);
+describe('progress save (v2: emeralds, ranks)', () => {
+  it('migrates an old unversioned blob (v0) and a v1 blob to v2 with no emeralds lost and no ranks yet', () => {
+    expect(PROGRESS_VERSION).toBe(2);
     const old = { cleared: [`${ZONE_A}:1`], best_times: { [`${ZONE_A}:1`]: 42.5 } };
-    expect(migrateProgress(structuredClone(old))).toEqual({ ...old, v: 1, emeralds: [] });
+    expect(migrateProgress(structuredClone(old))).toEqual({ ...old, v: 2, emeralds: [], best_ranks: {}, unlock_all: true });
     // A non-number version reads as v0 too.
-    expect(migrateProgress({ v: 'x', cleared: [] })).toMatchObject({ v: 1, emeralds: [] });
+    expect(migrateProgress({ v: 'x', cleared: [] })).toMatchObject({ v: 2, emeralds: [], best_ranks: {}, unlock_all: true });
+    // v1 keeps everything it had.
+    const v1 = { v: 1, cleared: [`${ZONE_A}:1`], best_times: { [`${ZONE_A}:1`]: 42.5 }, emeralds: [Emeralds.key(ZONE_A, 1)] };
+    expect(migrateProgress(structuredClone(v1))).toEqual({ ...v1, v: 2, best_ranks: {}, unlock_all: true });
+    // Junk where the ranks should be is tolerated.
+    Storage.writeJson(SAVE_KEYS.progress, { v: 2, cleared: [], best_times: {}, emeralds: [], best_ranks: { [`${ZONE_A}:1`]: 'Z', [`${ZONE_A}:2`]: 'B', x: 3 } });
+    const junk = new HubSave();
+    junk.loadAll();
+    expect(junk.bestRank(ZONE_A, 1)).toBeNull();
+    expect(junk.bestRank(ZONE_A, 2)).toBe('B');
+    Storage.writeJson(SAVE_KEYS.progress, { v: 2, cleared: [], best_times: {}, emeralds: [], best_ranks: 7 });
+    junk.loadAll();
+    expect(junk.bestRanks.size).toBe(0);
     Storage.writeJson(SAVE_KEYS.progress, old);
     const save = new HubSave();
     save.loadAll();
     expect(save.isCleared(ZONE_A, 1)).toBe(true);
     expect(save.bestTime(ZONE_A, 1)).toBe(42.5);
     expect(save.emeralds.size).toBe(0);
-    // The next write stores it as v1.
-    save.recordClear(ZONE_A, 2, 50);
+    // The next write stores it as v2; a rank is kept only when it is the better one.
+    save.recordClear(ZONE_A, 2, 50, 'B');
+    save.recordClear(ZONE_A, 2, 60, 'C');
     expect(progressData()).toEqual({
-      v: 1,
+      v: 2,
       cleared: [`${ZONE_A}:1`, `${ZONE_A}:2`],
       best_times: { [`${ZONE_A}:1`]: 42.5, [`${ZONE_A}:2`]: 50 },
+      best_ranks: { [`${ZONE_A}:2`]: 'B' },
       emeralds: [],
+      unlock_all: true,
     });
+    save.recordClear(ZONE_A, 2, 70, 'S');
+    expect(save.bestRank(ZONE_A, 2)).toBe('S');
+    expect(save.bestTime(ZONE_A, 2)).toBe(50);
+  });
+
+  it('a save from before v2 keeps every act open; a new save does not get the flag', () => {
+    // v0 with only Zone 3 Act 2 cleared, and v1 with two scattered clears: both had every act open.
+    for (const old of [
+      { cleared: ['z3_capital_mansion:2'], best_times: {} },
+      { v: 1, cleared: [`${ZONE_A}:1`, 'z3_capital_mansion:1'], best_times: {}, emeralds: [] },
+    ]) {
+      Storage.use(memoryStore());
+      Storage.writeJson(SAVE_KEYS.progress, old);
+      const save = new HubSave();
+      save.loadAll();
+      expect(save.unlockAll).toBe(true);
+      // It survives the next write and a reload, and another tab's write.
+      save.recordClear(ZONE_B, 1, 99, 'C');
+      expect(progressData().unlock_all).toBe(true);
+      const again = new HubSave();
+      again.loadAll();
+      expect(again.unlockAll).toBe(true);
+    }
+    // No save at all: a new player, progress-based unlocking.
+    Storage.use(memoryStore());
+    const fresh = new HubSave();
+    fresh.loadAll();
+    expect(fresh.unlockAll).toBe(false);
+    fresh.recordClear(ZONE_A, 1, 50, 'B');
+    expect(progressData()).toMatchObject({ v: 2 });
+    expect('unlock_all' in progressData()).toBe(false);
+    const reopened = new HubSave();
+    reopened.loadAll();
+    expect(reopened.unlockAll).toBe(false);
+    // A stale tab that loaded before the migration cannot drop the flag.
+    Storage.use(memoryStore());
+    Storage.writeJson(SAVE_KEYS.progress, { v: 1, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [] });
+    const tabA = new HubSave();
+    tabA.loadAll();
+    tabA.unlockAll = false;
+    tabA.recordClear(ZONE_A, 2, 70);
+    expect(progressData().unlock_all).toBe(true);
   });
 
   it('save and load round trip: emeralds, cleared acts and best times; junk keys are dropped', () => {
@@ -559,12 +712,12 @@ describe('progress save (v1, emeralds)', () => {
     save.recordEmerald(ZONE_A, 1);
     save.recordEmerald(ZONE_B, 2);
     save.recordEmerald('test_zone', 1); // no emerald there: ignored
-    expect(progressData()).toMatchObject({ v: 1, emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort() });
+    expect(progressData()).toMatchObject({ v: 2, emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort() });
     const reopened = new HubSave();
     reopened.loadAll();
     expect([...reopened.emeralds].sort()).toEqual([Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort());
     expect(reopened.bestTime(ZONE_A, 1)).toBe(30);
-    Storage.writeJson(SAVE_KEYS.progress, { v: 1, cleared: [], best_times: {}, emeralds: [Emeralds.key(ZONE_A, 2), 'nope:9', 7] });
+    Storage.writeJson(SAVE_KEYS.progress, { v: 2, cleared: [], best_times: {}, best_ranks: {}, emeralds: [Emeralds.key(ZONE_A, 2), 'nope:9', 7] });
     reopened.loadAll();
     expect([...reopened.emeralds]).toEqual([Emeralds.key(ZONE_A, 2)]);
   });
@@ -609,8 +762,28 @@ describe('progress save (v1, emeralds)', () => {
     expect(progressData().emeralds).toEqual([Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 1)].sort());
   });
 
+  it('two tabs: clears, the lower time and the better rank of each survive the other\'s write', () => {
+    const tabA = new HubSave();
+    const tabB = new HubSave();
+    tabA.loadAll();
+    tabB.loadAll();
+    tabA.recordClear(ZONE_A, 1, 40, 'A');
+    tabB.recordClear(ZONE_A, 1, 55, 'S'); // slower but clean: a better rank
+    tabB.recordClear(ZONE_B, 1, 90, 'C');
+    tabA.recordClear(ZONE_A, 2, 70, 'B');
+    expect(progressData()).toMatchObject({
+      cleared: [`${ZONE_A}:1`, `${ZONE_A}:2`, `${ZONE_B}:1`],
+      best_times: { [`${ZONE_A}:1`]: 40, [`${ZONE_A}:2`]: 70, [`${ZONE_B}:1`]: 90 },
+      best_ranks: { [`${ZONE_A}:1`]: 'S', [`${ZONE_A}:2`]: 'B', [`${ZONE_B}:1`]: 'C' },
+    });
+    const reopened = new HubSave();
+    reopened.loadAll();
+    expect(reopened.bestRank(ZONE_A, 1)).toBe('S');
+    expect(reopened.bestTime(ZONE_A, 1)).toBe(40);
+  });
+
   it('a save from a newer version is read but never downgraded', () => {
-    const future = { v: 2, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [Emeralds.key(ZONE_A, 1)], extra: true };
+    const future = { v: 3, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [Emeralds.key(ZONE_A, 1)], extra: true };
     Storage.writeJson(SAVE_KEYS.progress, future);
     const save = new HubSave();
     save.loadAll();

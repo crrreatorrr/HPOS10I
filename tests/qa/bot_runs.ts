@@ -35,10 +35,20 @@ export function median(values: number[]): number {
 export const released = (a: ActInfo): boolean => ZoneRegistry.isReleased(a.zone);
 export const finishedInTime = (r: BotResult): boolean => r.completed && !r.timeOver && r.levelTime < TIME_LIMIT;
 
+/**
+ * The acts the QA bot plays: the ones with a level file. Zone 4 is built in
+ * code around timed platforms and reverse runs the QA pilot does not know;
+ * its own route pilot plays it in tests/levels/z4.test.ts (with and without
+ * the shipped hooks). The level lint covers it.
+ */
+export function botActs(): ActInfo[] {
+  return zoneActs().filter((a) => !a.code);
+}
+
 /** Plays every act with every variant. */
 export async function playAll(itemBoxes: boolean): Promise<ActRuns[]> {
   const out: ActRuns[] = [];
-  for (const act of zoneActs()) {
+  for (const act of botActs()) {
     const runs: BotResult[] = [];
     for (const [policy, jumpEvery] of VARIANTS) {
       runs.push(await playAct({ data: loadLevelData(act.file), zone: act.zone, stage: act.stage, policy, jumpEvery, itemBoxes }));

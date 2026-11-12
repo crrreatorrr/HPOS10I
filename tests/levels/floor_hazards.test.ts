@@ -4,10 +4,16 @@ import { CeilingRam } from '../../src/levels/objects/hazards/ceiling_ram';
 import { Burrower, LavaVent } from '../../src/levels/objects/hazards/floor_hazards';
 import { FluidWell } from '../../src/levels/objects/hazards/fluid_well';
 import { Enemy } from '../../src/levels/enemies/enemy_base';
+import { SceneRouter } from '../../src/core/scene_router';
+import { buildLevel } from '../../src/levels/common/level_loader';
+import type { LevelRoot } from '../../src/levels/common/level_root';
+import { buildAct1 } from '../../src/levels/z4/act1';
+import { registerZone4Types } from '../../src/levels/z4/register';
+import { tree } from '../../src/runtime/tree';
 import type { Node2D } from '../../src/runtime/node';
 import { Vec2 } from '../../src/runtime/vec2';
 import { addFloor, newWorld, press, release, releaseAll, spawnPlayer, step } from '../helpers/world';
-import { loadAct, MIN_TELEGRAPH_FRAMES, place, waitFor } from './level_world';
+import { loadAct, MIN_TELEGRAPH_FRAMES, place, registerAll, waitFor } from './level_world';
 
 beforeEach(() => GameState.resetGame());
 afterEach(releaseAll);
@@ -167,6 +173,76 @@ describe('floor hazards', () => {
   });
 });
 
+
+describe('the Zone 4 Act 1 ceiling ram (player-triggered)', () => {
+  it('counts its rest again from the start when the player leaves and comes back', () => {
+    const world = newWorld();
+    addFloor(world);
+    const player = spawnPlayer(world, new Vec2(-400, 0));
+    const ram = place(world, new CeilingRam(), new Vec2(0, -100), { ...fast, rest_frames: 40, height: 20, travel: 80, wake_radius: 96 });
+    step(5);
+    player.respawnAt(new Vec2(-72, -19));
+    step(20);
+    expect(ram.cycle.phase).toBe('rest');
+    expect(ram.cycle.elapsed).toBeGreaterThan(10);
+    player.respawnAt(new Vec2(-400, -19));
+    step(100);
+    expect(ram.cycle.phase).toBe('rest');
+    expect(Math.abs(ram.cycle.elapsed)).toBe(0);
+    player.respawnAt(new Vec2(-72, -19));
+    expect(waitFor(() => ram.cycle.phase === 'warning', 60)).toBeGreaterThanOrEqual(30);
+  });
+
+  it('never crushes a player who keeps moving, at a slow walk, a walk, a run or top speed; waiting under it does', async () => {
+    registerAll();
+    registerZone4Types();
+    const saved = { zone: SceneRouter.zoneId, stage: SceneRouter.stage };
+    SceneRouter.zoneId = 'z4_neon_rush_remix';
+    SceneRouter.stage = 1;
+    try {
+      const root = (await buildLevel(buildAct1().build())) as LevelRoot;
+      root.useSceneRouter = false;
+      tree.changeSceneNow(() => root);
+      step(2);
+      for (const enemy of root.findChildren((n) => n instanceof Enemy)) enemy.queueFree();
+      step(1);
+      const ram = root.findChildren<CeilingRam>((n) => n instanceof CeilingRam)[0]!;
+      expect(ram.wakeRadius).toBe(160);
+      expect(ram.dwellFrames).toBe(90);
+      const plate = ram.getNode<Node2D>('WarningPlate').globalPosition;
+      const player = root.player!;
+      // 1.2 is the slow walker QA lost; then every speed up to the cap, the dangerous middle included.
+      const speeds = [1, 1.2, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16];
+      for (const speed of speeds) {
+        player.respawnAt(new Vec2(plate.x - 400, plate.y - 19));
+        step(4);
+        expect(player.grounded, `on the low deck at speed ${speed}`).toBe(true);
+        expect(waitFor(() => ram.cycle.phase === 'rest' && Math.abs(ram.cycle.elapsed) === 0, 400)).toBeGreaterThanOrEqual(0);
+        expect(ram.warningLit()).toBe(false);
+        let frames = 0;
+        let warned = false;
+        while (player.globalPosition.x < plate.x + 200 && frames < 900 && player.state !== 'dead') {
+          player.groundSpeed = speed;
+          step(1);
+          frames++;
+          if (ram.cycle.phase === 'warning') warned = true;
+          // The ram never moves while he is still on his way through.
+          if (Math.abs(player.globalPosition.x - plate.x) < 30) expect(ram.cycle.amount, `ram still up at speed ${speed}`).toBe(0);
+        }
+        expect(player.state, `crossing at ${speed} px/frame`).not.toBe('dead');
+        expect(player.globalPosition.x).toBeGreaterThanOrEqual(plate.x + 200);
+        expect(warned, `the plate flashed on the approach at ${speed}`).toBe(true);
+      }
+      // Waiting under the flashing ram: at least 0.35 s of warning, then it drops.
+      player.respawnAt(new Vec2(plate.x, plate.y - 19));
+      const died = waitFor(() => player.state === 'dead', 400);
+      expect(died).toBeGreaterThanOrEqual(90);
+    } finally {
+      SceneRouter.zoneId = saved.zone;
+      SceneRouter.stage = saved.stage;
+    }
+  }, 60000);
+});
 
 describe('optional hazard routes', () => {
   it.each([

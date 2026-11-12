@@ -20,6 +20,10 @@ import { Conveyor } from '../../src/levels/objects/z3/conveyor';
 import { Door } from '../../src/levels/objects/z3/door';
 import { FloorSwitch } from '../../src/levels/objects/z3/floor_switch';
 import { registerObjects } from '../../src/levels/registry_objects';
+import { Prompts } from '../../src/core/prompts';
+import { PROMPT_WAIT_FRAMES, PromptZone } from '../../src/levels/objects/prompt_zone';
+import { PROMPT_KEYS, promptLine } from '../../src/ui/hud/prompt_line';
+import { loadAct } from './level_world';
 import { addFloor, newWorld, press, release, settle, spawnPlayer, step } from '../helpers/world';
 
 type Placeable = Node2D & { applyProps?(p: Props): void };
@@ -292,5 +296,73 @@ describe('registry', () => {
       }
     }
     expect([...new Set(missing)]).toEqual([]);
+  });
+});
+
+describe('prompt zones', () => {
+  beforeEach(() => Prompts.reset());
+
+  it('shows its prompt after Sproto stands in it for 60 frames, once per run', () => {
+    flatWith(new PromptZone(), new Vec2(0, 0), { prompt: 'spindash', width: 160, height: 96 });
+    step(PROMPT_WAIT_FRAMES - 10);
+    expect(Prompts.current).toBe('');
+    step(12);
+    expect(Prompts.current).toBe('spindash');
+    expect(Prompts.secondsLeft).toBeGreaterThan(4);
+    // It goes away on its own and does not come back in the same run, even after a respawn.
+    Prompts.tick(10);
+    expect(Prompts.current).toBe('');
+    player.respawnAt(new Vec2(0, -19));
+    step(PROMPT_WAIT_FRAMES + 10);
+    expect(Prompts.current).toBe('');
+    expect(Prompts.hasSeen('spindash')).toBe(true);
+    // A fresh act start is a new run: the old scene's zone stays quiet, the new scene's zone asks again.
+    GameState.startLevel('z1_retro_rush_hills', 1);
+    expect(Prompts.hasSeen('spindash')).toBe(false);
+    step(PROMPT_WAIT_FRAMES + 10);
+    expect(Prompts.current).toBe('');
+    flatWith(new PromptZone(), new Vec2(0, 0), { prompt: 'spindash', width: 160, height: 96 });
+    step(PROMPT_WAIT_FRAMES + 2);
+    expect(Prompts.current).toBe('spindash');
+  });
+
+  it('a runner passing through a standing prompt does not trigger it; an entry prompt shows at once', () => {
+    flatWith(new PromptZone(), new Vec2(200, 0), { prompt: 'spindash', width: 160, height: 96 }, new Vec2(0, 0));
+    press('move_right');
+    step(140);
+    release('move_right');
+    expect(player.globalPosition.x).toBeGreaterThan(280);
+    expect(Prompts.current).toBe('');
+
+    flatWith(new PromptZone(), new Vec2(120, 0), { prompt: 'enemy', width: 96, height: 96, on_entry: true }, new Vec2(0, 0));
+    expect(Prompts.current).toBe('');
+    press('move_right');
+    for (let i = 0; i < 120 && Prompts.current === ''; i++) step(1);
+    release('move_right');
+    expect(Prompts.current).toBe('enemy');
+    expect(player.globalPosition.x).toBeLessThan(120 + 48 + 12);
+  });
+
+  it('is registered, and Zone 1 Act 1 teaches the spin dash, the first enemy and the first loop', async () => {
+    expect(LevelTypes.has('hpos://objects/prompt_zone')).toBe(true);
+    const root = await loadAct('src/levels/data/z1_retro_rush_hills/act1.json');
+    const zones = root.findChildren<PromptZone>((n) => n instanceof PromptZone).sort((a, b) => a.globalPosition.x - b.globalPosition.x);
+    expect(zones.map((z) => z.prompt)).toEqual(['spindash', 'enemy', 'speed']);
+    expect(zones.map((z) => z.onEntry)).toEqual([false, true, true]);
+    // A new player who stops at the foot of the first hill sees the spin-dash line within about a second.
+    const p = root.player!;
+    p.respawnAt(new Vec2(600, -19));
+    step(PROMPT_WAIT_FRAMES + 6);
+    expect(Prompts.current).toBe('spindash');
+  });
+
+  it('every prompt key has a line for every device, with the jump key from the bindings', () => {
+    for (const key of PROMPT_KEYS) for (const device of ['keyboard', 'pad', 'touch'] as const) expect(promptLine(key, device)).not.toBe('');
+    expect(promptLine('spindash', 'keyboard')).toBe('HOLD DOWN, TAP Z, LET GO: SPIN DASH');
+    expect(promptLine('spindash', 'pad')).toBe('HOLD DOWN, TAP A, LET GO: SPIN DASH');
+    expect(promptLine('spindash', 'touch')).toBe('HOLD DOWN, TAP JUMP, LET GO: SPIN DASH');
+    expect(promptLine('enemy', 'keyboard')).toContain('ROLL THROUGH');
+    expect(promptLine('speed', 'pad')).toBe('KEEP YOUR SPEED');
+    expect(promptLine('nope', 'keyboard')).toBe('');
   });
 });
