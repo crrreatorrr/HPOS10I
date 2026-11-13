@@ -164,6 +164,14 @@ class GameStateStore {
     for (const key of keys) this.emeralds.add(key);
   }
 
+  /**
+   * Shows the emeralds of the save's current owner (the device, or a hub account once it
+   * is known). Replaces the set; emeraldJustWon is kept, so a win's tally still shows it.
+   */
+  showSavedEmeralds(keys: Iterable<string>): void {
+    this.emeralds = new Set(keys);
+  }
+
   /** Forgets every emerald in memory (tests; a future "new save"). The save is not touched. */
   clearEmeralds(): void {
     this.emeralds.clear();

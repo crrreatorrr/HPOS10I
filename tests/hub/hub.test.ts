@@ -20,7 +20,7 @@ import { SceneRouter } from '../../src/core/scene_router';
 import { MAIN_SCENE, Scenes } from '../../src/core/scenes';
 import { ZoneRegistry } from '../../src/core/zone_registry';
 import { BOARD_ACT_TIME, EARN_REASON, EVENT_LEVEL_COMPLETE, GAME_ID, HubClient } from '../../src/hub/hub_client';
-import { HubSave, migrateProgress, PROGRESS_VERSION } from '../../src/hub/hub_save';
+import { HubSave, LEGACY_PROGRESS_VERSION, migrateProgress } from '../../src/hub/hub_save';
 import { memoryStore, SAVE_KEYS, Storage, type KeyValue } from '../../src/hub/storage';
 import { Node } from '../../src/runtime/node';
 import { tree } from '../../src/runtime/tree';
@@ -620,6 +620,8 @@ describe('hub reports', () => {
 });
 
 // --- Progress save: version 1 and emeralds (HPOS-DEC-02) -------------------------------
+// Since the per-account store, the old `hpos10i/progress.json` (v0..v2) is read into the
+// device copy (SAVE_KEYS.progress, v3) and never written again.
 
 function progressData(): Record<string, unknown> {
   return Storage.readJson(SAVE_KEYS.progress);
@@ -627,7 +629,7 @@ function progressData(): Record<string, unknown> {
 
 describe('progress save (v2: emeralds, ranks)', () => {
   it('migrates an old unversioned blob (v0) and a v1 blob to v2 with no emeralds lost and no ranks yet', () => {
-    expect(PROGRESS_VERSION).toBe(2);
+    expect(LEGACY_PROGRESS_VERSION).toBe(2);
     const old = { cleared: [`${ZONE_A}:1`], best_times: { [`${ZONE_A}:1`]: 42.5 } };
     expect(migrateProgress(structuredClone(old))).toEqual({ ...old, v: 2, emeralds: [], best_ranks: {}, unlock_all: true });
     // A non-number version reads as v0 too.
@@ -636,25 +638,28 @@ describe('progress save (v2: emeralds, ranks)', () => {
     const v1 = { v: 1, cleared: [`${ZONE_A}:1`], best_times: { [`${ZONE_A}:1`]: 42.5 }, emeralds: [Emeralds.key(ZONE_A, 1)] };
     expect(migrateProgress(structuredClone(v1))).toEqual({ ...v1, v: 2, best_ranks: {}, unlock_all: true });
     // Junk where the ranks should be is tolerated.
-    Storage.writeJson(SAVE_KEYS.progress, { v: 2, cleared: [], best_times: {}, emeralds: [], best_ranks: { [`${ZONE_A}:1`]: 'Z', [`${ZONE_A}:2`]: 'B', x: 3 } });
+    Storage.writeJson(SAVE_KEYS.legacyProgress, { v: 2, cleared: [], best_times: {}, emeralds: [], best_ranks: { [`${ZONE_A}:1`]: 'Z', [`${ZONE_A}:2`]: 'B', x: 3 } });
     const junk = new HubSave();
     junk.loadAll();
     expect(junk.bestRank(ZONE_A, 1)).toBeNull();
     expect(junk.bestRank(ZONE_A, 2)).toBe('B');
-    Storage.writeJson(SAVE_KEYS.progress, { v: 2, cleared: [], best_times: {}, emeralds: [], best_ranks: 7 });
+    Storage.use(memoryStore());
+    Storage.writeJson(SAVE_KEYS.legacyProgress, { v: 2, cleared: [], best_times: {}, emeralds: [], best_ranks: 7 });
     junk.loadAll();
     expect(junk.bestRanks.size).toBe(0);
-    Storage.writeJson(SAVE_KEYS.progress, old);
+    Storage.use(memoryStore());
+    Storage.writeJson(SAVE_KEYS.legacyProgress, old);
     const save = new HubSave();
     save.loadAll();
     expect(save.isCleared(ZONE_A, 1)).toBe(true);
     expect(save.bestTime(ZONE_A, 1)).toBe(42.5);
     expect(save.emeralds.size).toBe(0);
-    // The next write stores it as v2; a rank is kept only when it is the better one.
+    // The next write stores it in the device copy (v3); a rank is kept only when it is the better one.
     save.recordClear(ZONE_A, 2, 50, 'B');
     save.recordClear(ZONE_A, 2, 60, 'C');
+    expect(Storage.readJson(SAVE_KEYS.legacyProgress)).toEqual(old);
     expect(progressData()).toEqual({
-      v: 2,
+      v: 3,
       cleared: [`${ZONE_A}:1`, `${ZONE_A}:2`],
       best_times: { [`${ZONE_A}:1`]: 42.5, [`${ZONE_A}:2`]: 50 },
       best_ranks: { [`${ZONE_A}:2`]: 'B' },
@@ -673,7 +678,7 @@ describe('progress save (v2: emeralds, ranks)', () => {
       { v: 1, cleared: [`${ZONE_A}:1`, 'z3_capital_mansion:1'], best_times: {}, emeralds: [] },
     ]) {
       Storage.use(memoryStore());
-      Storage.writeJson(SAVE_KEYS.progress, old);
+      Storage.writeJson(SAVE_KEYS.legacyProgress, old);
       const save = new HubSave();
       save.loadAll();
       expect(save.unlockAll).toBe(true);
@@ -690,19 +695,20 @@ describe('progress save (v2: emeralds, ranks)', () => {
     fresh.loadAll();
     expect(fresh.unlockAll).toBe(false);
     fresh.recordClear(ZONE_A, 1, 50, 'B');
-    expect(progressData()).toMatchObject({ v: 2 });
-    expect('unlock_all' in progressData()).toBe(false);
+    expect(progressData()).toMatchObject({ v: 3, unlock_all: false });
     const reopened = new HubSave();
     reopened.loadAll();
     expect(reopened.unlockAll).toBe(false);
-    // A stale tab that loaded before the migration cannot drop the flag.
+    // A tab that loaded before an old save appeared (the Godot import, an old build's tab)
+    // takes the flag on its next write.
     Storage.use(memoryStore());
-    Storage.writeJson(SAVE_KEYS.progress, { v: 1, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [] });
     const tabA = new HubSave();
     tabA.loadAll();
-    tabA.unlockAll = false;
+    expect(tabA.unlockAll).toBe(false);
+    Storage.writeJson(SAVE_KEYS.legacyProgress, { v: 1, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [] });
     tabA.recordClear(ZONE_A, 2, 70);
     expect(progressData().unlock_all).toBe(true);
+    expect(tabA.unlockAll).toBe(true);
   });
 
   it('save and load round trip: emeralds, cleared acts and best times; junk keys are dropped', () => {
@@ -712,7 +718,7 @@ describe('progress save (v2: emeralds, ranks)', () => {
     save.recordEmerald(ZONE_A, 1);
     save.recordEmerald(ZONE_B, 2);
     save.recordEmerald('test_zone', 1); // no emerald there: ignored
-    expect(progressData()).toMatchObject({ v: 2, emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort() });
+    expect(progressData()).toMatchObject({ v: 3, emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort() });
     const reopened = new HubSave();
     reopened.loadAll();
     expect([...reopened.emeralds].sort()).toEqual([Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_B, 2)].sort());
@@ -782,14 +788,15 @@ describe('progress save (v2: emeralds, ranks)', () => {
     expect(reopened.bestTime(ZONE_A, 1)).toBe(40);
   });
 
-  it('a save from a newer version is read but never downgraded', () => {
+  it('an old save, even from a newer version, is read but never rewritten', () => {
     const future = { v: 3, cleared: [`${ZONE_A}:1`], best_times: {}, emeralds: [Emeralds.key(ZONE_A, 1)], extra: true };
-    Storage.writeJson(SAVE_KEYS.progress, future);
+    Storage.writeJson(SAVE_KEYS.legacyProgress, future);
     const save = new HubSave();
     save.loadAll();
     expect(save.emeralds.has(Emeralds.key(ZONE_A, 1))).toBe(true);
     save.recordClear(ZONE_A, 2, 10);
     save.recordEmerald(ZONE_A, 2);
-    expect(progressData()).toEqual(future);
+    expect(Storage.readJson(SAVE_KEYS.legacyProgress)).toEqual(future);
+    expect(progressData()).toMatchObject({ cleared: [`${ZONE_A}:1`, `${ZONE_A}:2`], emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_A, 2)] });
   });
 });

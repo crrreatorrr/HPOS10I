@@ -1,23 +1,30 @@
 // Progress and idempotency keys (localStorage, one JSON value per former
-// user:// file). Cleared acts and boss arenas (stage acts + 1), best act
-// times, best act ranks and won emeralds live in progress;
-// write_keys holds idempotency keys only. Relic ownership and Ticket balances
-// are server-side and are never written here.
+// user:// file). Relic ownership and Ticket balances are server-side and are
+// never written here.
 //
-// The progress blob is versioned ({v: PROGRESS_VERSION, ...}); migrateProgress()
-// brings an older one up step by step (no `v` = v0, before emeralds were
-// saved; v1 had no ranks).
-// A blob from a newer build is read for what this build knows, never rewritten.
+// Progress (cleared acts and boss arenas, stage acts + 1; best act times; best
+// act ranks; won emeralds) lives in the hub SDK's progress store
+// (src/hub/progress.ts): one copy per owner (this browser outside the hub, or
+// each hub account, synced with its cloud save). It advances only through
+// recordClear, recordStageClear and recordEmerald, each one store.update.
+//
+// write_keys holds idempotency keys and the current run id only. It stays per
+// browser: it is not progress (an ack and a run id are not earned, and a run
+// can be abandoned).
 //
 // An earn key is the attempt's run id (one UUIDv7 per startLevel). It is
 // saved before earnTickets. A failed save does not mint a replacement.
 // Another tab may have written since this one loaded, so every write folds
 // the stored copy in instead of replacing it, and an ack never comes undone.
 
+import type { ProgressCloud, ProgressOwner, ProgressStore, ProgressSync } from '@hub-sdk';
 import { Emeralds } from '../core/emeralds';
-import { betterRank, isRank, type Rank } from '../core/rank';
+import type { Rank } from '../core/rank';
 import { mintUuidV7 } from '../core/uuid_v7';
-import { SAVE_KEYS, Storage } from './storage';
+import { createHposProgress, normalizeProgress, type Progress } from './progress';
+import { SAVE_KEYS, Storage, type KeyValue } from './storage';
+
+export { LEGACY_PROGRESS_VERSION, migrateProgress } from './progress';
 
 type Json = Record<string, unknown>;
 
@@ -30,80 +37,85 @@ function isObj(v: unknown): v is Json {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
-/** The progress blob version this build writes. */
-export const PROGRESS_VERSION = 2;
-
-/** One step per old version: PROGRESS_MIGRATIONS[n] turns a vn blob into v(n + 1). */
-const PROGRESS_MIGRATIONS: Record<number, (old: Json) => Json> = {
-  // v0 (no `v`): cleared and best_times only. v1 adds the won emeralds (none yet).
-  0: (old) => ({ ...old, v: 1, emeralds: [] }),
-  // v2 adds the best rank per act (none yet: old best times came from the
-  // rewinding clock and earn no rank until the act is cleared again).
-  // unlock_all: every act could be picked before v2, so a save from then keeps
-  // every act open (progress-based unlocking is for saves that start on v2).
-  1: (old) => ({ ...old, v: 2, best_ranks: {}, unlock_all: true }),
+/** Storage.store, read at each call, so the store follows Storage.use (tests). */
+const liveStorage: KeyValue = {
+  getItem: (k) => Storage.store.getItem(k),
+  setItem: (k, v) => Storage.store.setItem(k, v),
+  removeItem: (k) => Storage.store.removeItem(k),
 };
 
-function progressVersion(blob: Json): number {
-  const v = blob.v;
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : 0;
-}
-
-/** Brings a stored progress blob up to PROGRESS_VERSION (a newer one is returned as it is). */
-export function migrateProgress(blob: Json): Json {
-  let out = blob;
-  for (let v = progressVersion(out); v < PROGRESS_VERSION; v = progressVersion(out)) {
-    const step = PROGRESS_MIGRATIONS[v];
-    if (!step) break;
-    const next = step(out);
-    if (progressVersion(next) <= v) break;
-    out = next;
-  }
-  return out;
-}
-
-/** Known emerald keys in a stored list (anything else is dropped). */
-function emeraldKeys(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const known = new Set(Emeralds.allKeys());
-  return value.filter((k): k is string => typeof k === 'string' && known.has(k));
+/** What the game reads from the current progress, rebuilt when the store's copy changes. */
+interface View {
+  source: Progress;
+  cleared: ReadonlySet<string>;
+  bestTimes: ReadonlyMap<string, number>;
+  bestRanks: ReadonlyMap<string, Rank>;
+  emeralds: ReadonlySet<string>;
 }
 
 export class HubSave {
-  cleared = new Set<string>();
-  bestTimes = new Map<string, number>();
-  bestRanks = new Map<string, Rank>();
-  /** True for a save that existed before acts unlocked by progress (v0, v1): every act stays open. */
-  unlockAll = false;
-  /** Emeralds.key of every emerald won on this save. */
-  emeralds = new Set<string>();
+  private store: ProgressStore<Progress> = createHposProgress(liveStorage);
+  private unsubscribe: () => void = () => {};
+  private readonly listeners = new Set<() => void>();
+  private view: View | null = null;
   private keys: Json = {};
   private runId = '';
   private runZone = '';
   private runAct = 0;
   private runOnDisk = false;
 
+  constructor() {
+    this.watch();
+  }
+
+  /**
+   * Opens the device's progress (play outside a hub session) and the write keys
+   * from storage. Call hold() for a hub visit that is starting and attach() once
+   * its account is known.
+   */
   loadAll(): void {
-    const stored = Storage.readJson(SAVE_KEYS.progress);
-    // No save at all is a new player (v2 rules); anything older is migrated and keeps every act open.
-    const progress = Object.keys(stored).length === 0 ? stored : migrateProgress(stored);
-    this.unlockAll = progress.unlock_all === true;
-    this.cleared = new Set();
-    this.bestTimes = new Map();
-    this.bestRanks = new Map();
-    if (isObj(progress.best_ranks)) {
-      for (const [id, v] of Object.entries(progress.best_ranks)) if (isRank(v)) this.bestRanks.set(String(id), v);
-    }
-    if (Array.isArray(progress.cleared)) for (const item of progress.cleared) this.cleared.add(String(item));
-    if (isObj(progress.best_times)) {
-      for (const [id, v] of Object.entries(progress.best_times)) this.bestTimes.set(String(id), Number(v));
-    }
-    this.emeralds = new Set(emeraldKeys(progress.emeralds));
+    this.unsubscribe();
+    // A push still waiting for the cloud stops; its account keeps the "unsynced"
+    // mark, so the next attach pushes it.
+    if (this.store.owner().kind === 'account') this.store.release();
+    this.store = createHposProgress(liveStorage);
+    this.watch();
     this.keys = Storage.readJson(SAVE_KEYS.writeKeys);
     this.runId = String(this.keys.run_id ?? '');
     this.runZone = String(this.keys.run_zone ?? '');
     this.runAct = Number(this.keys.run_act ?? 0);
     this.runOnDisk = this.runId !== '' && String(Storage.readJson(SAVE_KEYS.writeKeys).run_id ?? '') === this.runId;
+    this.emit();
+  }
+
+  // --- Progress ----------------------------------------------------------------------
+
+  /** The current owner's progress. Read-only. */
+  progress(): Progress {
+    return this.store.get();
+  }
+
+  /** Cleared stages (`zone:act`), including ids this build does not know. */
+  get cleared(): ReadonlySet<string> {
+    return this.current().cleared;
+  }
+
+  get bestTimes(): ReadonlyMap<string, number> {
+    return this.current().bestTimes;
+  }
+
+  get bestRanks(): ReadonlyMap<string, Rank> {
+    return this.current().bestRanks;
+  }
+
+  /** Emeralds.key of every emerald won by the current owner (known emeralds only). */
+  get emeralds(): ReadonlySet<string> {
+    return this.current().emeralds;
+  }
+
+  /** True for a device save from before acts unlocked by progress (v0, v1): every act stays open. */
+  get unlockAll(): boolean {
+    return this.store.get().unlock_all;
   }
 
   isCleared(zone: string, act: number): boolean {
@@ -121,29 +133,105 @@ export class HubSave {
   /** Records a cleared act, its best (lowest) time and, when given, its best rank. Returns that best time. */
   recordClear(zone: string, act: number, timeSec: number, rank: Rank | null = null): number {
     const id = `${zone}:${act}`;
-    this.cleared.add(id);
-    const prev = this.bestTimes.get(id);
-    const best = prev === undefined ? timeSec : Math.min(prev, timeSec);
-    this.bestTimes.set(id, best);
-    if (rank && betterRank(rank, this.bestRanks.get(id) ?? null)) this.bestRanks.set(id, rank);
-    this.writeProgress();
-    return best;
+    this.store.update((p) => ({
+      ...p,
+      cleared: [...p.cleared, id],
+      best_times: { ...p.best_times, [id]: Math.min(p.best_times[id] ?? timeSec, timeSec) },
+      best_ranks: rank ? { ...p.best_ranks, [id]: rank } : p.best_ranks,
+    }));
+    return this.bestTime(zone, act) ?? timeSec;
   }
 
   /** Records a cleared stage that keeps no time (a boss arena: stage acts + 1). */
   recordStageClear(zone: string, stage: number): void {
     const id = `${zone}:${stage}`;
-    if (this.cleared.has(id)) return;
-    this.cleared.add(id);
-    this.writeProgress();
+    if (this.isCleared(zone, stage)) return;
+    this.store.update((p) => ({ ...p, cleared: [...p.cleared, id] }));
   }
 
   /** Saves a won emerald (acts without one are ignored). */
   recordEmerald(zone: string, act: number): void {
     if (!Emeralds.isEmeraldAct(zone, act)) return;
-    this.emeralds.add(Emeralds.key(zone, act));
-    this.writeProgress();
+    const key = Emeralds.key(zone, act);
+    this.store.update((p) => ({ ...p, emeralds: [...p.emeralds, key] }));
   }
+
+  /** Whose progress this is: the browser, a hub visit still starting, or a hub account. */
+  owner(): ProgressOwner {
+    return this.store.owner();
+  }
+
+  /** The account's cloud state (`local` for the device or a visit still starting). */
+  sync(): ProgressSync {
+    return this.store.sync();
+  }
+
+  /** False when the last progress write failed: progress lasts only for this visit. */
+  persistent(): boolean {
+    return this.store.persistent();
+  }
+
+  /** A hub visit is starting: progress is held in memory until attach() or release(). */
+  hold(): void {
+    this.store.hold();
+  }
+
+  /** Shows and saves `playerId`'s progress, synced with their cloud save. Held progress goes to them. */
+  attach(cloud: ProgressCloud, playerId: string): Promise<void> {
+    return this.store.attach(cloud, playerId);
+  }
+
+  /** Back to this browser's progress (no hub session). Held progress goes to the device. */
+  release(): void {
+    this.store.release();
+  }
+
+  /** Pushes unsynced account progress now. */
+  flush(): Promise<void> {
+    return this.store.flush();
+  }
+
+  /** True when a `storage` event for this key may change the progress shown. */
+  watches(key: string | null): boolean {
+    return this.store.watches(key) || (key === SAVE_KEYS.legacyProgress && this.store.owner().kind === 'device');
+  }
+
+  /** Re-reads storage, for progress another tab saved. */
+  refresh(): void {
+    this.store.refresh();
+  }
+
+  /** Called after every progress change (an update, a refresh, a new owner). */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private watch(): void {
+    this.view = null;
+    this.unsubscribe = this.store.subscribe(() => this.emit());
+  }
+
+  private emit(): void {
+    for (const listener of this.listeners) listener();
+  }
+
+  private current(): View {
+    const source = this.store.get();
+    if (this.view && this.view.source === source) return this.view;
+    const p = normalizeProgress(source);
+    const known = new Set(Emeralds.allKeys());
+    this.view = {
+      source,
+      cleared: new Set(p.cleared),
+      bestTimes: new Map(Object.entries(p.best_times)),
+      bestRanks: new Map(Object.entries(p.best_ranks)),
+      emeralds: new Set(p.emeralds.filter((k) => known.has(k))),
+    };
+    return this.view;
+  }
+
+  // --- Write keys --------------------------------------------------------------------
 
   /** A stored key per id in a bucket; a retry of the same id reuses it. */
   keyFor(bucket: string, id: string): string {
@@ -285,41 +373,6 @@ export class HubSave {
   private bucket(name: string): Json {
     const map = this.keys[name];
     return isObj(map) ? map : {};
-  }
-
-  private writeProgress(): void {
-    const onDisk = Storage.readJson(SAVE_KEYS.progress);
-    const disk = Object.keys(onDisk).length === 0 ? onDisk : migrateProgress(onDisk);
-    if (progressVersion(disk) > PROGRESS_VERSION) {
-      console.warn(`[HubSave] progress is v${progressVersion(disk)} (a newer build); not overwriting it`);
-      return;
-    }
-    // Progress only ever grows or improves, so another tab's is folded in,
-    // never dropped: emeralds, cleared stages, lower times and better ranks.
-    for (const key of emeraldKeys(disk.emeralds)) this.emeralds.add(key);
-    if (disk.unlock_all === true) this.unlockAll = true;
-    if (Array.isArray(disk.cleared)) for (const item of disk.cleared) this.cleared.add(String(item));
-    if (isObj(disk.best_times)) {
-      for (const [id, v] of Object.entries(disk.best_times)) {
-        const t = Number(v);
-        const mine = this.bestTimes.get(id);
-        if (Number.isFinite(t) && (mine === undefined || t < mine)) this.bestTimes.set(id, t);
-      }
-    }
-    if (isObj(disk.best_ranks)) {
-      for (const [id, v] of Object.entries(disk.best_ranks)) {
-        if (isRank(v) && betterRank(v, this.bestRanks.get(id) ?? null)) this.bestRanks.set(id, v);
-      }
-    }
-    const list = [...this.cleared].sort();
-    Storage.writeJson(SAVE_KEYS.progress, {
-      v: PROGRESS_VERSION,
-      cleared: list,
-      best_times: Object.fromEntries(this.bestTimes),
-      best_ranks: Object.fromEntries(this.bestRanks),
-      emeralds: [...this.emeralds].sort(),
-      ...(this.unlockAll ? { unlock_all: true } : {}),
-    });
   }
 
   private writeKeys(): boolean {

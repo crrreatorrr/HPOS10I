@@ -388,14 +388,14 @@ Web Audio, unlocked by the first key press, click or tap.
   repo's `server/docker-compose.yml`): ticket redeem, earn once per attempt,
   reloads, the Relic, the board, outbox recovery and Exit to Hub.
 - A boss arena (stage acts + 1) banks its tickets the first time it is beaten
-  on this save. A boss already in the save's `cleared` list is a replay and
+  on this save. A boss already in the owner's `cleared` list is a replay and
   banks nothing, however it was started.
 - A game over's RETRY STAGE and the pause menu's RESTART ACT are fresh starts
   (`GameState.startLevel`): each mints a new run id. Only a clear sends an
   earn, under the id of the attempt that cleared, so an abandoned or failed
   attempt never pays and no id can pay twice.
-- `HubClient.bestTime(zone, act)` and `isCleared(zone, stage)` read the local
-  save; `lastClear` holds the clear the tally is showing.
+- `HubClient.bestTime(zone, act)` and `isCleared(zone, stage)` read the current
+  owner's progress; `lastClear` holds the clear the tally is showing.
 - Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
   key unique to that attempt (the server grants the HPOS10I Core and pets).
 - Only Zone 1 Act 1 posts to `hpos10i_act_time`, only from a clean run, and it posts that run's own time (never the saved best) (the server keeps one time
@@ -408,14 +408,31 @@ Web Audio, unlocked by the first key press, click or tap.
 - `RelicLoadout.resolve()` is the only reader of Relic ownership: skins
   (Golden, Nobu, Tidebreaker), the cape, and their effects (off in Ranked),
   plus `extras_allowed` for the extra moves and item boxes.
-- `progress.json` is versioned (`PROGRESS_VERSION` 2): `cleared`
-  (`zone:stage`, acts and boss arenas), `best_times` (seconds on the attempt
-  clock), `best_ranks` (`S`..`D` per act; added in v2, empty after migration), `unlock_all` (set by the migration from v0 or v1, never on a new save: every act stays open)
-  and `emeralds`. Every write folds in what another tab saved (clears, lower
-  times, better ranks, emeralds). A blob from a newer build is never rewritten.
-- Saves: `localStorage` keys `hpos10i/progress.json`,
-  `hpos10i/write_keys.json`, `hpos10i/relic_slots.json`,
-  `hpos10i/settings.json`; imported once from the old Godot build's storage
+- Progress lives in the hub SDK's progress store (`src/hub/progress.ts`,
+  SDK 0.8.0 `createProgressStore`), one copy per owner:
+  - **device**: play outside a hub session, `hpos10i/progress-v3.json`;
+  - **pending**: a page load that starts or resumes a hub visit
+    (`hubVisitStarting`) holds progress in memory until `init` answers;
+  - **account**: a live session's `playerId` from `init` (`HubClient.playerId`),
+    `hpos10i/progress-v3.json@<playerId>` plus that account's cloud save, so it
+    loads on any device. A standalone answer or a failed init gives held
+    progress to the device.
+  Progress never moves from the device into an account, and one account never
+  sees another's. It advances only through `HubSave.recordClear`,
+  `recordStageClear` and `recordEmerald` (each one `store.update`).
+- The progress format (v3): `cleared` (`zone:stage`, acts and boss arenas),
+  `best_times` (seconds on the attempt clock), `best_ranks` (`S`..`D` per act),
+  `emeralds`, `unlock_all`. Every copy (tabs, devices, the cloud) is combined
+  by `mergeProgress`: unions for clears and emeralds, the lower time, the
+  better rank, `unlock_all` once any copy has it. Stage ids this build does not
+  know are kept but not shown. The largest save is far under `SAVE_MAX_BYTES`.
+- The old `hpos10i/progress.json` (v0..v2, `LEGACY_PROGRESS_VERSION` 2, which
+  the Godot import fills) is read into the device copy only and never written:
+  `unlock_all` comes from its migration from v0 or v1 (every act stays open),
+  so an account always starts with progress-based unlocking.
+- Per browser, not progress: `hpos10i/write_keys.json` (earn idempotency, the
+  current run id), `hpos10i/relic_slots.json`, `hpos10i/settings.json`,
+  `hpos10i/controls.json`; imported once from the old Godot build's storage
   (`godot_migration.ts`).
 
 ## Merge gate
