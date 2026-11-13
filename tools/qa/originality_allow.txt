@@ -31,8 +31,8 @@ vendor/hub-sdk/dist/events.js:44
 vendor/hub-sdk/dist/hub-sdk.iife.js:1762
 vendor/hub-sdk/dist/hub-sdk.iife.js:1782
 vendor/hub-sdk/dist/hub-sdk.iife.js:1859
-vendor/hub-sdk/dist/hub-sdk.iife.js:3486
-vendor/hub-sdk/dist/hub-sdk.iife.js:3506
+vendor/hub-sdk/dist/hub-sdk.iife.js:3493
+vendor/hub-sdk/dist/hub-sdk.iife.js:3513
 vendor/hub-sdk/dist/types.d.ts:3
 vendor/hub-sdk/dist/types.js:5
 vendor/hub-sdk/dist/types.js:33
