@@ -4,14 +4,16 @@
 // on the same origin: progress (cleared acts, best times), write keys (run ids,
 // unacked Ticket earns that must still be sent with their original
 // idempotency keys) and the local Relic slot choice. Anything already saved by
-// the new build wins; the old database is left untouched.
+// the new build wins; the old database is left untouched. Old progress lands in
+// the legacy progress key, which src/hub/progress.ts reads into the device copy
+// only: it never moves into a hub account.
 
 import { SAVE_KEYS, Storage } from './storage';
 
 const DB_NAME = '/userfs';
 const STORE = 'FILE_DATA';
 const FILES: [string, string][] = [
-  ['/userfs/hpos10i/progress.json', SAVE_KEYS.progress],
+  ['/userfs/hpos10i/progress.json', SAVE_KEYS.legacyProgress],
   ['/userfs/hpos10i/write_keys.json', SAVE_KEYS.writeKeys],
   ['/userfs/hpos10i/relic_slots.json', SAVE_KEYS.relicSlots],
 ];

@@ -20,10 +20,15 @@
 //   (getTicketBalance) and then follows earn answers. ticketText() is what
 //   the hub chrome shows: the balance, or '--' with no session.
 //
+// - Progress belongs to whoever earned it (src/hub/progress.ts). A page load
+//   that starts or resumes a hub visit holds progress in memory (hold) until
+//   init answers; a live session gives it to that account (attach, with its
+//   cloud save), anything else gives it back to this browser (release).
+//
 // Writes are fire-and-forget: the SDK's IndexedDB outbox resends each key
 // until it is acked.
 
-import { createHubSdk, feedbackTransportFromSdk, type FeedbackTransport, type HubSdk, type GameId } from '@hub-sdk';
+import { createHubSdk, feedbackTransportFromSdk, hubVisitStarting, type FeedbackTransport, type HubSdk, type GameId } from '@hub-sdk';
 import { Difficulty } from '../core/difficulty';
 import { GameState } from '../core/game_state';
 import { betterRank, rankFor, type Rank } from '../core/rank';
@@ -85,6 +90,8 @@ class HubClientImpl {
   readonly stateChanged = new Signal();
   reach: Reach = 'offline';
   inSession = false;
+  /** The hub account playing this visit, only while its session is live. Progress is saved under it. */
+  playerId: string | null = null;
   /** Server Ticket balance, mirrored from earn answers (never saved locally). */
   ticketBalance = 0;
   balanceKnown = false;
@@ -112,11 +119,19 @@ class HubClientImpl {
   private wired = false;
   private hubUrl = '/hub/';
 
-  /** Connects to the hub. Pass an SDK in tests; the browser build creates the real one. */
-  async init(opts: { sdk?: HubSdk | null; hubUrl?: string; serverKey?: string } = {}): Promise<void> {
+  /**
+   * Connects to the hub. Pass an SDK in tests; the browser build creates the real one.
+   * `visitStarting` (default: a portal ticket or a live session in this tab) holds
+   * progress until the account is known.
+   */
+  async init(opts: { sdk?: HubSdk | null; hubUrl?: string; serverKey?: string; visitStarting?: boolean } = {}): Promise<void> {
     this.save.loadAll();
-    // Before the first scene (boot doesn't wait for the rest of init).
-    GameState.restoreEmeralds(this.save.emeralds);
+    this.playerId = null;
+    // Before the first scene (boot doesn't wait for the rest of init): a hub
+    // visit's progress waits for its account, so nothing lands on the device.
+    const visit = opts.visitStarting ?? (typeof window !== 'undefined' && hubVisitStarting(GAME_ID));
+    if (visit) this.save.hold();
+    this.showProgress();
     this.hubUrl = opts.hubUrl ?? __HUB_URL__;
     this.wire();
     let sdk = opts.sdk ?? null;
@@ -133,6 +148,7 @@ class HubClientImpl {
     this.sdk = sdk;
     if (!sdk) {
       this.reach = 'offline';
+      this.save.release();
       this.changed();
       return;
     }
@@ -153,6 +169,7 @@ class HubClientImpl {
     this.sdk = null;
     this.reach = 'offline';
     this.inSession = false;
+    this.playerId = null;
     this.relics = [];
     this.ranked = false;
     this.serverLoadout = {};
@@ -195,6 +212,8 @@ class HubClientImpl {
   exitToHub(): void {
     const base = this.hubUrl.replace(/\/+$/, '');
     const target = `${base}/#from=${GAME_ID}`;
+    // Best effort: an account's unsynced progress is also pushed on its next attach.
+    void this.save.flush();
     try {
       // Flushes the outbox; with a session it navigates itself.
       this.sdk?.exit('exit_to_hub');
@@ -258,12 +277,40 @@ class HubClientImpl {
     GameState.levelStarted.connect((zone, act) => this.onLevelStarted(zone, act));
     GameState.levelCompleted.connect(() => this.onLevelCompleted());
     GameState.emeraldWon.connect((zone, act) => this.save.recordEmerald(zone, act));
+    // A new owner, another tab's save or a cloud merge: show that progress.
+    this.save.subscribe(() => {
+      this.showProgress();
+      this.changed();
+    });
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('storage', (e) => {
+        if (this.save.watches(e.key)) this.save.refresh();
+      });
+      window.addEventListener('pagehide', () => void this.save.flush());
+    }
+  }
+
+  /** GameState shows the emeralds of the save's current owner. */
+  private showProgress(): void {
+    GameState.showSavedEmeralds(this.save.emeralds);
+  }
+
+  /** Gives the visit's progress to the live session's account, or back to this browser. */
+  private settleOwner(): void {
+    const sdk = this.sdk;
+    if (!sdk || !this.playerId) {
+      this.save.release();
+      return;
+    }
+    this.save.attach(sdk, this.playerId).catch((err: unknown) => console.warn('[Hub] progress could not attach', err));
   }
 
   private onInit(ok: boolean, payload: Payload): void {
     if (!ok) {
       this.reach = 'offline';
       this.inSession = false;
+      this.playerId = null;
+      this.save.release();
       this.relics = [];
       this.ranked = false;
       this.serverLoadout = {};
@@ -277,6 +324,10 @@ class HubClientImpl {
     this.serverLoadout = loadoutFrom(payload);
     this.ticketsCapLeft = Number(payload.ticketsCapLeft ?? 0);
     this.inSession = this.readSession();
+    // Only a live session's account owns progress: a standalone init also answers a profile.
+    const playerId = typeof payload.playerId === 'string' ? payload.playerId : '';
+    this.playerId = this.inSession && playerId !== '' ? playerId : null;
+    this.settleOwner();
     // Resend only with a session: a no-session call answers with a no-op and
     // must not clear the slot while the outbox may still drain the key.
     if (this.inSession) {

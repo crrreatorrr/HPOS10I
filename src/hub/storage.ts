@@ -63,7 +63,13 @@ export const Storage = {
 
 /** Save keys (one per former user:// file). */
 export const SAVE_KEYS = {
-  progress: 'hpos10i/progress.json',
+  /**
+   * Progress of play outside a hub session (the device copy of src/hub/progress.ts).
+   * A hub account's copy is `${progress}@<playerId>`, synced with its cloud save.
+   */
+  progress: 'hpos10i/progress-v3.json',
+  /** Progress saved before the per-account store (v0..v2). Read into the device copy only, never written. */
+  legacyProgress: 'hpos10i/progress.json',
   writeKeys: 'hpos10i/write_keys.json',
   relicSlots: 'hpos10i/relic_slots.json',
   settings: 'hpos10i/settings.json',

@@ -42,6 +42,26 @@ import { BOSS_REPLAY_NOTE, HINT_PAD, isActUnlocked, isBossUnlocked, UNLOCK_HINT,
 import { formatActTime } from '../../src/ui/common/act_time';
 import { buildMiniLevel } from '../levels/level_world';
 
+/** Empties the saved progress (device copy and legacy save) and reopens it. */
+function resetProgress(): void {
+  Storage.store.removeItem(SAVE_KEYS.progress);
+  Storage.store.removeItem(SAVE_KEYS.legacyProgress);
+  HubClient.save.loadAll();
+}
+
+/** Saves stage `id` (`zone:act`) as cleared, through the progress store. */
+function clearStage(id: string): void {
+  const [zone, stage] = id.split(':');
+  HubClient.save.recordStageClear(zone!, Number(stage));
+}
+
+/** Saves a best rank for act `id` (`zone:act`); the act is cleared with a slow time. */
+function saveRank(id: string, rank: 'S' | 'A' | 'B' | 'C' | 'D'): void {
+  const [zone, act] = id.split(':');
+  HubClient.save.recordClear(zone!, Number(act), 3600, rank);
+}
+
+
 // --- Helpers ---------------------------------------------------------------------------
 
 const PLAY_SCENE = 'test:ui_play';
@@ -254,19 +274,16 @@ describe('MenuList', () => {
 describe('ZoneSelect', () => {
   /** A save with every act cleared (everything unlocked), as most tests want. */
   function clearAllActs(): void {
-    for (const zone of ZoneRegistry.allZones(false)) zone.acts.forEach((_, i) => HubClient.save.cleared.add(`${zone.id}:${i + 1}`));
+    for (const zone of ZoneRegistry.allZones(false)) zone.acts.forEach((_, i) => clearStage(`${zone.id}:${i + 1}`));
   }
 
   beforeEach(() => {
-    HubClient.save.cleared.clear();
-    HubClient.save.bestTimes.clear();
+    resetProgress();
     clearAllActs();
   });
 
   afterEach(() => {
-    HubClient.save.cleared.clear();
-    HubClient.save.bestTimes.clear();
-    HubClient.save.unlockAll = false;
+    resetProgress();
   });
 
   function open(): ZoneSelect {
@@ -334,7 +351,7 @@ describe('ZoneSelect', () => {
   });
 
   it('a fresh save opens only the first act; clearing an act opens the next, and the last act opens the boss', () => {
-    HubClient.save.cleared.clear();
+    resetProgress();
     let zs = open();
     const openActs = () => zs.acts.filter((a) => a.open).map((a) => `${a.zoneId}:${a.act}`);
     expect(openActs()).toEqual(['z1_retro_rush_hills:1']);
@@ -349,18 +366,18 @@ describe('ZoneSelect', () => {
     expect(zs.infoText()).toBe(UNLOCK_HINT);
     for (const b of zs.bosses) expect(zs.menu.stateOf(zs.menu.items.findIndex((i) => (i.data as { zoneId?: string; boss?: boolean } | undefined)?.boss === true && (i.data as { zoneId: string }).zoneId === b.zoneId))).toBe('disabled');
 
-    HubClient.save.cleared.add('z1_retro_rush_hills:1');
+    clearStage('z1_retro_rush_hills:1');
     zs = open();
     expect(openActs()).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2']);
     expect(zs.bosses.some((b) => b.open)).toBe(false);
 
-    HubClient.save.cleared.add('z1_retro_rush_hills:2');
+    clearStage('z1_retro_rush_hills:2');
     zs = open();
     expect(openActs()).toEqual(['z1_retro_rush_hills:1', 'z1_retro_rush_hills:2', 'z2_wizard_academy:1']);
     expect(zs.bosses.filter((b) => b.open).map((b) => b.zoneId)).toEqual(['z1_retro_rush_hills']);
 
     // An act cleared before the rule existed stays open, even with a gap before it.
-    HubClient.save.cleared.add('z3_capital_mansion:2');
+    clearStage('z3_capital_mansion:2');
     zs = open();
     expect(openActs()).toContain('z3_capital_mansion:2');
     expect(openActs()).not.toContain('z3_capital_mansion:1');
@@ -375,7 +392,7 @@ describe('ZoneSelect', () => {
       { v: 1, cleared: ['z1_retro_rush_hills:1', 'z3_capital_mansion:1'], best_times: {}, emeralds: [] },
     ]) {
       Storage.use(memoryStore());
-      Storage.writeJson(SAVE_KEYS.progress, old);
+      Storage.writeJson(SAVE_KEYS.legacyProgress, old);
       HubClient.save.loadAll();
       const zs = open();
       expect(zs.acts.every((a) => a.open), JSON.stringify(old)).toBe(true);
@@ -385,7 +402,6 @@ describe('ZoneSelect', () => {
     Storage.use(memoryStore());
     HubClient.save.loadAll();
     expect(open().acts.filter((a) => a.open).length).toBe(1);
-    HubClient.save.unlockAll = false;
   });
 
   it('BOSS starts the boss arena (stage acts + 1) and says when a replay banks nothing', () => {
@@ -395,7 +411,7 @@ describe('ZoneSelect', () => {
     tapAction('ui_right');
     expect(focusedAct(zs)).toBe('z1_retro_rush_hills:3');
     expect(zs.infoText()).toBe('BOSS ARENA');
-    HubClient.save.cleared.add('z1_retro_rush_hills:3');
+    clearStage('z1_retro_rush_hills:3');
     expect(zs.infoText()).toBe(BOSS_REPLAY_NOTE);
     tapAction('jump');
     expect(start).toHaveBeenCalledTimes(1);
@@ -403,13 +419,12 @@ describe('ZoneSelect', () => {
   });
 
   it('shows the saved best time of the focused act, or --:--', () => {
-    HubClient.save.bestTimes.set('z1_retro_rush_hills:1', 83.456);
+    HubClient.save.recordClear('z1_retro_rush_hills', 1, 83.456);
     const zs = open();
-    HubClient.save.bestRanks.set('z1_retro_rush_hills:1', 'A');
+    saveRank('z1_retro_rush_hills:1', 'A');
     expect(zs.infoText()).toBe('ACT 1   BEST 1:23.45   RANK A');
     tapAction('ui_right');
     expect(zs.infoText()).toBe('ACT 2   BEST --:--   RANK -');
-    HubClient.save.bestRanks.clear();
     expect(formatActTime(0)).toBe('0:00.00');
     expect(formatActTime(59.999)).toBe('0:59.99');
     expect(formatActTime(600)).toBe('10:00.00');
@@ -1458,9 +1473,9 @@ describe('screens', () => {
   });
 
   it('the ending lists the best rank of all eight acts', () => {
-    HubClient.save.bestRanks.clear();
-    HubClient.save.bestRanks.set('z1_retro_rush_hills:1', 'S');
-    HubClient.save.bestRanks.set('z4_neon_rush_remix:2', 'C');
+    resetProgress();
+    saveRank('z1_retro_rush_hills:1', 'S');
+    saveRank('z4_neon_rush_remix:2', 'C');
     const lines = rankLines();
     expect(lines.length).toBe(4);
     expect(lines[0]).toBe('RETRO RUSH HILLS   S  -');
@@ -1469,7 +1484,7 @@ describe('screens', () => {
     const texts = end.lines.map((l) => l.text);
     expect(texts).toContain('BEST RANKS');
     for (const l of lines) expect(texts).toContain(l);
-    HubClient.save.bestRanks.clear();
+    resetProgress();
   });
 
   it('the ending rolls, then goes to the title', () => {

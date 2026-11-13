@@ -21,24 +21,27 @@ src/core/emeralds.ts:12
 # Re-pinned 2026-11-12 for SDK 0.7.2 (whole-page feedback screenshot): the same eleven
 # uses, the README's and the classic-script bundle's on moved lines, and none in the new
 # pageShot.js, pageShot.d.ts or the vendored modern-screenshot (third_party/).
-vendor/hub-sdk/README.md:171
+# Re-pinned 2026-11-12 for SDK 0.8.0 (per-account progress store): the same eleven uses,
+# the README's and the classic-script bundle's on moved lines, and none in the new
+# progress.js or progress.d.ts.
+vendor/hub-sdk/README.md:206
 vendor/hub-sdk/dist/createHubSdk.js:447
 vendor/hub-sdk/dist/createHubSdk.js:472
 vendor/hub-sdk/dist/events.js:44
-vendor/hub-sdk/dist/hub-sdk.iife.js:1760
-vendor/hub-sdk/dist/hub-sdk.iife.js:1780
-vendor/hub-sdk/dist/hub-sdk.iife.js:1857
-vendor/hub-sdk/dist/hub-sdk.iife.js:3247
-vendor/hub-sdk/dist/hub-sdk.iife.js:3267
+vendor/hub-sdk/dist/hub-sdk.iife.js:1762
+vendor/hub-sdk/dist/hub-sdk.iife.js:1782
+vendor/hub-sdk/dist/hub-sdk.iife.js:1859
+vendor/hub-sdk/dist/hub-sdk.iife.js:3486
+vendor/hub-sdk/dist/hub-sdk.iife.js:3506
 vendor/hub-sdk/dist/types.d.ts:3
 vendor/hub-sdk/dist/types.js:5
 vendor/hub-sdk/dist/types.js:33
 
-# SDK 0.7.2, re-vendored 2026-11-12: the vendored hub SDK's README tells games that a
+# SDK 0.7.2, re-vendored 2026-11-12 (line moved by the 0.8.0 note above it): the vendored hub SDK's README tells games that a
 # web-font stylesheet <link> from that font service needs crossorigin="anonymous" to show in the
 # feedback screenshot (denylist term #392). A technical note in a vendored doc, never shown to
 # players. Scoped to that one line.
-vendor/hub-sdk/README.md:5
+vendor/hub-sdk/README.md:7
 
 # Shared guide sync, pending owner confirmation (W0 docs batch, 2026-11-08): docs/higgsfield-workflow-guide.md
 # is a byte-identical copy of the guide shared by all the hub's game repos, and its
