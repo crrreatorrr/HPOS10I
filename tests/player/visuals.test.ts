@@ -118,6 +118,7 @@ describe('player visuals: blink and afterimage', () => {
   });
 
   it('leaves an afterimage at 8 px/f but not at top running speed, unless speed effects are off', () => {
+    Settings.set('comfortMotion', false);
     const { player: runner } = flat();
     runner.groundSpeed = 6;
     step(6);

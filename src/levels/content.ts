@@ -203,7 +203,7 @@ function addFeel(root: LevelRoot): void {
   if (!player) return;
   player.hurtTaken.connect(
     () => {
-      if (!Settings.data.screenShake) return;
+      if (!Settings.screenShakeEnabled) return;
       tree.hitStop(4);
       GameCamera.current()?.shake(3, 0.2);
     },
@@ -212,7 +212,7 @@ function addFeel(root: LevelRoot): void {
   for (const enemy of root.findChildren<Enemy>((n) => n instanceof Enemy)) {
     enemy.destroyed.connect(
       () => {
-        if (!Settings.data.screenShake) return;
+        if (!Settings.screenShakeEnabled) return;
         tree.hitStop(2);
         GameCamera.current()?.shake(1.5, 0.1);
       },

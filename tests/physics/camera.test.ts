@@ -2,7 +2,8 @@
 // clamping, locks, autoscroll, shake, pixel snapping, spin dash hold and
 // look up / down.
 
-import { afterEach, describe, it } from 'vitest';
+import { afterEach, beforeEach, describe, it } from 'vitest';
+import { Settings } from '../../src/core/settings';
 import { Tuning } from '../../src/core/tuning';
 import { GameCamera } from '../../src/camera/game_camera';
 import type { Player } from '../../src/player/player';
@@ -19,7 +20,11 @@ let world: Node2D;
 let player: Player;
 let camera: GameCamera;
 
-afterEach(() => releaseAll());
+beforeEach(() => Settings.set('comfortMotion', false));
+afterEach(() => {
+  Settings.reset();
+  releaseAll();
+});
 
 function setup(feet = Vec2.ZERO, floorFrom = -4000, floorTo = 8000): void {
   world = newWorld();

@@ -84,6 +84,7 @@ export class LevelRoot extends Node2D implements Configurable {
 
   zoneId = '';
   artZoneId = '';
+  backdropVariant = '';
   music = '';
   backgroundYScroll = 0.25;
   horizonHeight = 0;

@@ -729,7 +729,14 @@ describe('PauseMenu', () => {
     expect(Settings.data.extraMoves).toBe(false);
     tapAction('ui_right');
     expect(Settings.data.extraMoves).toBe(true);
-    for (let i = 0; i < 4; i++) tapAction('ui_down'); // SOUND
+    for (let i = 0; i < OPTION_ROWS.findIndex((row) => row.key === 'comfortMotion'); i++) tapAction('ui_down');
+    expect(Settings.data.comfortMotion).toBe(true);
+    tapAction('ui_accept');
+    expect(Settings.data.comfortMotion).toBe(false);
+    expect(Settings.speedEffectsEnabled).toBe(true);
+    const sound = OPTION_ROWS.findIndex((row) => row.key === 'muted');
+    for (let i = pm.options.focus; i < sound; i++) tapAction('ui_down');
+    expect(pm.options.focused?.label).toBe('SOUND');
     tapAction('ui_accept');
     expect(Settings.data.muted).toBe(true);
     expect(Audio.isMuted()).toBe(true);
@@ -1226,6 +1233,7 @@ describe('Hud', () => {
     expect(SpeedLines.strengthFor(9)).toBeCloseTo(0.5, 6);
     expect(SpeedLines.strengthFor(-12)).toBe(1);
     expect(SpeedLines.strengthFor(16)).toBe(1);
+    Settings.set('comfortMotion', false);
     const lines = new SpeedLines();
     const runner = { state: 'run', grounded: true, groundSpeed: 9, groundAngle: 0, velocity: new Vec2(9, 0) } as unknown as Parameters<SpeedLines['update']>[1];
     lines.update(1 / 60, runner);

@@ -15,6 +15,7 @@ import { KEY_BINDINGS } from '../../runtime/input';
 import { Rect2, Vec2 } from '../../runtime/vec2';
 import { CurveTerrain } from '../../terrain/curve_terrain';
 import { TerrainLoop } from '../../terrain/loop';
+import { Backdrop } from '../common/backdrop';
 import { LevelHooks } from '../common/level_root';
 
 const RESPAWN_FRAMES = 60;
@@ -43,6 +44,13 @@ export class PhysicsPlayground extends Node2D {
       if (n instanceof CurveTerrain) n.setArtZone(ART_ZONE);
       if (n instanceof TerrainLoop) n.setArtZone(ART_ZONE);
     }
+    this.addChild(new Backdrop({
+      getBounds: () => LEVEL_BOUNDS,
+      backgroundYOffsets: [0, 12, 20, 28],
+      backgroundYScroll: 0.25,
+      horizonHeight: 64,
+      backdropVariant: 'playground',
+    }, ART_ZONE));
     const start = this.getNode<Node2D>('PlayerStart');
     if (typeof Dev.args.start === 'string') start.globalPosition = new Vec2(Number(Dev.args.start), -Tuning.physics.height_radius);
     const player = this.getNodeOrNull<Player>('Player');

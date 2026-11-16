@@ -36,6 +36,7 @@ import { Audio } from '../core/audio';
 import { Difficulty, type BossTuning } from '../core/difficulty';
 import { FPS } from '../core/physics_constants';
 import { Layers } from '../core/layers';
+import { Settings } from '../core/settings';
 import { GameCamera } from '../camera/game_camera';
 import { Player } from '../player/player';
 import { Color } from '../runtime/color';
@@ -644,7 +645,7 @@ export abstract class Boss extends Node2D {
     player.bounceOff(weak ? weak.center.y : this.globalPosition.y, true);
     Audio.playSfx('boss_hit');
     GameCamera.current()?.shake(3, 0.25);
-    tree.hitStop(4);
+    if (Settings.screenShakeEnabled) tree.hitStop(4);
     let escalated = false;
     if (Boss.ESCALATION_HITS.includes(this.hitsTaken)) {
       this.speed *= this.tuning.escalation;

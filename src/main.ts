@@ -10,6 +10,7 @@ import { MAIN_SCENE, Scenes, TITLE_SCENE } from './core/scenes';
 import { Controls } from './core/controls';
 import { Settings } from './core/settings';
 import { HubClient } from './hub/hub_client';
+import { RelicLoadout } from './hub/relic_loadout';
 import { migrateGodotSave } from './hub/godot_migration';
 import { installBackdrop } from './levels/common/backdrop';
 import { registerEnemies } from './levels/registry_enemies';
@@ -192,6 +193,12 @@ async function boot(): Promise<void> {
   if (typeof Dev.args.inputs === 'string') await playTimeline(Dev.args.inputs);
 
   document.getElementById('boot')?.classList.add('hidden');
+  tree.playbackRate = () => {
+    if (!Settings.data.comfortMotion || tree.paused || !SceneRouter.inGameplay()) return 1;
+    // A portal session can resolve as Ranked after the first scene has loaded.
+    if (HubClient.reach === 'pending' || RelicLoadout.resolve().ranked) return 1;
+    return 0.8;
+  };
   tree.start(canvas);
   canvas.focus();
   exposeDebugApi();

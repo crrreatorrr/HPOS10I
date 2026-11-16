@@ -51,6 +51,10 @@ export class Afterimage extends Node2D {
   }
 
   override physicsProcess(): void {
+    if (!Settings.speedEffectsEnabled) {
+      this.copies.length = 0;
+      return;
+    }
     const p = this.player;
     this.frame += 1;
     for (const c of this.copies) c.age += 1;
@@ -59,7 +63,6 @@ export class Afterimage extends Node2D {
     const visual = this.visual;
     if (
       Effects.enabled &&
-      Settings.data.speedEffects &&
       speed > MIN_SPEED &&
       p.state !== 'dead' &&
       this.frame % SPACING_FRAMES === 0 &&
@@ -78,7 +81,7 @@ export class Afterimage extends Node2D {
 
   override draw(g: Gfx): void {
     const visual = this.visual;
-    if (!visual) return;
+    if (!visual || !Settings.speedEffectsEnabled) return;
     const sprite = visual.drawsPlaceholder() ? null : visual.sprite;
     const frame = sprite?.current() ?? null;
     const radii = this.player.getRadii();

@@ -1,6 +1,7 @@
 // Registers every level, arena and playground as a scene, loading its data
 // on demand (each level is its own chunk in the build).
 
+import type { Node } from '../runtime/node';
 import { Scenes } from '../core/scenes';
 import { GameCamera } from '../camera/game_camera';
 import { Player } from '../player/player';
@@ -33,11 +34,22 @@ export function registerCoreTypes(): void {
 }
 
 /** Extra level sources added in code (new acts, arenas). */
-const extraLevels = new Map<string, () => Promise<import('../runtime/node').Node>>();
+const extraLevels = new Map<string, () => Promise<Node>>();
 
-export function registerLevelScene(id: string, factory: () => Promise<import('../runtime/node').Node>): void {
+function registerWithBackdrop(id: string, factory: () => Promise<Node>): void {
+  Scenes.register(id, async () => {
+    const level = await factory();
+    if (level instanceof LevelRoot) {
+      if (id.endsWith('/act2')) level.backdropVariant = 'act2';
+      if (id === 'level:test_zone') level.backdropVariant = 'test_zone';
+    }
+    return level;
+  });
+}
+
+export function registerLevelScene(id: string, factory: () => Promise<Node>): void {
   extraLevels.set(id, factory);
-  Scenes.register(id, factory);
+  registerWithBackdrop(id, factory);
 }
 
 export function registerLevelScenes(): void {
@@ -46,6 +58,6 @@ export function registerLevelScenes(): void {
     const rel = path.replace('./data/', '').replace(/\.json$/, '');
     const id = rel === 'playground/physics_playground' ? 'playground:physics' : rel === 'test_zone/test_zone' ? 'level:test_zone' : `level:${rel}`;
     if (extraLevels.has(id)) continue;
-    Scenes.register(id, async () => buildLevel(await load()));
+    registerWithBackdrop(id, async () => buildLevel(await load()));
   }
 }

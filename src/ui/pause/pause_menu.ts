@@ -115,6 +115,7 @@ export interface OptionRow {
 export const OPTION_ROWS: readonly OptionRow[] = [
   { key: 'extraMoves', label: 'EXTRA MOVES', rankedOff: true, help: 'DROP DASH, CHARGE RUN, SHIELD BOUNCE, JUMP ASSIST' },
   { key: 'itemBoxes', label: 'ITEM BOXES', rankedOff: true, help: 'SHIELDS, SPEED SHOES AND INVINCIBILITY' },
+  { key: 'comfortMotion', label: 'COMFORT MOTION', rankedOff: false, help: 'SLOWER PLAY AND GENTLER CAMERA MOTION' },
   { key: 'screenShake', label: 'SCREEN SHAKE', rankedOff: false, help: 'SHAKE AND HIT-STOP ON BIG IMPACTS' },
   { key: 'speedEffects', label: 'SPEED EFFECTS', rankedOff: false, help: 'SPEED LINES AND THE AFTERIMAGE TRAIL' },
   { key: 'muted', label: 'SOUND', rankedOff: false, inverted: true, help: 'MUSIC AND SOUND EFFECTS' },
@@ -122,12 +123,15 @@ export const OPTION_ROWS: readonly OptionRow[] = [
 
 /** Whether an option row reads ON. */
 export function optionOn(row: OptionRow): boolean {
+  if (row.key === 'screenShake') return Settings.screenShakeEnabled;
+  if (row.key === 'speedEffects') return Settings.speedEffectsEnabled;
   const v = Settings.data[row.key];
   return row.inverted ? !v : v;
 }
 
 /** Flips an option and applies it (sound goes to Audio at once). */
 export function toggleOption(row: OptionRow): void {
+  if (Settings.data.comfortMotion && (row.key === 'screenShake' || row.key === 'speedEffects')) return;
   const next = !Settings.data[row.key];
   Settings.set(row.key, next);
   if (row.key === 'muted') Audio.setMuted(next);
@@ -742,7 +746,12 @@ export class PauseMenu extends UiLayer {
     const row = data && typeof data === 'object' ? (data as OptionRow) : undefined;
     const notice = FullScreen.notice();
     if (notice !== '') drawCentered(g, notice, this.relicY, 'outline');
-    else if (row) drawCentered(g, row.help, this.relicY, 'outline');
+    else if (row) {
+      let help = row.help;
+      if (Settings.data.comfortMotion && (row.key === 'screenShake' || row.key === 'speedEffects')) help = 'TURN OFF COMFORT MOTION TO USE THIS EFFECT';
+      if (row.key === 'comfortMotion' && RelicLoadout.resolve().ranked) help = 'RANKED KEEPS FULL SPEED AND REDUCES CAMERA MOTION';
+      drawCentered(g, help, this.relicY, 'outline');
+    }
     else if (data === 'fullscreen') drawCentered(g, 'THE WHOLE SCREEN FOR THE GAME (ESC LEAVES IT)', this.relicY, 'outline');
     if (RelicLoadout.resolve().ranked) drawCentered(g, 'RANKED: EXTRA MOVES AND ITEM BOXES ARE OFF', this.relicY + lineHeight('outline'), 'outline');
   }

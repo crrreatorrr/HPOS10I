@@ -4,6 +4,7 @@
 import { afterEach, describe, it } from 'vitest';
 import { GameCamera } from '../../src/camera/game_camera';
 import { GameState } from '../../src/core/game_state';
+import { Settings } from '../../src/core/settings';
 import type { Player } from '../../src/player/player';
 import type { Node2D } from '../../src/runtime/node';
 import { tree } from '../../src/runtime/tree';
@@ -18,6 +19,7 @@ let cam: GameCamera;
 
 afterEach(() => {
   tree.paused = false;
+  Settings.reset();
   releaseAll();
   GameState.tickets = 0;
 });
@@ -122,7 +124,7 @@ describe('QA camera review', () => {
   );
 
   it(
-    'C: vertical',
+    'C: vertical in Comfort Motion',
     checked((c) => {
       // Jump on flat ground: the camera moves less than the jump height.
       setup();
@@ -279,11 +281,22 @@ describe('QA camera review', () => {
   );
 
   it(
+    'D7: Comfort Motion suppresses camera shake',
+    checked((c) => {
+      setup();
+      cam.shake(6, 0.5);
+      step(1);
+      c.true(cam.offset.equals(Vec2.ZERO), 'comfort suppresses shake');
+    }),
+  );
+
+  it(
     'D7: shake',
     checked((c) => {
       setup();
       step(5);
       const base = cam.globalPosition;
+      Settings.set('comfortMotion', false);
       cam.shake(6, 0.5);
       let worst = 0;
       for (let i = 0; i < 40; i++) {

@@ -111,12 +111,7 @@ export class Walker extends Enemy {
     g.setTransform(new Vec2(0, Walker.BODY_Y), 0, flip);
     this.drawBehindBody(g);
     g.resetTransform();
-    if (drawPillSprite(g, this.spriteRow, 0, this.direction, this.visorFlash(), 5)) {
-      g.setTransform(new Vec2(0, Walker.BODY_Y), 0, flip);
-      this.drawOverBody(g);
-      g.resetTransform();
-      return;
-    }
+    if (drawPillSprite(g, this.spriteRow, 0, this.direction, this.visorFlash(), 5)) return;
     const HL = Walker.HALF_LENGTH;
     const R = Walker.RADIUS;
     const WHEEL = Walker.WHEEL;

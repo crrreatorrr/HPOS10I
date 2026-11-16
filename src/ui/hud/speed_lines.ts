@@ -48,7 +48,7 @@ export class SpeedLines {
 
   /** Call once per rendered frame with the player (or null). */
   update(delta: number, player: Player | null): void {
-    if (!player || player.state === 'dead' || !Settings.data.speedEffects) {
+    if (!player || player.state === 'dead' || !Settings.speedEffectsEnabled) {
       this.strength = 0;
       return;
     }

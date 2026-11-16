@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameState } from '../../src/core/game_state';
 import { SceneRouter } from '../../src/core/scene_router';
+import { Settings } from '../../src/core/settings';
 import { Tuning } from '../../src/core/tuning';
 import { Backdrop, BACKGROUND_SCROLL, installBackdrop } from '../../src/levels/common/backdrop';
 import { LevelHooks, LevelRoot } from '../../src/levels/common/level_root';
@@ -93,9 +94,15 @@ describe('LevelRoot', () => {
       const size = new Vec2(512, 128);
       for (let i = 0; i < 4; i++) {
         const dx = b.layerOrigin(i, new Vec2(100, 0), size).x - b.layerOrigin(i, Vec2.ZERO, size).x;
-        expect(dx).toBeCloseTo(-100 * BACKGROUND_SCROLL[i]!, 5);
+        expect(dx).toBeLessThan(0);
+        expect(Math.abs(dx)).toBeLessThan(100 * BACKGROUND_SCROLL[i]!);
+        Settings.set('comfortMotion', false);
+        const fullMotion = b.layerOrigin(i, new Vec2(100, 0), size).x - b.layerOrigin(i, Vec2.ZERO, size).x;
+        expect(fullMotion).toBeCloseTo(-100 * BACKGROUND_SCROLL[i]!, 5);
+        Settings.set('comfortMotion', true);
       }
     } finally {
+      Settings.reset();
       LevelHooks.backdrop = saved;
     }
   });
