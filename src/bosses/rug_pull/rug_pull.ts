@@ -12,7 +12,7 @@
 // Then it flops flat on the floor at its wall, dizzy, with its glowing
 // stitched patch up: the weak point. Jump (or roll) into the patch; walking
 // into its edge hurts. After a hit it floats back up out of reach.
-// Phase 1: sweep / drop. Phase 2: sweep / dust / drop. Phase 3: faster.
+// Tassel Fan, Fray Boomerang and Loom Columns alternate with those moves.
 
 import { BossSprite } from '../boss_sprites';
 import { Color } from '../../runtime/color';
@@ -68,10 +68,15 @@ export class RugPull extends Boss {
   }
 
   protected planCycle(): AttackPlan[] {
-    const rotation: AttackPlan[][] = [
-      [{ id: 'sweep' }, { id: 'drop', aimed: true }],
-      [{ id: 'sweep' }, { id: 'dust' }, { id: 'drop', aimed: true }],
-      [{ id: 'drop', aimed: true }, { id: 'sweep' }, { id: 'dust' }],
+    const sweep: AttackPlan = { id: 'sweep' };
+    const drop: AttackPlan = { id: 'drop', aimed: true };
+    const fan: AttackPlan = { id: 'tassel_fan', aimed: true, telegraph: 1.25 };
+    const loom: AttackPlan = { id: 'loom_columns', telegraph: 1.45 };
+    const fray: AttackPlan = { id: 'fray_boomerang', telegraph: 1.65 };
+    const rotation = [
+      [sweep, drop, fan, fray],
+      [drop, fray, sweep, fan, loom, { id: 'dust' }],
+      [loom, fan, fray, drop],
     ];
     const list = rotation[Math.min(this.phase, 3) - 1]!;
     const plan = list[this.cycle % list.length]!;
@@ -89,7 +94,7 @@ export class RugPull extends Boss {
       const from = this.position;
       const to = new Vec2(this.dropX, this.arena.floorY + HOME_Y);
       this.position = from.lerp(to, Math.min(1, t * 0.35 + 0.05));
-    } else {
+    } else if (plan.id === 'sweep' || plan.id === 'dust') {
       // Sweep and dust: sink to skimming height at its wall, shaking.
       const to = this.homeAt(this.home, LOW_Y);
       this.position = this.position.lerp(to, Math.min(1, t * 0.3 + 0.04));
@@ -206,7 +211,7 @@ export class RugPull extends Boss {
     const t = this.currentTelegraph();
     if (t && t.plan.id === 'drop') return [new Rect2(this.dropX - HALF, this.arena.floorY - 150, HALF * 2, 150)];
     if (t && t.plan.id === 'sweep') return [new Rect2(this.arena.left, this.arena.floorY - 30, this.arena.right - this.arena.left, 30)];
-    return [];
+    return super.dangerZones();
   }
 
   protected override defeatStep(frame: number): void {

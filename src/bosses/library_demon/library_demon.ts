@@ -84,15 +84,14 @@ export class LibraryDemon extends Boss {
   }
 
   protected planCycle(): AttackPlan[] {
-    const early: AttackPlan[][] = [
-      [{ id: 'ink_rain', telegraph: 1.4 }, { id: 'pages', aimed: true }],
-      [{ id: 'ink_wave' }, { id: 'pages', aimed: true }],
-    ];
-    const late: AttackPlan[][] = [
-      [{ id: 'pages', aimed: true }, { id: 'ink_rain', telegraph: 1.4 }],
-      [{ id: 'ink_wave' }, { id: 'ink_rain', telegraph: 1.4 }],
-      [{ id: 'pages', aimed: true }, { id: 'ink_wave' }],
-    ];
+    const rain: AttackPlan = { id: 'ink_rain', telegraph: 1.4 };
+    const pages: AttackPlan = { id: 'pages', aimed: true };
+    const wave: AttackPlan = { id: 'ink_wave' };
+    const seals: AttackPlan = { id: 'ink_seals', aimed: true, telegraph: 1.55 };
+    const bookends: AttackPlan = { id: 'bookends', telegraph: 2 };
+    const quill: AttackPlan = { id: 'quill_fall', aimed: true, telegraph: 1.55 };
+    const early = [[rain, pages], [wave, seals], [bookends, pages], [quill, rain]];
+    const late = [[pages, quill], [wave, bookends], [seals, rain], [quill, seals]];
     const list = this.phase === 1 ? early : late;
     const plans = list[this.cycle % list.length]!;
     this.cycle += 1;
@@ -316,7 +315,7 @@ export class LibraryDemon extends Boss {
   }
 
   override dangerZones(): Rect2[] {
-    const out = [...this.rainLanes];
+    const out = [...super.dangerZones(), ...this.rainLanes];
     if (this.slamZone) out.push(this.slamZone);
     if (this.sinkZone) out.push(this.sinkZone);
     out.push(...this.pageZones);
