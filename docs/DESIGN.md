@@ -32,6 +32,9 @@ games (prompts included).
 - **Backgrounds:**
   - 4 parallax layers, full of detail: layered clouds, distant sea or
     mountains, hills with waterfalls, and palm trees in the foreground.
+  - Each second act has its own backdrop: a waterfall gorge, observatory
+    roofs, an underground vault, and a skyline with rooftop transmitters.
+    Keep background scenery softer than the playable terrain.
   - Animated touches where cheap: water sparkle, waterfall shimmer.
 - **Sprites:**
   - Readable silhouettes at game size.
@@ -42,7 +45,8 @@ games (prompts included).
   - Sparkles on ticket pickup.
   - A short afterimage trail above top running speed (7.5 px/frame), and
     thin speed lines along the top and bottom of the screen that fade in
-    from 6 px/frame to 12. Both follow the SPEED EFFECTS option.
+    from 6 px/frame to 12. SPEED EFFECTS controls both when Comfort Motion
+    is off.
   - Popping capsule halves when a pill robot is destroyed.
 
 ## Sproto (player)

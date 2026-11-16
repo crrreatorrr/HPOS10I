@@ -2,7 +2,9 @@
 // and levels/common/placeholder_backdrop.gd). Four layers like the real art:
 // 1 far (sky, full screen height), 2 distant, 3 mid and 4 near (shorter,
 // transparent above their shapes), scrolling at 0.1 / 0.3 / 0.6 / 0.9 of the
-// camera. Uses assets/backgrounds/<zone>/1_far.png .. 4_near.png when any of
+// camera at full motion, less with Comfort Motion. Optional variant folders
+// override the corresponding zone files. Uses assets/backgrounds/<zone>/
+// 1_far.png .. 4_near.png when any of
 // them exist, else placeholder layers drawn in code per zone style (rendered
 // once into offscreen canvases and blitted). Every layer tiles horizontally.
 //
@@ -17,6 +19,7 @@
 // rounded, interpolated view for this frame), so the backdrop never lags the
 // world by a tick.
 
+import { Settings } from '../../core/settings';
 import { assetExists, assetImage } from '../../runtime/assets';
 import { Color } from '../../runtime/color';
 import { context2d, makeCanvas, type Gfx, type Texture } from '../../runtime/gfx';
@@ -362,8 +365,11 @@ function bottomColor(tex: Texture): Color | null {
 
 // --- The node ------------------------------------------------------------------------
 
+type BackdropLayout = Pick<LevelRoot, 'getBounds' | 'backgroundYOffsets' | 'backgroundYScroll' | 'horizonHeight' | 'backdropVariant'>;
+
 interface Layer {
   index: number;
+  phaseOffset: Vec2;
   texture: () => Texture | null;
   /** undefined = not read yet. */
   fill: Color | null | undefined;
@@ -374,9 +380,10 @@ export class Backdrop extends Node2D {
   /** True when the zone's background files are used (else the placeholder). */
   readonly usesFiles: boolean;
   private readonly layers: Layer[] = [];
+  private comfort = Settings.data.comfortMotion;
 
   constructor(
-    private readonly root: LevelRoot,
+    private readonly root: BackdropLayout,
     artZone: string,
   ) {
     super('Backdrop');
@@ -385,25 +392,30 @@ export class Backdrop extends Node2D {
     this.zAsRelative = false;
     this.topLevel = true;
     const fileZone = artZone === 'test_zone' ? 'z1_retro_rush_hills' : artZone;
-    const paths = BACKGROUND_FILES.map((file) => `${BACKGROUND_DIR}/${fileZone}/${file}`);
+    const paths = BACKGROUND_FILES.map((file) => {
+      const base = `${BACKGROUND_DIR}/${fileZone}`;
+      const variant = `${base}/${root.backdropVariant}/${file}`;
+      return root.backdropVariant && assetExists(variant) ? variant : `${base}/${file}`;
+    });
     this.usesFiles = artZone !== '' && paths.some((p) => assetExists(p));
     if (this.usesFiles) {
       paths.forEach((path, index) => {
-        if (assetExists(path)) this.layers.push({ index, texture: () => assetImage(path), fill: undefined });
+        if (assetExists(path)) this.layers.push({ index, phaseOffset: Vec2.ZERO, texture: () => assetImage(path), fill: undefined });
       });
     } else {
       const style = placeholderStyle(artZone);
       for (let index = 0; index < BACKGROUND_FILES.length; index++) {
-        this.layers.push({ index, texture: () => placeholderLayers(style)[index] ?? null, fill: undefined });
+        this.layers.push({ index, phaseOffset: Vec2.ZERO, texture: () => placeholderLayers(style)[index] ?? null, fill: undefined });
       }
     }
   }
 
   /** Screen-space top-left of layer `index` for a camera top-left and layer size (Parallax2D placement). */
-  layerOrigin(index: number, camera: Vec2, size: Vec2): Vec2 {
+  layerOrigin(index: number, camera: Vec2, size: Vec2, comfort = Settings.data.comfortMotion): Vec2 {
     const root = this.root;
-    const scaleX = BACKGROUND_SCROLL[index]!;
-    const scaleY = index === 0 ? 0 : scaleX * root.backgroundYScroll;
+    const base = BACKGROUND_SCROLL[index]!;
+    const scaleX = base * (comfort ? 0.38 : 1);
+    const scaleY = index === 0 ? 0 : base * root.backgroundYScroll * (comfort ? 0.35 : 1);
     const yOffset = root.backgroundYOffsets[index] ?? 0;
     let offsetY = yOffset;
     if (index !== 0) {
@@ -421,12 +433,19 @@ export class Backdrop extends Node2D {
     const t = g.transform;
     const camera = new Vec2(-t.tx, -t.ty);
     g.setTransform(camera); // screen space from here on
+    const comfort = Settings.data.comfortMotion;
     for (const layer of this.layers) {
+      if (comfort !== this.comfort) {
+        // Change the scroll rate without shifting the scenery at this camera position.
+        const before = this.layerOrigin(layer.index, camera, Vec2.ZERO, this.comfort);
+        const after = this.layerOrigin(layer.index, camera, Vec2.ZERO, comfort);
+        layer.phaseOffset = layer.phaseOffset.add(before.sub(after));
+      }
       const tex = layer.texture();
       if (!tex || tex.width <= 0) continue;
       if (layer.fill === undefined) layer.fill = bottomColor(tex);
       const size = new Vec2(tex.width, tex.height);
-      const origin = this.layerOrigin(layer.index, camera, size);
+      const origin = this.layerOrigin(layer.index, camera, size, comfort).add(layer.phaseOffset);
       const y = Math.round(origin.y);
       let x = fposmod(Math.round(origin.x), size.x) - size.x;
       if (y < VIEW_H && y + size.y > 0) {
@@ -438,6 +457,7 @@ export class Backdrop extends Node2D {
         if (fillH > 0 && top < VIEW_H) g.rect(0, top, VIEW_W, Math.min(fillH, VIEW_H - top), layer.fill);
       }
     }
+    this.comfort = comfort;
     g.resetTransform();
   }
 }

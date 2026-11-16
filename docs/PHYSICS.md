@@ -36,6 +36,15 @@ power-ups are additions outside this audit. They are off in Ranked and can
 be turned off in Options; with them off the controller is exactly the
 audited one, and the tests run that way.
 
+## Comfort Motion
+
+Comfort Motion is on by default. Casual gameplay runs at 80% of normal
+speed in real time. It still uses the same fixed simulation step, so spring
+arcs, momentum, and obstacle timing stay in sync. Ranked uses full speed.
+In both modes, Comfort Motion eases camera movement, reduces parallax,
+and suppresses shake, impact pauses, speed lines, and afterimages.
+Toggle it in Pause → Options.
+
 ## Matrix
 
 Status: **exact** = matches the Guide rule and value; **choice** = a

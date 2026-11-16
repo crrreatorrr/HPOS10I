@@ -16,6 +16,7 @@
 // - Clamped to the level bounds (a level smaller than the screen is centred),
 //   smoothly locked to arenas, autoscroll that pushes Sproto via
 //   Player.clampRect, and a decaying shake.
+// - Comfort Motion eases vertical tracking and skips the spin dash hold.
 // - Pixel-perfect: a whole-pixel offset from Sproto, so he never jitters.
 
 import { FPS } from '../core/physics_constants';
@@ -153,7 +154,7 @@ export class GameCamera extends Node2D implements ViewProvider {
   }
 
   shake(strengthPx: number, seconds: number): void {
-    if (seconds <= 0 || strengthPx <= 0 || !Settings.data.screenShake) return;
+    if (seconds <= 0 || strengthPx <= 0 || !Settings.screenShakeEnabled) return;
     this.shakeStrength = Math.max(strengthPx, (this.shakeStrength * this.shakeLeft) / Math.max(this.shakeTime, 0.001));
     this.shakeTime = seconds;
     this.shakeLeft = seconds;
@@ -204,23 +205,33 @@ export class GameCamera extends Node2D implements ViewProvider {
     let speed = 0;
     if (player) speed = player.grounded ? player.groundSpeed : player.velocity.x;
     const span = Math.max(this.lookAheadFullSpeed - this.lookAheadStartSpeed, 0.001);
+    const comfort = Settings.data.comfortMotion;
     const wanted = signf(speed) * this.lookAheadMax * clamp((Math.abs(speed) - this.lookAheadStartSpeed) / span, 0, 1);
-    this.lookAhead = this.smoothDamp(this.lookAhead, wanted, this.lookAheadSmoothTime, this.lookAheadMaxRate * FPS, frames / FPS);
+    const smoothTime = comfort ? 0.45 : this.lookAheadSmoothTime;
+    const leadRate = comfort ? 2 : this.lookAheadMaxRate;
+    this.lookAhead = this.smoothDamp(this.lookAhead, wanted, smoothTime, leadRate * FPS, frames / FPS);
     let fx = this.focus.x;
     let fy = this.focus.y;
-    if (this.holdFrames > 0) {
+    if (this.holdFrames > 0 && !comfort) {
       this.holdFrames -= 1;
     } else {
+      this.holdFrames = 0;
       const tx = target.x + this.lookAhead;
       const half = this.deadzoneWidth / 2;
       let dx = 0;
       if (tx > fx + half) dx = tx - (fx + half);
       else if (tx < fx - half) dx = tx - (fx - half);
-      fx += clamp(dx, -this.maxSpeedX * frames, this.maxSpeedX * frames);
+      const cap = (comfort ? Math.min(16, this.maxSpeedX) : this.maxSpeedX) * frames;
+      fx += clamp(dx, -cap, cap);
     }
     this.updateLook(player, frames, upHeld);
     const ty = target.y + this.verticalOffset + this.lookShift;
-    if (!player || player.grounded) {
+    if (comfort) {
+      // Ease into vertical climbs and landings, keeping the midair deadzone.
+      const window = player && !player.grounded ? this.airWindow : 0;
+      const dy = signf(ty - fy) * Math.max(0, Math.abs(ty - fy) - window);
+      fy += clamp(dy * 0.34, -this.maxSpeedYAir, this.maxSpeedYAir) * frames;
+    } else if (!player || player.grounded) {
       const fast = !!player && Math.abs(player.groundSpeed) >= this.fastFollowGroundSpeed;
       const cap = (fast ? this.groundFollowFast : this.groundFollowSlow) * frames;
       fy += clamp(ty - fy, -cap, cap);
@@ -289,7 +300,9 @@ export class GameCamera extends Node2D implements ViewProvider {
   }
 
   private applyShake(delta: number): void {
-    if (this.shakeLeft <= 0) {
+    if (this.shakeLeft <= 0 || !Settings.screenShakeEnabled) {
+      this.shakeLeft = 0;
+      this.shakeStrength = 0;
       this.offset = Vec2.ZERO;
       return;
     }

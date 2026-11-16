@@ -8,6 +8,8 @@ export interface SettingsData {
   extraMoves: boolean;
   /** Item boxes in levels (never in Ranked). */
   itemBoxes: boolean;
+  /** Slower casual play and reduced camera motion and effects. */
+  comfortMotion: boolean;
   /** Screen shake and hit-stop. */
   screenShake: boolean;
   /** Speed lines and the afterimage trail. */
@@ -18,6 +20,7 @@ export interface SettingsData {
 const DEFAULTS: SettingsData = {
   extraMoves: true,
   itemBoxes: true,
+  comfortMotion: true,
   screenShake: true,
   speedEffects: true,
   muted: false,
@@ -26,6 +29,14 @@ const DEFAULTS: SettingsData = {
 class SettingsStore {
   data: SettingsData = { ...DEFAULTS };
   readonly changed = new Signal();
+
+  get screenShakeEnabled(): boolean {
+    return this.data.screenShake && !this.data.comfortMotion;
+  }
+
+  get speedEffectsEnabled(): boolean {
+    return this.data.speedEffects && !this.data.comfortMotion;
+  }
 
   load(): void {
     const raw = Storage.readJson(SAVE_KEYS.settings);

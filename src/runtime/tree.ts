@@ -43,6 +43,8 @@ export class SceneTree {
   suspended = false;
   /** Engine.time_scale: slows the game clock (Time Focus). */
   timeScale = 1;
+  /** Base gameplay pace, independent of temporary slow-motion effects. */
+  playbackRate = (): number => 1;
   physicsFrames = 0;
   processFrames = 0;
   /** Seconds the game clock has run. */
@@ -281,7 +283,7 @@ export class SceneTree {
     if (this.suspended) return 0;
     // A hidden tab or a breakpoint: don't try to catch up minutes of game.
     if (real > 0.25) real = 0.25;
-    this.accumulator += real * this.timeScale;
+    this.accumulator += real * this.timeScale * this.playbackRate();
     let ticks = 0;
     let steps = 0;
     while (this.accumulator >= PHYSICS_DT && ticks < 8) {
