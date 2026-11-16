@@ -904,7 +904,7 @@ class SpeedTrail extends Node2D {
     const p = this.visual.player;
     const speed = p.grounded ? Math.abs(p.groundSpeed) : p.velocity.length();
     const on =
-      p.moves.speedShoesFrames > 0 && Effects.enabled && Settings.data.speedEffects && p.state !== 'dead' && speed > TRAIL_MIN_SPEED;
+      p.moves.speedShoesFrames > 0 && Effects.enabled && Settings.speedEffectsEnabled && p.state !== 'dead' && speed > TRAIL_MIN_SPEED;
     if (!on) {
       if (this.points.length > 0) this.points.shift();
       return;
@@ -914,6 +914,7 @@ class SpeedTrail extends Node2D {
   }
 
   override draw(g: Gfx): void {
+    if (!Settings.speedEffectsEnabled) return;
     const pts = this.points;
     if (pts.length < 2) return;
     for (let i = 0; i < pts.length - 1; i++) {
