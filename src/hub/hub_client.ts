@@ -36,6 +36,7 @@ import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
 import { HubSave } from './hub_save';
 import { repairOutbox } from './outbox_repair';
+import { pageServerKey } from './server_key';
 
 export const GAME_ID: GameId = 'hpos10i';
 export const EVENT_LEVEL_COMPLETE = 'hpos10i.level_complete';
@@ -140,7 +141,7 @@ class HubClientImpl {
       this.reach = 'pending';
       await repairOutbox(this.save);
       try {
-        sdk = createHubSdk({ serverUrl: '', serverKey: opts.serverKey ?? __NAKAMA_SERVER_KEY__, hubUrl: this.hubUrl });
+        sdk = createHubSdk({ serverUrl: '', serverKey: opts.serverKey ?? pageServerKey(), hubUrl: this.hubUrl });
       } catch (err) {
         console.warn('[Hub] SDK unavailable, playing standalone', err);
       }

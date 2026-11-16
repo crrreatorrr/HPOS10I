@@ -5,7 +5,8 @@ import { execSync } from 'node:child_process';
 // Build-time settings, the same names CI already uses:
 //   HPOS_BASE_PATH          public path the build is served from ('' = relative, works anywhere)
 //   HPOS_HUB_URL            absolute hub page for Exit to Hub (default /hub/)
-//   HPOS_NAKAMA_SERVER_KEY  Nakama client server key (empty: no hub session, the game still plays)
+//   HPOS_NAKAMA_SERVER_KEY  Nakama client server key (empty: Nakama's stock key under vite dev or
+//                           on a loopback host, else no hub session; see src/hub/server_key.ts)
 function basePath(): string {
   const raw = (process.env.HPOS_BASE_PATH ?? '').trim();
   if (raw === '') return './';
