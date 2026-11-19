@@ -88,18 +88,38 @@ the build is 161 files of runtime assets. They only cost clone size. For the own
 - GitHub repo description still says "Godot 4" — **not changed**: it is a live repository setting. The owner can
   change it in the repo's settings (it is pure TypeScript + Canvas 2D now).
 
+## Final review (`/code-review medium` on `origin/main...HEAD`)
+Fixed:
+- Exit to Hub could still navigate twice on a double press within the 500 ms wait, and the pause menu's exit let
+  the game run during it — fixed (be66c03): presses join the in-flight exit; `tree.suspended` holds the game
+  still until the page leaves (given back after 3 s if it never does).
+- Merge cache compared shape identity and flags but not geometry — fixed (7c32d60): per-shape geometry hash.
+- Respawn caches outlived the level (tile geometry per level for the whole session, chunk pictures, merges) —
+  fixed (7c32d60): single entry, released when a menu scene takes over.
+- Audio fallback fetched every file twice on a browser that claims Ogg but cannot decode it, and a missing file
+  could switch the session's format — fixed (270eb0b): the first load probes, only a decode failure switches;
+  smoke covers it (1 Ogg file, then AAC).
+- Zone 4 atlas not preloaded for the Zone 4 boss arena — fixed (c86c210).
+Not changed:
+- A tab opened before a deploy can fail to import a Zone 4 act chunk: true of every level already (z1-z3 levels
+  were dynamic chunks before this work), and a failed level load falls back as before. A reload-once-on-stale-chunk
+  handler would be a separate change.
+- `?overlay` in `PRODUCTION_ARGS`: harmless; the debug overlay reads `location.search` itself, so production does
+  honour it, as the comment says.
+
 ## Checks
 
-| Check | Phase 0 | Phase 1 |
-|---|---|---|
-| `npm ci` | pass | pass |
-| `npm run typecheck` | pass | pass |
-| `npm test` | pass: 855 passed, 1 skipped (baseline 845) | pass: 881 passed, 1 skipped |
-| `tools/qa/originality_scan.sh .` | pass: 0 hits | pass: 0 hits |
-| `npm run build && node tools/qa/web_check.mjs build/web` | pass | pass |
-| `npm run smoke` | pass: 19 scenes, production-hooks check, play path, feedback, Ogg and AAC audio paths | pass (same) |
-| `npm run test:bots` | pass (11 tests) | pass (11 tests: every act, item boxes on and off, timeline replays) |
-| `npm run e2e:hub` | not run: needs the metaverse-hub Nakama stack (docker) | not run (same) |
+| Check | Phase 0 | Phase 1 | Final (after review fixes) |
+|---|---|---|---|
+| `npm ci` | pass | pass | pass |
+| `npm run typecheck` | pass | pass | pass |
+| `npm test` | pass: 855 passed, 1 skipped (baseline 845) | pass: 881 passed, 1 skipped | pass: 884 passed, 1 skipped |
+| `tools/qa/originality_scan.sh .` | pass: 0 hits | pass: 0 hits | pass: 0 hits |
+| `npm run build && node tools/qa/web_check.mjs build/web` | pass | pass | pass |
+| `npm run smoke` | pass: 19 scenes, production-hooks check, play path, feedback, Ogg and AAC audio paths | pass | pass (+ Ogg-decode-failure case) |
+| `npm run test:bots` | pass (11 tests) | pass (11 tests: every act, item boxes on and off, timeline replays) | pass (11) |
+| `npm run e2e:hub` | not run: needs the metaverse-hub Nakama stack (docker) | not run | not run |
+| Real Safari / iOS audio | not run: no WebKit in this container; simulated in smoke | — | — |
 
 ## Measurements
 
@@ -124,6 +144,12 @@ held suspended until a gesture), `popin.mjs` (resource timing vs the moment a le
 (`PerformanceObserver` long tasks around `router.restart()`), `profile.mjs` (CDP CPU profile of three restarts).
 
 ## Cross-repo follow-ups
+- Run `npm run e2e:hub` against the metaverse-hub Nakama stack: it now builds with `HPOS_TEST_BUILD=1`, and its
+  step 7 is the end-to-end proof that SDK 0.8.0 handles the undeliverable queued earn `outbox_repair.ts` used to.
+- metaverse-hub re-vendor of hub-sdk (not done here, per the brief): drop `dist/hub-sdk.iife.js` from the vendored
+  files and update `tools/qa/originality_allow.txt` line pins; re-check `loadoutFrom()` if the SDK adds a loadout
+  to `InitResult`.
+- Check on a real iPhone / Safari that music and effects play (AAC path).
 - metaverse-hub: the hub's `fetch:games` downloads the `web-build` artifact, which is the production build and so
   has no `window.hpos`. Anything in the hub that drove `window.hpos` must use a `HPOS_TEST_BUILD=1` build.
 - metaverse-hub: §1.2.4 server-side replay verification of `hpos10i_act_time` submissions.
