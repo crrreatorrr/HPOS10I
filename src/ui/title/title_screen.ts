@@ -129,7 +129,7 @@ export class TitleScreen extends Node {
   toHub(): void {
     if (this.leaving) return;
     this.leaving = true;
-    HubClient.exitToHub();
+    void HubClient.exitToHub();
   }
 
   promptVisible(): boolean {

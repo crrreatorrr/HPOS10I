@@ -204,7 +204,7 @@ describe('hub Ticket counter', () => {
 
 describe('RETURN TO HUB', () => {
   it('from a menu goes straight to the hub, with no question', () => {
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     const asker = { confirmExitToHub: vi.fn() };
     for (const scene of ['title', 'zone_select', 'game_over', 'ending']) {
       SceneRouter.changeTo(scene);
@@ -217,7 +217,7 @@ describe('RETURN TO HUB', () => {
   });
 
   it('mid-run asks first and does not leave', () => {
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     const asker = { confirmExitToHub: vi.fn() };
     const { button, canvas } = makeChrome(asker);
     SceneRouter.openScene(PLAY_SCENE);
@@ -230,7 +230,7 @@ describe('RETURN TO HUB', () => {
   });
 
   it('mid-run with the real pause menu: the button opens EXIT TO HUB? and pauses', () => {
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     const pm = new PauseMenu();
     tree.addAutoload(pm);
     const { button } = makeChrome(pm);
@@ -253,7 +253,7 @@ describe('RETURN TO HUB', () => {
   });
 
   it('the zone select HUB button leaves at once', () => {
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     const zs = tree.changeSceneNow(() => new ZoneSelect()) as ZoneSelect;
     tree.advance(20);
     const hub = zs.menu.items[zs.hubIndex]!;

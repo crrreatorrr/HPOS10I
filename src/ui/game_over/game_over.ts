@@ -150,7 +150,7 @@ export class GameOverScreen extends Node {
     if (this.leaving) return;
     this.leaving = true;
     Audio.playSfx('menu_select');
-    HubClient.exitToHub();
+    void HubClient.exitToHub();
   }
 
   showControls(): void {

@@ -53,6 +53,8 @@ export const EARN_REASON = 'level_end';
 export const EARN_MAX_PER_ACT = 20;
 /** Earn replies that can never succeed with the same key and body: the earn is dropped. */
 const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount', 'bad_reason', 'server_reason', 'bad_key'];
+/** Longest Exit to Hub waits for the cloud save to flush before it navigates. */
+export const EXIT_FLUSH_MS = 500;
 /** Longest a stage start waits for a hub visit's init (Ranked, Relics) before it starts anyway. */
 export const SETTLE_WAIT_MS = 1500;
 /** How often the session token is checked for refresh (the SDK refreshes within 5 min of expiry). */
@@ -246,18 +248,39 @@ class HubClientImpl {
     this.changed();
   }
 
-  exitToHub(): void {
+  /**
+   * Back to the hub. Waits for the cloud save to flush (at most EXIT_FLUSH_MS: an account's
+   * unsynced progress is also pushed on its next attach), then navigates once: the SDK's exit
+   * when a session is live (it closes the session and navigates itself), else a plain
+   * navigation. Navigating twice would abort the save still in flight.
+   */
+  async exitToHub(): Promise<void> {
     const base = this.hubUrl.replace(/\/+$/, '');
     const target = `${base}/#from=${GAME_ID}`;
-    // Best effort: an account's unsynced progress is also pushed on its next attach.
-    void this.save.flush();
-    try {
-      // Flushes the outbox; with a session it navigates itself.
-      this.sdk?.exit('exit_to_hub');
-    } catch {
-      /* fall through to plain navigation */
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    await Promise.race([
+      this.save.flush().catch(() => undefined),
+      new Promise<void>((resolve) => (timer = setTimeout(resolve, EXIT_FLUSH_MS))),
+    ]);
+    if (timer) clearTimeout(timer);
+    const sdk = this.sdk;
+    if (sdk && this.hasLiveSession(sdk)) {
+      try {
+        sdk.exit('exit_to_hub');
+        return;
+      } catch {
+        /* fall through to plain navigation */
+      }
     }
     if (typeof window !== 'undefined') window.location.assign(target);
+  }
+
+  private hasLiveSession(sdk: HubSdk): boolean {
+    try {
+      return !!sdk.getSession?.();
+    } catch {
+      return false;
+    }
   }
 
   /** The saved best time of an act in seconds, or null. */

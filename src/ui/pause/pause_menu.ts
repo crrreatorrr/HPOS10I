@@ -455,7 +455,7 @@ export class PauseMenu extends UiLayer {
    */
   confirmExitToHub(): void {
     if (!SceneRouter.inGameplay()) {
-      HubClient.exitToHub();
+      void HubClient.exitToHub();
       return;
     }
     const wasOpen = this.open;
