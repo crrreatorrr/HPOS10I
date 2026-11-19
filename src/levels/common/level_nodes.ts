@@ -53,7 +53,7 @@ export class TileLayer extends Node2D implements Configurable {
   tileset: TilesetData | null = null;
   private solid = new StaticBody2D('TileSolid');
   private topOnly = new StaticBody2D('TileTopOnly');
-  private chunks = new Map<string, HTMLCanvasElement | null>();
+  private chunkCache: ChunkCache | null = null;
   private bounds = new Rect2();
 
   constructor(name = 'Tiles') {
@@ -74,49 +74,28 @@ export class TileLayer extends Node2D implements Configurable {
   setArtZone(zone: string): void {
     if (zone !== this.artZone) {
       this.artZone = zone;
-      this.chunks.clear();
+      this.chunkCache = null;
     }
   }
 
-  /** Builds collision from cells and the tileset (call before entering the tree). */
+  /**
+   * Builds collision from cells and the tileset (call before entering the tree). The shapes
+   * are made once per cells array and tileset and shared after that (a respawn rebuilds the
+   * level from the same data): nothing changes a tile shape after it is made.
+   */
   build(tileset: TilesetData, cells: [number, number, number, number][]): void {
     this.tileset = tileset;
     this.cells = cells;
-    const full = new Set<string>();
-    for (const [x, y, ax, ay] of cells) {
-      const solid = tileset.cells[`${ax},${ay}`]?.solid;
-      if (solid && solid.length === 1 && isFullSquare(solid[0]!)) full.add(`${x},${y}`);
-    }
-    const solidShapes: Shape[] = [];
-    const topShapes: Shape[] = [];
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const [x, y, ax, ay] of cells) {
-      const info = tileset.cells[`${ax},${ay}`];
-      if (!info) continue;
-      const cx = x * TILE + TILE / 2;
-      const cy = y * TILE + TILE / 2;
-      minX = Math.min(minX, x * TILE);
-      minY = Math.min(minY, y * TILE);
-      maxX = Math.max(maxX, x * TILE + TILE);
-      maxY = Math.max(maxY, y * TILE + TILE);
-      const buried =
-        full.has(`${x},${y}`) && full.has(`${x - 1},${y}`) && full.has(`${x + 1},${y}`) && full.has(`${x},${y - 1}`) && full.has(`${x},${y + 1}`);
-      for (const flat of info.solid ?? []) {
-        const shape = polygonShape(toPoints(flat, cx, cy));
-        if (buried) (shape as Shape & { edgeless?: boolean }).edgeless = true;
-        solidShapes.push(shape);
-      }
-      for (const flat of info.top ?? []) topShapes.push(polygonShape(toPoints(flat, cx, cy)));
-    }
+    let byTileset = tileGeometryCache.get(cells);
+    if (!byTileset) tileGeometryCache.set(cells, (byTileset = new WeakMap()));
+    let geometry = byTileset.get(tileset);
+    if (!geometry) byTileset.set(tileset, (geometry = tileGeometry(tileset, cells)));
     this.solid.clearShapes();
-    for (const s of solidShapes) this.solid.addShape(s);
+    for (const s of geometry.solid) this.solid.addShape(s);
     this.topOnly.clearShapes();
-    for (const s of topShapes) this.topOnly.addShape(s);
-    this.bounds = cells.length ? new Rect2(minX, minY, maxX - minX, maxY - minY) : new Rect2();
-    this.chunks.clear();
+    for (const s of geometry.top) this.topOnly.addShape(s);
+    this.bounds = geometry.bounds;
+    this.chunkCache = null;
   }
 
   cullRect(): Rect2 | null {
@@ -152,23 +131,34 @@ export class TileLayer extends Node2D implements Configurable {
     return `assets/tiles/${zone}_tiles.png`;
   }
 
-  private chunkIndex: Map<string, [number, number, number, number][]> | null = null;
+  /** This layer's pre-rendered chunks: the last layer's when it drew the same cells with the same atlas (a respawn). */
+  private chunksFor(atlas: HTMLImageElement): ChunkCache {
+    const own = this.chunkCache;
+    if (own && own.cells === this.cells && own.atlas === atlas) return own;
+    const shared = lastChunkCache;
+    const cache = shared && shared.cells === this.cells && shared.atlas === atlas ? shared : { cells: this.cells, atlas, chunks: new Map(), index: null };
+    this.chunkCache = cache;
+    lastChunkCache = cache;
+    return cache;
+  }
 
   private chunk(cx: number, cy: number, atlas: HTMLImageElement): HTMLCanvasElement | null {
     const key = `${cx},${cy}`;
-    if (this.chunks.has(key)) return this.chunks.get(key)!;
-    if (!this.chunkIndex) {
-      this.chunkIndex = new Map();
+    const cache = this.chunksFor(atlas);
+    const chunks = cache.chunks;
+    if (chunks.has(key)) return chunks.get(key)!;
+    if (!cache.index) {
+      cache.index = new Map();
       for (const c of this.cells) {
         const k = `${Math.floor((c[0] * TILE) / CHUNK)},${Math.floor((c[1] * TILE) / CHUNK)}`;
-        let list = this.chunkIndex.get(k);
-        if (!list) this.chunkIndex.set(k, (list = []));
+        let list = cache.index.get(k);
+        if (!list) cache.index.set(k, (list = []));
         list.push(c);
       }
     }
-    const list = this.chunkIndex.get(key);
+    const list = cache.index.get(key);
     if (!list) {
-      this.chunks.set(key, null);
+      chunks.set(key, null);
       return null;
     }
     const canvas = makeCanvas(CHUNK, CHUNK);
@@ -177,9 +167,92 @@ export class TileLayer extends Node2D implements Configurable {
     for (const [x, y, ax, ay] of list) {
       ctx.drawImage(atlas, ax * TILE, ay * TILE, TILE, TILE, x * TILE - cx * CHUNK, y * TILE - cy * CHUNK, TILE, TILE);
     }
-    this.chunks.set(key, canvas);
+    chunks.set(key, canvas);
     return canvas;
   }
+}
+
+/** Pre-rendered 256 px chunks of one cells array drawn with one atlas. */
+interface ChunkCache {
+  cells: readonly [number, number, number, number][];
+  atlas: HTMLImageElement;
+  chunks: Map<string, HTMLCanvasElement | null>;
+  index: Map<string, [number, number, number, number][]> | null;
+}
+
+/**
+ * The chunks of the tile layer drawn last, so a respawn (the same level rebuilt from the same
+ * data) draws without pre-rendering them again. One entry only: a level's chunks can be tens
+ * of MB, and no other level keeps them alive.
+ */
+let lastChunkCache: ChunkCache | null = null;
+
+interface TileGeometry {
+  solid: Shape[];
+  top: Shape[];
+  bounds: Rect2;
+}
+
+const tileGeometryCache = new WeakMap<object, WeakMap<TilesetData, TileGeometry>>();
+
+/** One number per tile coordinate (exact for any coordinate within +-524288 tiles). */
+function tileKey(x: number, y: number): number {
+  return (x + 524288) * 1048576 + (y + 524288);
+}
+
+/**
+ * Collision shapes of a tile layer: solid and top-only polygons in cell order. A full-square
+ * tile surrounded by full squares on four sides is buried: it keeps its polygon for point
+ * queries but gives rays no edges.
+ */
+function tileGeometry(tileset: TilesetData, cells: [number, number, number, number][]): TileGeometry {
+  const infos = new Map<number, TilesetData['cells'][string] | undefined>();
+  const infoAt = (ax: number, ay: number) => {
+    const k = tileKey(ax, ay);
+    if (infos.has(k)) return infos.get(k);
+    const info = tileset.cells[`${ax},${ay}`];
+    infos.set(k, info);
+    return info;
+  };
+  const fullInfo = new Map<object, boolean>();
+  const full = new Set<number>();
+  for (const [x, y, ax, ay] of cells) {
+    const info = infoAt(ax, ay);
+    if (!info) continue;
+    let isFull = fullInfo.get(info);
+    if (isFull === undefined) {
+      const solid = info.solid;
+      isFull = !!solid && solid.length === 1 && isFullSquare(solid[0]!);
+      fullInfo.set(info, isFull);
+    }
+    if (isFull) full.add(tileKey(x, y));
+  }
+  const solid: Shape[] = [];
+  const top: Shape[] = [];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y, ax, ay] of cells) {
+    const info = infoAt(ax, ay);
+    if (!info) continue;
+    const cx = x * TILE + TILE / 2;
+    const cy = y * TILE + TILE / 2;
+    minX = Math.min(minX, x * TILE);
+    minY = Math.min(minY, y * TILE);
+    maxX = Math.max(maxX, x * TILE + TILE);
+    maxY = Math.max(maxY, y * TILE + TILE);
+    const buried =
+      full.has(tileKey(x, y)) && full.has(tileKey(x - 1, y)) && full.has(tileKey(x + 1, y)) && full.has(tileKey(x, y - 1)) && full.has(tileKey(x, y + 1));
+    for (const flat of info.solid ?? []) {
+      const shape = polygonShape(toPoints(flat, cx, cy));
+      if (buried) (shape as Shape & { edgeless?: boolean }).edgeless = true;
+      solid.push(shape);
+    }
+    for (const flat of info.top ?? []) top.push(polygonShape(toPoints(flat, cx, cy)));
+  }
+  const bounds = cells.length ? new Rect2(minX, minY, maxX - minX, maxY - minY) : new Rect2();
+  return { solid, top, bounds };
 }
 
 function toPoints(flat: number[], cx: number, cy: number): Vec2[] {
