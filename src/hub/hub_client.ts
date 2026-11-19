@@ -34,6 +34,7 @@ import { GameState } from '../core/game_state';
 import { betterRank, rankFor, type Rank } from '../core/rank';
 import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
+import { tree } from '../runtime/tree';
 import { HubSave } from './hub_save';
 import { pageServerKey } from './server_key';
 
@@ -54,6 +55,8 @@ export const EARN_MAX_PER_ACT = 20;
 const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount', 'bad_reason', 'server_reason', 'bad_key'];
 /** Longest Exit to Hub waits for the cloud save to flush before it navigates. */
 export const EXIT_FLUSH_MS = 500;
+/** When a navigation has not unloaded the page after this long, Exit to Hub can be tried again. */
+const EXIT_RETRY_MS = 3000;
 /** Longest a stage start waits for a hub visit's init (Ranked, Relics) before it starts anyway. */
 export const SETTLE_WAIT_MS = 1500;
 /** How often the session token is checked for refresh (the SDK refreshes within 5 min of expiry). */
@@ -127,6 +130,8 @@ class HubClientImpl {
   private wired = false;
   private hubUrl = '/hub/';
   private settleWaiters: (() => void)[] = [];
+  private exiting: Promise<void> | null = null;
+  private exitRetry: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Connects to the hub. Pass an SDK in tests; the browser build creates the real one.
@@ -179,6 +184,9 @@ class HubClientImpl {
     this.reach = 'offline';
     this.inSession = false;
     this.visitStarting = false;
+    this.exiting = null;
+    if (this.exitRetry) clearTimeout(this.exitRetry);
+    this.exitRetry = null;
     this.playerId = null;
     this.relics = [];
     this.ranked = false;
@@ -249,9 +257,27 @@ class HubClientImpl {
    * Back to the hub. Waits for the cloud save to flush (at most EXIT_FLUSH_MS: an account's
    * unsynced progress is also pushed on its next attach), then navigates once: the SDK's exit
    * when a session is live (it closes the session and navigates itself), else a plain
-   * navigation. Navigating twice would abort the save still in flight.
+   * navigation. Navigating twice would abort the save still in flight, so a second press while
+   * leaving joins the first. The game stands still meanwhile (the player chose to leave).
    */
-  async exitToHub(): Promise<void> {
+  exitToHub(): Promise<void> {
+    if (this.exiting) return this.exiting;
+    const wasSuspended = tree.suspended;
+    tree.suspended = true;
+    const leaving = this.leaveForHub().finally(() => {
+      // Still here after a while (a blocked navigation): give the game back and allow a retry.
+      this.exitRetry = setTimeout(() => {
+        this.exitRetry = null;
+        if (this.exiting !== leaving) return;
+        this.exiting = null;
+        tree.suspended = wasSuspended;
+      }, EXIT_RETRY_MS);
+    });
+    this.exiting = leaving;
+    return leaving;
+  }
+
+  private async leaveForHub(): Promise<void> {
     const base = this.hubUrl.replace(/\/+$/, '');
     const target = `${base}/#from=${GAME_ID}`;
     let timer: ReturnType<typeof setTimeout> | null = null;

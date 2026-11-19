@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HubSdk } from '@hub-sdk';
 import { EXIT_FLUSH_MS, GAME_ID, HubClient } from '../../src/hub/hub_client';
 import { memoryStore, Storage } from '../../src/hub/storage';
+import { tree } from '../../src/runtime/tree';
 
 const assign = vi.fn();
 const g = globalThis as unknown as { window?: unknown };
@@ -27,6 +28,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   HubClient.shutdown();
+  tree.suspended = false;
   delete g.window;
 });
 
@@ -62,6 +64,32 @@ describe('Exit to Hub', () => {
     await vi.advanceTimersByTimeAsync(2);
     await done;
     expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it('a second press while leaving joins the first: one navigation, and the game stands still', async () => {
+    const exit = vi.fn();
+    await HubClient.init({ sdk: sdkWith(true, exit), hubUrl: '/hub/', visitStarting: false });
+    let finish: () => void = () => {};
+    vi.spyOn(HubClient.save, 'flush').mockImplementation(() => new Promise<void>((r) => (finish = r)));
+    const first = HubClient.exitToHub();
+    expect(tree.suspended).toBe(true);
+    const second = HubClient.exitToHub();
+    expect(second).toBe(first);
+    finish();
+    await Promise.all([first, second]);
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('gives the game back when the navigation never happens', async () => {
+    await HubClient.init({ sdk: sdkWith(false), hubUrl: '/hub/', visitStarting: false });
+    vi.useFakeTimers();
+    await HubClient.exitToHub();
+    expect(tree.suspended).toBe(true);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(tree.suspended).toBe(false);
+    await HubClient.exitToHub();
+    expect(assign).toHaveBeenCalledTimes(2);
   });
 
   it('falls back to plain navigation when the SDK exit throws', async () => {
