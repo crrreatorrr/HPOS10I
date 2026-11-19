@@ -188,7 +188,7 @@ export interface RayHit {
   layer: number;
 }
 
-interface Edge {
+export interface Edge {
   ax: number;
   ay: number;
   bx: number;
@@ -219,6 +219,28 @@ interface BodyRecord {
   isStatic: boolean;
 }
 
+/** What a merge group's result was made from: per body, its shapes, their flags and its transform. */
+interface MergeInput {
+  layer: number;
+  shapes: Shape[];
+  flags: number[];
+  transform: Transform2D;
+}
+
+/** A merge group's last result: per body (in group order) its merged edges and world polygons. */
+interface MergeResult {
+  inputs: MergeInput[];
+  edges: Edge[][];
+  polys: WorldPoly[][];
+}
+
+/** Stands in for the body in cached merge results (each copy gets its real body back). */
+const DETACHED = null as unknown as CollisionObject2D;
+
+function shapeFlags(shape: Shape): number {
+  return (shape.disabled ? 1 : 0) | (shape.edgeless ? 2 : 0);
+}
+
 const CELL = 64;
 const EPS = 1e-9;
 
@@ -236,6 +258,13 @@ export class PhysicsWorld {
   private stamp = 1;
   private mergeDirty = new Set<number>();
   private mergeGroups = new Map<number, Set<CollisionObject2D>>();
+  /**
+   * The last merge of each layer. A respawn rebuilds the level from the same data, and the
+   * tile layer shares its shapes between builds, so the next merge of that layer usually has
+   * the very same input: then the edges and polygons are copied for the new bodies instead of
+   * merged again (same values, same order, so queries answer exactly as after a fresh merge).
+   */
+  private mergeCache = new Map<number, MergeResult>();
   /** Bumped when the static geometry changes (terrain caches can watch it). */
   revision = 0;
 
@@ -360,21 +389,39 @@ export class PhysicsWorld {
   }
 
   private index(rec: BodyRecord): void {
+    // The same cells, in the same order, as cellsFor(); written out because this runs for every
+    // tile polygon of a level (tens of thousands) on each load and respawn.
     const cells = new Set<number>();
+    const edgeGrid = this.edgeGrid;
+    const polyGrid = this.polyGrid;
     for (const e of rec.edges) {
-      for (const key of cellsFor(Math.min(e.ax, e.bx), Math.min(e.ay, e.by), Math.max(e.ax, e.bx), Math.max(e.ay, e.by))) {
-        let list = this.edgeGrid.get(key);
-        if (!list) this.edgeGrid.set(key, (list = []));
-        list.push(e);
-        cells.add(key);
+      const x0 = Math.floor(Math.min(e.ax, e.bx) / CELL);
+      const y0 = Math.floor(Math.min(e.ay, e.by) / CELL);
+      const x1 = Math.floor(Math.max(e.ax, e.bx) / CELL);
+      const y1 = Math.floor(Math.max(e.ay, e.by) / CELL);
+      for (let cx = x0; cx <= x1; cx++) {
+        for (let cy = y0; cy <= y1; cy++) {
+          const key = cellKey(cx, cy);
+          const list = edgeGrid.get(key);
+          if (list) list.push(e);
+          else edgeGrid.set(key, [e]);
+          cells.add(key);
+        }
       }
     }
     for (const p of rec.polys) {
-      for (const key of cellsFor(p.minX, p.minY, p.maxX, p.maxY)) {
-        let list = this.polyGrid.get(key);
-        if (!list) this.polyGrid.set(key, (list = []));
-        list.push(p);
-        cells.add(key);
+      const x0 = Math.floor(p.minX / CELL);
+      const y0 = Math.floor(p.minY / CELL);
+      const x1 = Math.floor(p.maxX / CELL);
+      const y1 = Math.floor(p.maxY / CELL);
+      for (let cx = x0; cx <= x1; cx++) {
+        for (let cy = y0; cy <= y1; cy++) {
+          const key = cellKey(cx, cy);
+          const list = polyGrid.get(key);
+          if (list) list.push(p);
+          else polyGrid.set(key, [p]);
+          cells.add(key);
+        }
       }
     }
     rec.cells = [...cells];
@@ -393,15 +440,36 @@ export class PhysicsWorld {
         rec.edges = [];
         rec.polys = [];
       }
-      const all: Edge[] = [];
-      for (const rec of recs) {
-        for (const poly of this.worldPolys(rec)) {
-          rec.polys.push(makeWorldPoly(poly.pts, rec.body));
-          if (!poly.edgeless) pushAll(all, polygonEdges(poly.pts, rec.body));
+      const inputs = recs.map((rec): MergeInput => ({
+        layer: rec.body.collisionLayer,
+        shapes: rec.body.shapes.slice(),
+        flags: rec.body.shapes.map(shapeFlags),
+        transform: rec.transform,
+      }));
+      const cached = this.mergeCache.get(layer);
+      if (cached && sameMergeInputs(cached.inputs, inputs)) {
+        recs.forEach((rec, i) => {
+          const body = rec.body;
+          for (const e of cached.edges[i]!) rec.edges.push({ ax: e.ax, ay: e.ay, bx: e.bx, by: e.by, nx: e.nx, ny: e.ny, body, layer: e.layer, stamp: 0 });
+          for (const p of cached.polys[i]!) rec.polys.push({ points: p.points, minX: p.minX, minY: p.minY, maxX: p.maxX, maxY: p.maxY, body, stamp: 0 });
+        });
+      } else {
+        const all: Edge[] = [];
+        for (const rec of recs) {
+          for (const poly of this.worldPolys(rec)) {
+            rec.polys.push(makeWorldPoly(poly.pts, rec.body));
+            if (!poly.edgeless) pushAll(all, polygonEdges(poly.pts, rec.body));
+          }
         }
+        const merged = mergeEdges(all);
+        for (const e of merged) this.records.get(e.body)?.edges.push(e);
       }
-      const merged = mergeEdges(all);
-      for (const e of merged) this.records.get(e.body)?.edges.push(e);
+      // Kept without their bodies, so the cache never holds a freed level alive.
+      this.mergeCache.set(layer, {
+        inputs,
+        edges: recs.map((rec) => rec.edges.map((e) => ({ ...e, body: DETACHED, stamp: 0 }))),
+        polys: recs.map((rec) => rec.polys.map((p) => ({ ...p, body: DETACHED, stamp: 0 }))),
+      });
       for (const rec of recs) this.index(rec);
     }
     this.mergeDirty.clear();
@@ -612,7 +680,8 @@ function makeWorldPoly(points: Vec2[], body: CollisionObject2D): WorldPoly {
   return { points, minX, minY, maxX, maxY, body, stamp: 0 };
 }
 
-function polygonEdges(poly: Vec2[], body: CollisionObject2D): Edge[] {
+/** @internal The outward edges of a polygon (exported for the mergeEdges equivalence tests). */
+export function polygonEdges(poly: Vec2[], body: CollisionObject2D): Edge[] {
   const out: Edge[] = [];
   const ccw = polygonArea(poly) > 0;
   for (let i = 0; i < poly.length; i++) {
@@ -665,8 +734,12 @@ export function mergeEdges(edges: Edge[]): Edge[] {
       for (const i of g.items) out.push(i.e);
       continue;
     }
+    const posIndex = new IntervalIndex(pos);
+    const negIndex = new IntervalIndex(neg);
     for (const item of g.items) {
-      const opposite = item.side === 1 ? neg : pos;
+      // Only the opposite intervals that overlap [t0, t1] can cut it (each piece lies inside it),
+      // taken in their original order: the same cuts as subtracting every one of them.
+      const opposite = (item.side === 1 ? negIndex : posIndex).overlapping(item.t0, item.t1);
       // Subtract every opposite interval from [t0, t1].
       let pieces: [number, number][] = [[item.t0, item.t1]];
       for (const o of opposite) {
@@ -695,6 +768,49 @@ export function mergeEdges(edges: Edge[]): Edge[] {
     }
   }
   return out;
+}
+
+/**
+ * Intervals on one line, sorted by start, answering "which overlap [t0, t1]" in their
+ * original order. Tile edges are short, so a query looks at a handful of neighbours instead
+ * of every interval on the line (mergeEdges was quadratic on long rows of tiles).
+ */
+class IntervalIndex<T extends { t0: number; t1: number }> {
+  private readonly sorted: { item: T; order: number }[];
+  private readonly maxLen: number;
+
+  constructor(items: readonly T[]) {
+    this.sorted = items.map((item, order) => ({ item, order })).sort((p, q) => p.item.t0 - q.item.t0 || p.order - q.order);
+    let maxLen = 0;
+    for (const i of items) maxLen = Math.max(maxLen, i.t1 - i.t0);
+    this.maxLen = maxLen;
+  }
+
+  /**
+   * Every interval not clearly apart from [t0, t1] (the subtraction's own 1e-6 test, with a
+   * wider margin so rounding never drops one), in original order. Including an extra interval
+   * is harmless: the subtraction skips it as it did before.
+   */
+  overlapping(t0: number, t1: number): T[] {
+    const s = this.sorted;
+    const from = t0 - this.maxLen - 1e-3;
+    let lo = 0;
+    let hi = s.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (s[mid]!.item.t0 < from) lo = mid + 1;
+      else hi = mid;
+    }
+    const hits: { item: T; order: number }[] = [];
+    for (let i = lo; i < s.length; i++) {
+      const o = s[i]!;
+      if (o.item.t0 >= t1 + 1e-3) break;
+      if (o.item.t1 <= t0 - 1e-3) continue;
+      hits.push(o);
+    }
+    if (hits.length > 1) hits.sort((p, q) => p.order - q.order);
+    return hits.map((h) => h.item);
+  }
 }
 
 function pointOnLine(e: Edge, dx: number, dy: number, t: number): Vec2 {
@@ -756,6 +872,17 @@ function shapeFingerprint(area: Area2D): number {
     h %= 1e12;
   }
   return h;
+}
+
+function sameMergeInputs(a: MergeInput[], b: MergeInput[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const p = a[i]!;
+    const q = b[i]!;
+    if (p.layer !== q.layer || p.shapes.length !== q.shapes.length || !sameTransform(p.transform, q.transform)) return false;
+    for (let j = 0; j < p.shapes.length; j++) if (p.shapes[j] !== q.shapes[j] || p.flags[j] !== q.flags[j]) return false;
+  }
+  return true;
 }
 
 function sameTransform(p: Transform2D, q: Transform2D): boolean {
