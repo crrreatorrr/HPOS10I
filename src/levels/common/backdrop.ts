@@ -375,6 +375,16 @@ interface Layer {
   fill: Color | null | undefined;
 }
 
+/** The background files a backdrop draws for an art zone and variant (the act2 variant falls back per file). */
+export function backdropPaths(artZone: string, variant: string): string[] {
+  const fileZone = artZone === 'test_zone' ? 'z1_retro_rush_hills' : artZone;
+  return BACKGROUND_FILES.map((file) => {
+    const base = `${BACKGROUND_DIR}/${fileZone}`;
+    const v = `${base}/${variant}/${file}`;
+    return variant && assetExists(v) ? v : `${base}/${file}`;
+  });
+}
+
 export class Backdrop extends Node2D {
   readonly artZone: string;
   /** True when the zone's background files are used (else the placeholder). */
@@ -391,12 +401,7 @@ export class Backdrop extends Node2D {
     this.zIndex = BACKGROUND_Z;
     this.zAsRelative = false;
     this.topLevel = true;
-    const fileZone = artZone === 'test_zone' ? 'z1_retro_rush_hills' : artZone;
-    const paths = BACKGROUND_FILES.map((file) => {
-      const base = `${BACKGROUND_DIR}/${fileZone}`;
-      const variant = `${base}/${root.backdropVariant}/${file}`;
-      return root.backdropVariant && assetExists(variant) ? variant : `${base}/${file}`;
-    });
+    const paths = backdropPaths(artZone, root.backdropVariant);
     this.usesFiles = artZone !== '' && paths.some((p) => assetExists(p));
     if (this.usesFiles) {
       paths.forEach((path, index) => {

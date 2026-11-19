@@ -47,7 +47,7 @@ export interface Materials {
 
 const patternCache = new WeakMap<object, CanvasPattern | null>();
 
-function materialPath(zone: string, part: 'fill' | 'top' | 'side'): string {
+export function materialPath(zone: string, part: 'fill' | 'top' | 'side'): string {
   const artZone = zone === 'test_zone' ? 'z1_retro_rush_hills' : zone;
   return `assets/terrain/${artZone}/${part}.png`;
 }

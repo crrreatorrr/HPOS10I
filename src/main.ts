@@ -14,8 +14,6 @@ import { RelicLoadout } from './hub/relic_loadout';
 import { migrateGodotSave } from './hub/godot_migration';
 import { installBackdrop } from './levels/common/backdrop';
 import { registerEnemies } from './levels/registry_enemies';
-import { REMIX_ATLAS } from './levels/enemies/neon/remix_art';
-import { HAZARD_ATLAS } from './levels/objects/hazards/hazard_art';
 import { registerObjects } from './levels/registry_objects';
 import { registerLevelScenes } from './levels/scenes';
 import { registerNewContent } from './levels/content';
@@ -31,6 +29,8 @@ import { Node, ProcessMode } from './runtime/node';
 import { tree, VIEW_H, VIEW_W } from './runtime/tree';
 import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
+import { MENU_ART } from './ui/common/menu_backdrop';
+import { SPROTO_SHEET } from './player/player_visual';
 import { Display } from './ui/display';
 import { Feedback } from './ui/feedback';
 import { FullScreen } from './ui/fullscreen';
@@ -135,8 +135,10 @@ async function boot(): Promise<void> {
     preload([
       assetUrl('assets/sprites/common/emerald/emerald.png'),
       assetUrl('assets/sprites/common/emerald/emerald_small.png'),
-      assetUrl(HAZARD_ATLAS),
-      assetUrl(REMIX_ATLAS),
+      // The title and zone select draw these on their first frame. Level art (tiles,
+      // hazards, backdrops, boss sheets) loads with each level (levels/common/level_preload.ts).
+      ...MENU_ART.map((p) => assetUrl(p)),
+      assetUrl(SPROTO_SHEET),
     ].filter((u): u is string => !!u)),
   ]);
 

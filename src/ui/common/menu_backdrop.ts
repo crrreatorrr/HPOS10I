@@ -15,7 +15,8 @@ import { VIEW_H, VIEW_W } from '../../runtime/tree';
 import { Vec2 } from '../../runtime/vec2';
 import { pixelDisc } from './pixel_art';
 
-const MENU_ART = BACKGROUND_FILES.map((file) => `assets/backgrounds/z1_retro_rush_hills/${file}`);
+/** The title and zone select backdrop layers (boot preloads them). */
+export const MENU_ART = BACKGROUND_FILES.map((file) => `assets/backgrounds/z1_retro_rush_hills/${file}`);
 
 const SKY = [
   Color.rgb8(56, 112, 224),

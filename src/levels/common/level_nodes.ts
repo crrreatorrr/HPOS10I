@@ -144,7 +144,11 @@ export class TileLayer extends Node2D implements Configurable {
   }
 
   private atlasPath(): string {
-    const zone = this.artZone || this.tilesetId;
+    return TileLayer.atlasPathFor(this.artZone || this.tilesetId);
+  }
+
+  /** The tile atlas of an art zone. */
+  static atlasPathFor(zone: string): string {
     return `assets/tiles/${zone}_tiles.png`;
   }
 

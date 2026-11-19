@@ -250,6 +250,8 @@ export class SheetSprite extends Node2D {
 
 const SHEET_DIR = 'assets/sprites/common/sproto';
 const SHEET_PATH = `${SHEET_DIR}/sproto_sheet.png`;
+/** Sproto's default sheet (the title shows it; boot preloads it). */
+export const SPROTO_SHEET = SHEET_PATH;
 const NOBU_SHEET_PATH = `${SHEET_DIR}/nobu_sproto_sheet.png`;
 const GOLDEN_SHEET_PATH = `${SHEET_DIR}/golden_sproto_sheet.png`;
 const TIDEBREAKER_SHEET_PATH = `${SHEET_DIR}/tidebreaker_sproto_sheet.png`;
