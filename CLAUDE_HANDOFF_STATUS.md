@@ -28,23 +28,67 @@ No pull request opened, nothing pushed to `main`, no deploys.
   Tests: `tests/hub/ranked_race.test.ts`.
 
 ### Phase 1 (§2, §3.1, §3.2)
-- Pending.
+- §2.1 `exitToHub()` save race and double navigation — **done** (647d0b3). Awaits `save.flush()` capped at 500 ms,
+  then navigates once: `sdk.exit()` when a session is live (it closes the session and navigates), else
+  `location.assign`. Game-side only; no dependency on the unmerged SDK keepalive. Tests: `tests/hub/exit_to_hub.test.ts`.
+- §2.2.1 `loadoutFrom()` — **done** (c4cebc0). Never reads `.loadout` off SDK 0.8.0's `items: string[]`; reads a
+  top-level `loadout` object or an object-shaped `items.loadout`. 0.8.0 sends neither (no loadout in its
+  `InitResult`, none in the org's code search), so slots stay a local choice as before.
+- §2.2.2 `outbox_repair.ts` — **done, removed** (c4cebc0). Proof it is obsolete: SDK 0.8.0 `drain()`
+  (`vendor/hub-sdk/dist/live.js:370-424`) sends each queued row independently ("No single row fails init") and
+  `transmit()` drops final refusals (`finalRefusal()`, lines 142-156, which names `amount_over_rule`). It also no
+  longer delays hub init (it waited up to 1.5 s on IndexedDB, which now matters because a stage start waits for
+  init). Not re-proven end to end here: `npm run e2e:hub` step 7 covers exactly this case and needs the hub stack.
+- §2.2.3 `HubClient.effects` unused — **done** (c4cebc0), removed.
+- §2.2 remove `vendor/hub-sdk/dist/hub-sdk.iife.js` — **skipped**: vendored by metaverse-hub's
+  `scripts/vendor-sdk.mjs`, and `tools/qa/originality_allow.txt:31-33` pins lines in it; it is not bundled
+  (`@hub-sdk` resolves to `dist/index.js`). Belongs to the next re-vendor.
+- §3.1.1 boot preload — **done** (c9ecd48). Boot waits for the menu backdrop layers and Sproto's sheet (what the
+  title and zone select draw on frame 1), not the floor-hazard and Zone 4 atlases. The handoff's claim that the
+  title art was not loaded at boot was half right: it was fetched, just not awaited.
+- §3.1.2 level art before mount — **done** (c9ecd48). `levels/common/level_preload.ts`: zone tile atlas, terrain
+  materials, backdrop layers, props/pills/hazard sheets, zone accessory, Zone 4 atlas, boss sheets, capped at 2.5 s.
+  PNGs arriving after a level was already showing: 3-8 per level before, 0 after (Z1-Z4 acts and two arenas).
+- §3.1.3 SFX deferral — **done** (c62c4b9). Only `menu_move`/`menu_select` at boot; the rest at the unlock
+  gesture (or at once when the browser starts the context unlocked).
+- §3.2.1 numeric tile keys — **done** (4d0661c). Same shapes, flags, order and bounds as the original
+  (`tests/levels/tile_geometry.test.ts`).
+- §3.2.2 skip buried tiles in `polyGrid` — **skipped**: buried tiles answer `intersectPoint` (that is why they
+  keep their polygon), so dropping them changes physics. `mergeEdges()` O(N log N) — **done** (e396a18), exact
+  same output and order as the original on every tile level and 300 random sets (`tests/physics/merge_edges.test.ts`).
+  In-game, buried tiles never reached `mergeEdges()`, so the quadratic case was milder than the handoff says
+  (~90 ms, not seconds); the reference version takes 7-14 s on the same levels when buried tiles are included.
+- §3.2.3 respawn geometry cache — **partial** (4d0661c, e396a18). Not the handoff's in-place reset (that would
+  change how a respawn resets every entity, a gameplay risk). Instead: tile shapes are shared per (cells,
+  tileset), `PhysicsWorld` reuses a merge group's last result when shapes/flags/transforms are identical
+  (indexed in the same order, so queries answer as after a fresh merge: `tests/physics/merge_cache.test.ts`), and
+  the last layer's pre-rendered chunks are reused. Z3 Act 2 restart: longest main-thread task 125-225 ms →
+  50-66 ms; Z2 Act 2 121-154 → 0-51 ms (Chromium reports long tasks only above 50 ms). Not the `<16 ms` target:
+  what remains is spread over re-indexing ~90k tile polygons, entity rebuilds and GC.
+- §3.2.4 compact tilemap encoding — **done** (4cc5fcd). Build-time transform (`vite.config.ts` plugin,
+  `levels/common/cell_codec.ts`); source JSON unchanged; round trip tested on every level. Dynamic import of
+  Zone 4 acts — **done** (73219b5, -9 KB from the boot bundle). `level_builder.ts` stays in the boot bundle
+  because `z4/zone.ts` (imported at boot for its ids) imports it, and boss modules stay static — **skipped**,
+  small gain for the churn.
+
+### Phase 2 (multiplayer and online)
+- Nothing for this repo: the handoff has no multiplayer items for HPOS10I, and the brief lists none.
 
 ### Phase 3 (§3.3 repo hygiene)
 - Pending.
 
 ## Checks
 
-| Check | Phase 0 |
-|---|---|
-| `npm ci` | pass |
-| `npm run typecheck` | pass |
-| `npm test` | pass: 855 passed, 1 skipped (baseline 845) |
-| `tools/qa/originality_scan.sh .` | pass: 0 hits |
-| `npm run build && node tools/qa/web_check.mjs build/web` | pass |
-| `npm run smoke` | pass: 19 scenes, production-hooks check, play path, feedback, Ogg and AAC audio paths |
-| `npm run test:bots` | not run yet |
-| `npm run e2e:hub` | not run: needs the metaverse-hub Nakama stack (docker) |
+| Check | Phase 0 | Phase 1 |
+|---|---|---|
+| `npm ci` | pass | pass |
+| `npm run typecheck` | pass | pass |
+| `npm test` | pass: 855 passed, 1 skipped (baseline 845) | pass: 881 passed, 1 skipped |
+| `tools/qa/originality_scan.sh .` | pass: 0 hits | pass: 0 hits |
+| `npm run build && node tools/qa/web_check.mjs build/web` | pass | pass |
+| `npm run smoke` | pass: 19 scenes, production-hooks check, play path, feedback, Ogg and AAC audio paths | pass (same) |
+| `npm run test:bots` | pass (11 tests) | pass (11 tests: every act, item boxes on and off, timeline replays) |
+| `npm run e2e:hub` | not run: needs the metaverse-hub Nakama stack (docker) | not run (same) |
 
 ## Measurements
 
@@ -52,12 +96,21 @@ Boot = page load until the boot screen hides, plus 1.5 s on the title, in headle
 AudioContext held suspended until a gesture (as real browsers do). Script:
 `node measure.mjs <build dir>` (kept outside the repo).
 
-| | baseline (main) | after Phase 0 |
-|---|---|---|
-| `build/web` bytes | 9,273,675 (122 files) | 11,424,798 (159 files; +2.15 MB of AAC twins, only one format is fetched) |
-| web_check gzip estimate | 4.31 MB | 6.46 MB (budget 12) |
-| boot requests | 43 (28 audio) | 17 (2 audio) |
-| boot bytes | 1,141 KB | 903 KB |
+| | baseline (main) | after Phase 0 | after Phase 1 |
+|---|---|---|---|
+| `build/web` bytes | 9,273,675 (122 files) | 11,424,798 (159 files; +2.15 MB AAC twins, one format is fetched) | 9,716,215 (161 files) |
+| web_check gzip estimate | 4.31 MB | 6.46 MB (budget 12) | 5.66 MB |
+| boot requests | 43 (28 audio, 13 PNG) | 17 (2 audio) | 15 (2 audio, 11 PNG) |
+| boot bytes | 1,141 KB | 903 KB | 677 KB |
+| largest level chunk (Z3 Act 2) | 1,499,987 B / 261 KB gzip | same | 950,256 B / 16 KB gzip |
+| boot JS bundle | 620,705 B | 624,992 B | 618,419 B |
+| PNGs arriving after a level is showing | 3-8 per level | same | 0 |
+| Z3 Act 2 restart, longest task | 125-225 ms | same | 50-66 ms |
+| Z3 Act 2 tile build / merge (Node) | 196 ms / ~100 ms each load | same | 8 ms / cached merge on respawn |
+
+Scripts (kept in the session scratchpad, not the repo): `measure.mjs` (boot and act-entry requests, AudioContext
+held suspended until a gesture), `popin.mjs` (resource timing vs the moment a level shows), `respawn.mjs`
+(`PerformanceObserver` long tasks around `router.restart()`), `profile.mjs` (CDP CPU profile of three restarts).
 
 ## Cross-repo follow-ups
 - metaverse-hub: the hub's `fetch:games` downloads the `web-build` artifact, which is the production build and so
