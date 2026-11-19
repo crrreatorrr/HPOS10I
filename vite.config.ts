@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import type { Plugin } from 'vite';
+import { packLevelJson } from './src/levels/common/cell_codec';
 
 // Build-time settings, the same names CI already uses:
 //   HPOS_BASE_PATH          public path the build is served from ('' = relative, works anywhere)
@@ -26,7 +28,21 @@ function buildId(): string {
   }
 }
 
+/** Level JSON ships with its tile cells delta-encoded (src/levels/common/cell_codec.ts). */
+function packLevels(): Plugin {
+  const level = /\/src\/levels\/data\/(?!tilesets\/)[^?]+\.json$/;
+  return {
+    name: 'hpos-pack-levels',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!level.test(id)) return null;
+      return { code: packLevelJson(code), map: null };
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
+  plugins: [packLevels()],
   base: basePath(),
   resolve: {
     alias: {
