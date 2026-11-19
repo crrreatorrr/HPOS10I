@@ -2,12 +2,12 @@
 // the Relics are unknown. Item boxes and the extra moves fail closed meanwhile,
 // and a stage start waits (capped) so they are decided on the settled state.
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HubSdk } from '@hub-sdk';
 import { GameState } from '../../src/core/game_state';
 import { SceneRouter } from '../../src/core/scene_router';
 import { Settings } from '../../src/core/settings';
-import { HubClient } from '../../src/hub/hub_client';
+import { HubClient, VISIT_PENDING_LIMIT_MS } from '../../src/hub/hub_client';
 import { RelicLoadout } from '../../src/hub/relic_loadout';
 import { memoryStore, Storage } from '../../src/hub/storage';
 import { boxesEnabled } from '../../src/levels/objects/item_box';
@@ -55,6 +55,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
+  SceneRouter.currentId = '';
   SceneRouter.beforeStage = null;
   HubClient.shutdown();
   GameState.resetGame();
@@ -121,5 +123,31 @@ describe('a pending hub visit', () => {
     // Once per act: a second settle does not add another.
     GameState.grantGoldenLife();
     expect(GameState.lives).toBe(lives + 1);
+  });
+
+  it('treats a visit whose init never answers as unranked after the limit', async () => {
+    vi.useFakeTimers();
+    const { sdk } = pendingSdk();
+    done = HubClient.init({ sdk, hubUrl: '/hub/', visitStarting: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(boxesEnabled()).toBe(false);
+    await vi.advanceTimersByTimeAsync(VISIT_PENDING_LIMIT_MS);
+    expect(HubClient.reach).toBe('pending');
+    expect(HubClient.visitPending).toBe(false);
+    expect(HubClient.whenSettled()).toBeNull();
+    expect(boxesEnabled()).toBe(true);
+  });
+
+  it('gives no late life once the player has left that act for a menu', async () => {
+    const { sdk, answer } = pendingSdk();
+    done = HubClient.init({ sdk, hubUrl: '/hub/', visitStarting: true });
+    SceneRouter.beforeStage = () => HubClient.whenSettled(20);
+    const lives = GameState.lives;
+    SceneRouter.startZone(ZONE, 1);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(GameState.zoneId).toBe(ZONE);
+    SceneRouter.currentId = 'title';
+    await answer({ ranked: false, relics: ['genesis_shard'] });
+    expect(GameState.lives).toBe(lives);
   });
 });

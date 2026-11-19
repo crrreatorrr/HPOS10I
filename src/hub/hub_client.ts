@@ -33,6 +33,7 @@ import { Difficulty } from '../core/difficulty';
 import { GameState } from '../core/game_state';
 import { betterRank, rankFor, type Rank } from '../core/rank';
 import { SceneRouter } from '../core/scene_router';
+import { MENU_SCENES } from '../core/scenes';
 import { Signal } from '../runtime/signal';
 import { tree } from '../runtime/tree';
 import { HubSave } from './hub_save';
@@ -55,6 +56,11 @@ export const EARN_MAX_PER_ACT = 20;
 const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount', 'bad_reason', 'server_reason', 'bad_key'];
 /** Longest Exit to Hub waits for the cloud save to flush before it navigates. */
 export const EXIT_FLUSH_MS = 500;
+/**
+ * A hub visit's init that has not answered after this long is treated as unranked (the extras
+ * come back and stage starts stop waiting): the SDK's requests have no timeout of their own.
+ */
+export const VISIT_PENDING_LIMIT_MS = 10_000;
 /** When a navigation has not unloaded the page after this long, Exit to Hub can be tried again. */
 const EXIT_RETRY_MS = 3000;
 /** Longest a stage start waits for a hub visit's init (Ranked, Relics) before it starts anyway. */
@@ -131,6 +137,10 @@ class HubClientImpl {
   private hubUrl = '/hub/';
   private settleWaiters: (() => void)[] = [];
   private exiting: Promise<void> | null = null;
+  private pendingExpired = false;
+  private pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The act ("zone:act") that started while the visit was pending: the only one a late Golden life may go to. */
+  private pendingAct = '';
   private exitRetry: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -167,6 +177,14 @@ class HubClientImpl {
       return;
     }
     this.reach = 'pending';
+    this.pendingExpired = false;
+    if (this.pendingTimer) clearTimeout(this.pendingTimer);
+    this.pendingTimer = setTimeout(() => {
+      this.pendingTimer = null;
+      if (this.reach !== 'pending') return;
+      this.pendingExpired = true;
+      this.changed();
+    }, VISIT_PENDING_LIMIT_MS);
     this.changed();
     try {
       const result = (await sdk.init(GAME_ID)) as unknown as Payload;
@@ -185,6 +203,10 @@ class HubClientImpl {
     this.inSession = false;
     this.visitStarting = false;
     this.exiting = null;
+    this.pendingExpired = false;
+    this.pendingAct = '';
+    if (this.pendingTimer) clearTimeout(this.pendingTimer);
+    this.pendingTimer = null;
     if (this.exitRetry) clearTimeout(this.exitRetry);
     this.exitRetry = null;
     this.playerId = null;
@@ -200,7 +222,7 @@ class HubClientImpl {
 
   /** True while a hub visit's init has not answered: Ranked and the Relics are not known yet. */
   get visitPending(): boolean {
-    return this.reach === 'pending' && this.visitStarting;
+    return this.reach === 'pending' && this.visitStarting && !this.pendingExpired;
   }
 
   /**
@@ -295,7 +317,11 @@ class HubClientImpl {
         /* fall through to plain navigation */
       }
     }
-    if (typeof window !== 'undefined') window.location.assign(target);
+    try {
+      if (typeof window !== 'undefined') window.location.assign(target);
+    } catch (err) {
+      console.warn('[Hub] could not navigate to the hub', err);
+    }
   }
 
   private hasLiveSession(sdk: HubSdk): boolean {
@@ -422,8 +448,11 @@ class HubClientImpl {
     }
     this.changed();
     // An act that started while the visit was pending (the stage start waits at most
-    // SETTLE_WAIT_MS) still gets Golden Sproto's life, once, now that the Relics are known.
-    GameState.grantGoldenLife();
+    // SETTLE_WAIT_MS) still gets Golden Sproto's life, once, now that the Relics are known:
+    // only that act, and only while it is still being played (not from a menu).
+    const act = this.pendingAct;
+    this.pendingAct = '';
+    if (act !== '' && act === `${GameState.zoneId}:${GameState.act}` && !MENU_SCENES.includes(SceneRouter.currentId)) GameState.grantGoldenLife();
   }
 
   private readSession(): boolean {
@@ -448,6 +477,7 @@ class HubClientImpl {
 
   private onLevelStarted(zone: string, act: number): void {
     this.lastClear = null;
+    this.pendingAct = this.visitPending && zone !== '' ? `${zone}:${act}` : '';
     // Respawns keep the attempt; only a fresh start (startLevel) mints a run id.
     if (SceneRouter.freeScene !== '' || zone === '') return;
     if (!this.save.beginAttempt(zone, act)) {

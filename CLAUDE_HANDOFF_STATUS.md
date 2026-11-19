@@ -100,6 +100,16 @@ Fixed:
   could switch the session's format — fixed (270eb0b): the first load probes, only a decode failure switches;
   smoke covers it (1 Ogg file, then AAC).
 - Zone 4 atlas not preloaded for the Zone 4 boss arena — fixed (c86c210).
+Independent subagent review (fresh agent, not told these conclusions), fixed:
+- A hub init that never answers kept item boxes and extra moves off all session and made every stage start wait
+  1.5 s (the SDK's requests have no timeout) — fixed: after 10 s pending (`VISIT_PENDING_LIMIT_MS`) the visit is
+  treated as unranked.
+- The late Golden Sproto life could land after the player quit to a menu — fixed: only the act that started
+  while pending, and only while it is still being played.
+- A throwing `location.assign` became an unhandled rejection — fixed (logged). The title, zone select and game
+  over screens' own one-shot "leaving" flags (from before this branch) still block a second Exit to Hub there
+  if a navigation is blocked; left as is.
+
 Not changed:
 - A tab opened before a deploy can fail to import a Zone 4 act chunk: true of every level already (z1-z3 levels
   were dynamic chunks before this work), and a failed level load falls back as before. A reload-once-on-stale-chunk
