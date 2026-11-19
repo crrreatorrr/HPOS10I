@@ -5,6 +5,11 @@
 // are skipped and the requested music waits for that gesture. A gamepad
 // press while locked raises the "click or press a key for sound" hint.
 // Missing or undecodable files are silent, so gameplay never waits on audio.
+// Every file ships as Ogg Vorbis and as AAC (.m4a): Safari and every iOS
+// browser cannot decode Ogg with Web Audio, so the format is picked once with
+// canPlayType, and a file that fails to decode is retried in the other format.
+// Only the menu effects load at boot; the rest load at the unlock gesture
+// (effects cannot play before it anyway).
 
 import { Signal } from '../runtime/signal';
 
@@ -53,12 +58,27 @@ const MUSIC_GAIN = Math.pow(10, -4 / 20);
 const PAUSED_MUSIC_GAIN = Math.pow(10, -14 / 20);
 const HINT_REPEAT_FRAMES = 15;
 
-// Vite turns these into hashed URLs at build time (cached forever by the browser).
-const SFX_URLS = import.meta.glob('/audio/sfx/*.ogg', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
-const MUSIC_URLS = import.meta.glob('/audio/music/*.ogg', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+/** Effects the title and menus use, loaded at boot. */
+const BOOT_SFX: readonly SfxName[] = ['menu_move', 'menu_select'];
 
-function urlFor(table: Record<string, string>, dir: string, name: string): string | null {
-  return table[`/audio/${dir}/${name}.ogg`] ?? null;
+// Vite turns these into hashed URLs at build time (cached forever by the browser).
+const SFX_URLS = import.meta.glob('/audio/sfx/*.{ogg,m4a}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+const MUSIC_URLS = import.meta.glob('/audio/music/*.{ogg,m4a}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+
+export type AudioFormat = 'ogg' | 'm4a';
+
+function urlFor(table: Record<string, string>, dir: string, name: string, format: AudioFormat): string | null {
+  return table[`/audio/${dir}/${name}.${format}`] ?? null;
+}
+
+/** Ogg where the browser says it can play Vorbis, else AAC (Safari, iOS). */
+export function pickAudioFormat(probe: { canPlayType(type: string): string } | null): AudioFormat {
+  if (!probe) return 'ogg';
+  try {
+    return probe.canPlayType('audio/ogg; codecs="vorbis"') !== '' ? 'ogg' : 'm4a';
+  } catch {
+    return 'm4a';
+  }
 }
 
 class AudioManager {
@@ -79,6 +99,11 @@ class AudioManager {
   private musicToken = 0;
   private ducked = false;
   private muted = false;
+  private format: AudioFormat = 'ogg';
+  /** True once a file decoded: the format is settled. */
+  private formatKnown = false;
+  /** The first load: the others wait for its verdict on the format before they fetch. */
+  private probe: Promise<unknown> | null = null;
   /** Effects heard this session (tests read it; the game never does). */
   readonly history: string[] = [];
 
@@ -89,6 +114,8 @@ class AudioManager {
     if (!Ctor) return;
     const ctx = new Ctor();
     this.ctx = ctx;
+    const doc = (target as unknown as { document?: Document }).document;
+    this.format = pickAudioFormat(doc ? (doc.createElement('audio') as { canPlayType(type: string): string }) : null);
     const sfx = ctx.createGain();
     sfx.gain.value = SFX_GAIN;
     sfx.connect(ctx.destination);
@@ -109,8 +136,20 @@ class AudioManager {
     target.addEventListener('gamepadconnected', () => {
       if (this.locked) this.gamepadUsedWhileLocked();
     });
-    // Preload the small effects so the first play never waits.
+    // The menu effects now; the rest at the unlock gesture, so the boot is not a request storm.
+    for (const name of BOOT_SFX) void this.load('sfx', name);
+    if (!this.locked) this.preloadAllSfx();
+  }
+
+  /** Loads every effect that is not loaded yet (the first play never waits). */
+  preloadAllSfx(): void {
+    if (!this.ctx) return;
     for (const name of SFX_NAMES) void this.load('sfx', name);
+  }
+
+  /** The format in use ('ogg', or 'm4a' where Ogg cannot be decoded). */
+  audioFormat(): AudioFormat {
+    return this.format;
   }
 
   /** Called once per rendered frame by the game. */
@@ -147,6 +186,7 @@ class AudioManager {
     if (this.locked === locked) return;
     this.locked = locked;
     if (!locked) {
+      this.preloadAllSfx();
       if (this.gamepadWhileLocked) {
         this.gamepadWhileLocked = false;
         this.unlockHintChanged.emit(false);
@@ -166,22 +206,57 @@ class AudioManager {
     const key = `${dir}/${name}`;
     const known = this.loading.get(key);
     if (known) return known;
-    const url = urlFor(dir === 'sfx' ? SFX_URLS : MUSIC_URLS, dir, name);
+    const table = dir === 'sfx' ? SFX_URLS : MUSIC_URLS;
     const ctx = this.ctx;
-    const p = (async () => {
-      if (!url || !ctx) return null;
+    /** A decoded buffer, or null; decodeFailed only when the file arrived and would not decode. */
+    const attempt = async (format: AudioFormat): Promise<{ buf: AudioBuffer | null; decodeFailed: boolean; missing?: boolean }> => {
+      const url = urlFor(table, dir, name, format);
+      if (!url || !ctx) return { buf: null, decodeFailed: false, missing: !url };
+      let data: ArrayBuffer;
       try {
         const res = await fetch(url);
-        if (!res.ok) return null;
-        const data = await res.arrayBuffer();
-        return await ctx.decodeAudioData(data);
+        if (!res.ok) return { buf: null, decodeFailed: false };
+        data = await res.arrayBuffer();
       } catch {
-        return null;
+        return { buf: null, decodeFailed: false };
       }
+      try {
+        return { buf: await ctx.decodeAudioData(data), decodeFailed: false };
+      } catch {
+        return { buf: null, decodeFailed: true };
+      }
+    };
+    const run = async (): Promise<AudioBuffer | null> => {
+      const first = this.format;
+      const tried = await attempt(first);
+      if (tried.buf) {
+        this.formatKnown = true;
+        return tried.buf;
+      }
+      // A file shipped in one format only: use that one, the session's format stays.
+      if (tried.missing) return (await attempt(first === 'ogg' ? 'm4a' : 'ogg')).buf;
+      // A network error says nothing about the format.
+      if (!tried.decodeFailed) return null;
+      // canPlayType can promise a format decodeAudioData then refuses: try the other one,
+      // and keep it for the rest of the session when it works.
+      const other: AudioFormat = first === 'ogg' ? 'm4a' : 'ogg';
+      const fallback = await attempt(other);
+      if (fallback.buf) {
+        if (this.format === first) this.format = other;
+        this.formatKnown = true;
+      }
+      return fallback.buf;
+    };
+    const isProbe = !this.formatKnown && !this.probe;
+    const wait = !isProbe && !this.formatKnown ? this.probe : null;
+    const p = (async () => {
+      if (wait) await wait;
+      return run();
     })().then((buf) => {
       this.buffers.set(key, buf);
       return buf;
     });
+    if (isProbe) this.probe = p;
     this.loading.set(key, p);
     return p;
   }

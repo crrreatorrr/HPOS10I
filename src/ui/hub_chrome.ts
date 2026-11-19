@@ -40,7 +40,7 @@ export function requestHubExit(asker: ExitAsker): 'asked' | 'left' {
     asker.confirmExitToHub();
     return 'asked';
   }
-  HubClient.exitToHub();
+  void HubClient.exitToHub();
   return 'left';
 }
 

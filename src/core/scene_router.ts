@@ -24,6 +24,11 @@ class SceneRouterImpl {
   currentId = '';
   private changeFrame = -1;
   private loadToken = 0;
+  /**
+   * Set at boot to HubClient.whenSettled: a promise while a hub visit's init is pending (capped),
+   * else null. A stage start waits on it so Ranked and the Relics are settled first.
+   */
+  beforeStage: (() => Promise<void> | null) | null = null;
 
   goTitle(): void {
     if (this.claim('goTitle')) this.changeTo(this.titleOrMain());
@@ -133,6 +138,19 @@ class SceneRouterImpl {
   }
 
   private doStartZone(zoneId: string, stage: number): void {
+    const wait = this.beforeStage?.() ?? null;
+    if (wait) {
+      // The current scene keeps running meanwhile; a newer scene change cancels this one.
+      const token = ++this.loadToken;
+      void wait.then(() => {
+        if (token === this.loadToken) this.startZoneNow(zoneId, stage);
+      });
+      return;
+    }
+    this.startZoneNow(zoneId, stage);
+  }
+
+  private startZoneNow(zoneId: string, stage: number): void {
     this.zoneId = zoneId;
     this.stage = stage;
     this.freeScene = '';

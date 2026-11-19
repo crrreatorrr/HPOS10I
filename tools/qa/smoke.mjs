@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// Browser smoke test of the web build: serves build/web, boots the game in
+// Browser smoke test of the web build. First the production build (build/web):
+// it boots to the title, has no window.hpos and ignores the dev URL options
+// (?scene, ?zone, ?inputs, ?dev). Then a test build of the same source with the
+// test hooks (HPOS_TEST_BUILD=1, built into build/web-test unless SMOKE_TEST_BUILD
+// names one): boots the game in
 // headless Chromium, opens every registered scene for a couple of seconds and
 // fails on any page error or console error, a scene that never shows up, or a
 // blank screen. Also plays the title -> zone select -> act 1 path by keyboard,
@@ -12,8 +16,10 @@
 
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
-import { join, extname, normalize } from 'node:path';
+import { join, extname, normalize, resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -23,25 +29,49 @@ try {
   ({ chromium } = await import('playwright'));
 }
 
-const dir = process.argv[2] ?? 'build/web';
-if (!existsSync(join(dir, 'index.html'))) {
-  console.error(`smoke: no build at ${dir} (run npm run build)`);
+const prodDir = process.argv[2] ?? 'build/web';
+if (!existsSync(join(prodDir, 'index.html'))) {
+  console.error(`smoke: no build at ${prodDir} (run npm run build)`);
   process.exit(2);
 }
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ogg': 'audio/ogg', '.json': 'application/json', '.svg': 'image/svg+xml' };
-const server = createServer((req, res) => {
-  const url = new URL(req.url ?? '/', 'http://x');
-  let path = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
-  if (path.endsWith('/')) path += 'index.html';
-  const file = join(dir, path);
-  if (!existsSync(file) || !statSync(file).isFile()) {
-    res.writeHead(404);
-    res.end();
-    return;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+let dir = process.env.SMOKE_TEST_BUILD;
+if (!dir) {
+  dir = join(root, 'build/web-test');
+  const built = spawnSync('npx', ['vite', 'build', '--outDir', dir, '--emptyOutDir', '--logLevel', 'error'], {
+    cwd: root,
+    env: { ...process.env, HPOS_TEST_BUILD: '1' },
+    encoding: 'utf8',
+  });
+  if (built.status !== 0) {
+    console.error(`smoke: the test build failed\n${built.stderr || built.stdout}`);
+    process.exit(2);
   }
-  res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
-  res.end(readFileSync(file));
-});
+}
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.json': 'application/json', '.svg': 'image/svg+xml' };
+function serve(from) {
+  const requested = [];
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? '/', 'http://x');
+    requested.push(url.pathname);
+    let path = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
+    if (path.endsWith('/')) path += 'index.html';
+    const file = join(from, path);
+    if (!existsSync(file) || !statSync(file).isFile()) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+  return { server, requested };
+}
+const prod = serve(prodDir);
+await new Promise((r) => prod.server.listen(0, '127.0.0.1', r));
+const prodBase = `http://127.0.0.1:${prod.server.address().port}/`;
+const test = serve(dir);
+const server = test.server;
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
@@ -86,6 +116,30 @@ async function nonBlank(page) {
     for (let i = 0; i < d.length; i += 4 * 97) if (d[i] !== first[0] || d[i + 1] !== first[1] || d[i + 2] !== first[2]) different++;
     return different > 20;
   });
+}
+
+// 0. The production build has no test hooks: the dev URL options do nothing and there is no window.hpos.
+{
+  const page = await browser.newPage({ viewport: { width: 848, height: 480 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  try {
+    await page.goto(`${prodBase}?dev&scene=playground%3Aphysics&zone=z1_retro_rush_hills&stage=2&inputs=evil_timeline.json&mute`);
+    await page.waitForFunction(() => document.getElementById('boot')?.classList.contains('hidden'), null, { timeout: 15000 });
+    await frames(page, 60);
+    const hooks = await page.evaluate(() => typeof window.hpos);
+    if (hooks !== 'undefined') fail(`production build: window.hpos is ${hooks}`);
+    if (prod.requested.some((p) => p.includes('evil_timeline'))) fail('production build: fetched the ?inputs= timeline');
+    if (!(await nonBlank(page))) fail('production build: blank screen');
+    if (errors.length) fail(`production build: ${errors.slice(0, 3).join(' | ')}`);
+    else if (hooks === 'undefined') console.log('OK    production build: no window.hpos, dev URL options ignored');
+  } catch (e) {
+    fail(`production build: ${String(e).split('\n')[0]}`);
+  }
+  await page.close();
 }
 
 // 1. Every scene opens and runs.
@@ -168,7 +222,77 @@ for (const id of ids) {
   await page.close();
 }
 
+// 4. Audio formats: Ogg where the browser plays Vorbis; AAC (.m4a) where it cannot (Safari, iOS),
+// simulated here by a canPlayType that refuses Ogg; and a browser that claims Ogg but cannot decode
+// it, which must try one Ogg file only. Only the menu effects load before the first key press; the
+// rest load at it.
+for (const [label, refuseOgg, want, avoid, decodeRefusesOgg] of [
+  ['ogg', false, '.ogg', '.m4a', false],
+  ['aac (Safari path)', true, '.m4a', '.ogg', false],
+  ['aac after an Ogg decode failure', false, '.m4a', '.ogg', true],
+]) {
+  const context = await browser.newContext({ viewport: { width: 848, height: 480 } });
+  // Headless Chromium lets audio start without a gesture; a real browser keeps the context
+  // suspended until the first key press, click or tap. Do the same here.
+  await context.addInitScript(() => {
+    const Real = window.AudioContext;
+    window.AudioContext = class extends Real {
+      #gesture = false;
+      get state() {
+        return this.#gesture ? super.state : 'suspended';
+      }
+      resume() {
+        if (navigator.userActivation?.hasBeenActive ?? true) this.#gesture = true;
+        return super.resume();
+      }
+    };
+  });
+  if (decodeRefusesOgg) {
+    await context.addInitScript(() => {
+      const real = BaseAudioContext.prototype.decodeAudioData;
+      BaseAudioContext.prototype.decodeAudioData = function (data, ...rest) {
+        const head = new Uint8Array(data, 0, 4);
+        if (String.fromCharCode(...head) === 'OggS') return Promise.reject(new DOMException('no vorbis', 'EncodingError'));
+        return real.call(this, data, ...rest);
+      };
+    });
+  }
+  if (refuseOgg) {
+    await context.addInitScript(() => {
+      const real = HTMLMediaElement.prototype.canPlayType;
+      HTMLMediaElement.prototype.canPlayType = function (type) {
+        return /ogg/.test(type) ? '' : real.call(this, type);
+      };
+    });
+  }
+  const page = await context.newPage();
+  const audio = [];
+  page.on('request', (r) => {
+    const path = new URL(r.url()).pathname;
+    if (/\.(ogg|m4a)$/.test(path)) audio.push(path);
+  });
+  try {
+    await page.goto(base);
+    await page.waitForFunction(() => window.hpos && window.hpos.router.currentId === 'title', null, { timeout: 15000 });
+    await frames(page, 30);
+    const beforeGesture = audio.length;
+    await page.keyboard.press('ArrowDown');
+    await frames(page, 90);
+    const wrong = audio.filter((p) => p.endsWith(avoid));
+    const allowed = decodeRefusesOgg ? 1 : 0; // the one file that finds out
+    const wanted = audio.filter((p) => p.endsWith(want));
+    if (wrong.length > allowed) fail(`audio ${label}: fetched ${wrong.length} ${avoid} file(s)`);
+    else if (beforeGesture > 3 + allowed) fail(`audio ${label}: ${beforeGesture} audio requests before the first key press`);
+    else if (!(wanted.length >= 28)) fail(`audio ${label}: only ${wanted.length} ${want} file(s) after the first key press`);
+    else console.log(`OK    audio ${label}: ${beforeGesture} file(s) before the first key press, ${audio.length} after`);
+  } catch (e) {
+    fail(`audio ${label}: ${String(e).split('\n')[0]}`);
+  }
+  await context.close();
+}
+
 await browser.close();
 server.close();
+prod.server.close();
 console.log(failures ? `smoke: ${failures} failure(s)` : `smoke: ${ids.length} scenes OK`);
 process.exit(failures ? 1 : 0);

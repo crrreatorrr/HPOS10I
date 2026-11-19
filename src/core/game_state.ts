@@ -193,8 +193,11 @@ class GameStateStore {
     this.livesChanged.emit(this.lives);
   }
 
-  /** +1 life at an act start with Golden Sproto equipped, unranked. Once per act per run. */
-  private grantGoldenLife(): void {
+  /**
+   * +1 life at an act start with Golden Sproto equipped, unranked. Once per act per run.
+   * The hub calls it again when a pending visit settles mid-act.
+   */
+  grantGoldenLife(): void {
     if (this.zoneId === '') return;
     if (!RelicLoadout.resolve().extra_life) return;
     const key = `${this.zoneId}:${this.act}`;

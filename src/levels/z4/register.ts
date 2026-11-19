@@ -7,8 +7,6 @@
 import { buildLevel, LevelTypes } from '../common/level_loader';
 import { registerSetPieces } from '../registry_setpieces';
 import { registerLevelScene } from '../scenes';
-import { act1Data } from './act1';
-import { act2Data } from './act2';
 import { registerNeonPills } from './neon_pills';
 import { NeonLoop, NeonTerrain } from './neon_terrain';
 import { NEON_LOOP_KEY, NEON_TERRAIN_KEY, Z4_ACT1, Z4_ACT2 } from './zone';
@@ -23,6 +21,7 @@ export function registerZone4Types(): void {
 
 export function registerZone4(): void {
   registerZone4Types();
-  registerLevelScene(Z4_ACT1, async () => buildLevel(act1Data()));
-  registerLevelScene(Z4_ACT2, async () => buildLevel(act2Data()));
+  // Each act and the level builder load with the act (their own chunk), not at boot.
+  registerLevelScene(Z4_ACT1, async () => buildLevel((await import('./act1')).act1Data()));
+  registerLevelScene(Z4_ACT2, async () => buildLevel((await import('./act2')).act2Data()));
 }

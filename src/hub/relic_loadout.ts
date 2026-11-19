@@ -79,7 +79,9 @@ class RelicLoadoutImpl {
     const skins = ownedSkins(owned);
     const body = pickBody(skins, choice);
     const back = pickBack(owned, choice);
-    const gameplay = !ranked;
+    // A hub visit whose init has not answered may turn out Ranked: fail closed (no item boxes,
+    // no extra moves) until it does. Owned Relics are empty until then anyway.
+    const gameplay = !ranked && !HubClient.visitPending;
     const choices = skins.slice();
     if (choices.length > 0) choices.push('');
     const out: Loadout = {

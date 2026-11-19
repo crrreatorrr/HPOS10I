@@ -12,7 +12,8 @@ import { Node2D } from '../runtime/node';
 import { Vec2 } from '../runtime/vec2';
 import { PlayerVisual, SheetFrames, SheetSprite } from './player_visual';
 
-const SHEET_PATHS: Record<string, string> = {
+/** Zone accessories' sheets (level_preload loads the one of a level's zone). */
+export const SHEET_PATHS: Record<string, string> = {
   wizard_hat: 'assets/sprites/z2_wizard_academy/wizard_hat/wizard_hat_sheet.png',
   sunglasses: 'assets/sprites/z3_capital_mansion/sunglasses/sunglasses_sheet.png',
 };

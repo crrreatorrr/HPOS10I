@@ -1,4 +1,7 @@
-// Developer helpers driven by URL query options (the old command-line flags):
+// Developer helpers driven by URL query options (the old command-line flags).
+// Production builds honour only ?touch, ?mute and ?overlay: the others jump
+// past the game or replay inputs, so they exist only with __HPOS_TEST_HOOKS__
+// (the vite dev server, tests and HPOS_TEST_BUILD=1 builds).
 //   ?scene=<id>          open a scene directly (playground:physics, level:z1_retro_rush_hills/act1 ...)
 //   ?zone=<id>&stage=<n> start a zone at a stage
 //   ?inputs=<name>       replay a scripted input timeline (dev builds: tests/**/inputs/<name>.json)
@@ -20,11 +23,17 @@ import { ZoneRegistry } from './zone_registry';
 
 export type TimelineEvent = [number, string, boolean];
 
-function readArgs(): Record<string, string | true> {
+/** The URL options a production build honours (display and sound only). */
+export const PRODUCTION_ARGS: readonly string[] = ['touch', 'mute', 'overlay'];
+
+export function readArgs(search: string | null = typeof location === 'undefined' ? null : location.search, testHooks = __HPOS_TEST_HOOKS__): Record<string, string | true> {
   const out: Record<string, string | true> = {};
-  if (typeof location === 'undefined') return out;
-  const params = new URLSearchParams(location.search);
-  for (const [k, v] of params) out[k] = v === '' ? true : v;
+  if (search === null) return out;
+  const params = new URLSearchParams(search);
+  for (const [k, v] of params) {
+    if (!testHooks && !PRODUCTION_ARGS.includes(k)) continue;
+    out[k] = v === '' ? true : v;
+  }
   return out;
 }
 

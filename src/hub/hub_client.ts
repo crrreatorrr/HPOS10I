@@ -33,9 +33,10 @@ import { Difficulty } from '../core/difficulty';
 import { GameState } from '../core/game_state';
 import { betterRank, rankFor, type Rank } from '../core/rank';
 import { SceneRouter } from '../core/scene_router';
+import { MENU_SCENES } from '../core/scenes';
 import { Signal } from '../runtime/signal';
+import { tree } from '../runtime/tree';
 import { HubSave } from './hub_save';
-import { repairOutbox } from './outbox_repair';
 import { pageServerKey } from './server_key';
 
 export const GAME_ID: GameId = 'hpos10i';
@@ -53,6 +54,17 @@ export const EARN_REASON = 'level_end';
 export const EARN_MAX_PER_ACT = 20;
 /** Earn replies that can never succeed with the same key and body: the earn is dropped. */
 const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount', 'bad_reason', 'server_reason', 'bad_key'];
+/** Longest Exit to Hub waits for the cloud save to flush before it navigates. */
+export const EXIT_FLUSH_MS = 500;
+/**
+ * A hub visit's init that has not answered after this long is treated as unranked (the extras
+ * come back and stage starts stop waiting): the SDK's requests have no timeout of their own.
+ */
+export const VISIT_PENDING_LIMIT_MS = 10_000;
+/** When a navigation has not unloaded the page after this long, Exit to Hub can be tried again. */
+const EXIT_RETRY_MS = 3000;
+/** Longest a stage start waits for a hub visit's init (Ranked, Relics) before it starts anyway. */
+export const SETTLE_WAIT_MS = 1500;
 /** How often the session token is checked for refresh (the SDK refreshes within 5 min of expiry). */
 const REFRESH_EVERY_MS = 120_000;
 
@@ -91,6 +103,11 @@ class HubClientImpl {
   readonly stateChanged = new Signal();
   reach: Reach = 'offline';
   inSession = false;
+  /**
+   * True when this page load starts or resumes a hub visit (a portal ticket or a live session):
+   * only such a visit can turn out Ranked, so while its init is pending the extras fail closed.
+   */
+  visitStarting = false;
   /** The hub account playing this visit, only while its session is live. Progress is saved under it. */
   playerId: string | null = null;
   /** Server Ticket balance, mirrored from earn answers (never saved locally). */
@@ -98,7 +115,6 @@ class HubClientImpl {
   balanceKnown = false;
   ticketsCapLeft = 0;
   earnCapped = false;
-  effects: Record<string, unknown> = {};
   relics: string[] = [];
   ranked = false;
   serverLoadout: Record<string, unknown> = {};
@@ -119,6 +135,13 @@ class HubClientImpl {
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private wired = false;
   private hubUrl = '/hub/';
+  private settleWaiters: (() => void)[] = [];
+  private exiting: Promise<void> | null = null;
+  private pendingExpired = false;
+  private pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The act ("zone:act") that started while the visit was pending: the only one a late Golden life may go to. */
+  private pendingAct = '';
+  private exitRetry: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Connects to the hub. Pass an SDK in tests; the browser build creates the real one.
@@ -131,15 +154,15 @@ class HubClientImpl {
     // Before the first scene (boot doesn't wait for the rest of init): a hub
     // visit's progress waits for its account, so nothing lands on the device.
     const visit = opts.visitStarting ?? (typeof window !== 'undefined' && hubVisitStarting(GAME_ID));
+    this.visitStarting = visit;
     if (visit) this.save.hold();
     this.showProgress();
     this.hubUrl = opts.hubUrl ?? __HUB_URL__;
     this.wire();
     let sdk = opts.sdk ?? null;
     if (!sdk && typeof window !== 'undefined') {
-      // Before the SDK replays its outbox: drop queued earns that can never be delivered.
-      this.reach = 'pending';
-      await repairOutbox(this.save);
+      // SDK 0.8.0 replays its outbox inside init() and drops writes the server refused for
+      // good itself, so one undeliverable queued earn can no longer keep a launch offline.
       try {
         sdk = createHubSdk({ serverUrl: '', serverKey: opts.serverKey ?? pageServerKey(), hubUrl: this.hubUrl });
       } catch (err) {
@@ -154,6 +177,14 @@ class HubClientImpl {
       return;
     }
     this.reach = 'pending';
+    this.pendingExpired = false;
+    if (this.pendingTimer) clearTimeout(this.pendingTimer);
+    this.pendingTimer = setTimeout(() => {
+      this.pendingTimer = null;
+      if (this.reach !== 'pending') return;
+      this.pendingExpired = true;
+      this.changed();
+    }, VISIT_PENDING_LIMIT_MS);
     this.changed();
     try {
       const result = (await sdk.init(GAME_ID)) as unknown as Payload;
@@ -170,6 +201,14 @@ class HubClientImpl {
     this.sdk = null;
     this.reach = 'offline';
     this.inSession = false;
+    this.visitStarting = false;
+    this.exiting = null;
+    this.pendingExpired = false;
+    this.pendingAct = '';
+    if (this.pendingTimer) clearTimeout(this.pendingTimer);
+    this.pendingTimer = null;
+    if (this.exitRetry) clearTimeout(this.exitRetry);
+    this.exitRetry = null;
     this.playerId = null;
     this.relics = [];
     this.ranked = false;
@@ -179,6 +218,32 @@ class HubClientImpl {
     this.balanceStamp++;
     this.lastBanked = null;
     this.changed();
+  }
+
+  /** True while a hub visit's init has not answered: Ranked and the Relics are not known yet. */
+  get visitPending(): boolean {
+    return this.reach === 'pending' && this.visitStarting && !this.pendingExpired;
+  }
+
+  /**
+   * Null when nothing is pending; else a promise that settles when the visit's init answers,
+   * or after timeoutMs, whichever is first (a stage start waits on it, so Ranked and the
+   * Relics are known before the act's item boxes and Golden Sproto's life are decided).
+   */
+  whenSettled(timeoutMs = SETTLE_WAIT_MS): Promise<void> | null {
+    if (!this.visitPending) return null;
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(done, timeoutMs);
+      const waiter = () => done();
+      this.settleWaiters.push(waiter);
+      const self = this;
+      function done(): void {
+        clearTimeout(timer);
+        const i = self.settleWaiters.indexOf(waiter);
+        if (i >= 0) self.settleWaiters.splice(i, 1);
+        resolve();
+      }
+    });
   }
 
   /** The hub Ticket balance as shown: the number with a session, '--' without one or before it is known. */
@@ -210,18 +275,61 @@ class HubClientImpl {
     this.changed();
   }
 
-  exitToHub(): void {
+  /**
+   * Back to the hub. Waits for the cloud save to flush (at most EXIT_FLUSH_MS: an account's
+   * unsynced progress is also pushed on its next attach), then navigates once: the SDK's exit
+   * when a session is live (it closes the session and navigates itself), else a plain
+   * navigation. Navigating twice would abort the save still in flight, so a second press while
+   * leaving joins the first. The game stands still meanwhile (the player chose to leave).
+   */
+  exitToHub(): Promise<void> {
+    if (this.exiting) return this.exiting;
+    const wasSuspended = tree.suspended;
+    tree.suspended = true;
+    const leaving = this.leaveForHub().finally(() => {
+      // Still here after a while (a blocked navigation): give the game back and allow a retry.
+      this.exitRetry = setTimeout(() => {
+        this.exitRetry = null;
+        if (this.exiting !== leaving) return;
+        this.exiting = null;
+        tree.suspended = wasSuspended;
+      }, EXIT_RETRY_MS);
+    });
+    this.exiting = leaving;
+    return leaving;
+  }
+
+  private async leaveForHub(): Promise<void> {
     const base = this.hubUrl.replace(/\/+$/, '');
     const target = `${base}/#from=${GAME_ID}`;
-    // Best effort: an account's unsynced progress is also pushed on its next attach.
-    void this.save.flush();
-    try {
-      // Flushes the outbox; with a session it navigates itself.
-      this.sdk?.exit('exit_to_hub');
-    } catch {
-      /* fall through to plain navigation */
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    await Promise.race([
+      this.save.flush().catch(() => undefined),
+      new Promise<void>((resolve) => (timer = setTimeout(resolve, EXIT_FLUSH_MS))),
+    ]);
+    if (timer) clearTimeout(timer);
+    const sdk = this.sdk;
+    if (sdk && this.hasLiveSession(sdk)) {
+      try {
+        sdk.exit('exit_to_hub');
+        return;
+      } catch {
+        /* fall through to plain navigation */
+      }
     }
-    if (typeof window !== 'undefined') window.location.assign(target);
+    try {
+      if (typeof window !== 'undefined') window.location.assign(target);
+    } catch (err) {
+      console.warn('[Hub] could not navigate to the hub', err);
+    }
+  }
+
+  private hasLiveSession(sdk: HubSdk): boolean {
+    try {
+      return !!sdk.getSession?.();
+    } catch {
+      return false;
+    }
   }
 
   /** The saved best time of an act in seconds, or null. */
@@ -269,6 +377,9 @@ class HubClientImpl {
 
   private changed(): void {
     this.revision++;
+    if (!this.visitPending && this.settleWaiters.length > 0) {
+      for (const waiter of this.settleWaiters.splice(0)) waiter();
+    }
     this.stateChanged.emit();
   }
 
@@ -319,7 +430,6 @@ class HubClientImpl {
       return;
     }
     this.reach = 'ready';
-    this.effects = payload.effects && typeof payload.effects === 'object' ? (payload.effects as Payload) : {};
     this.relics = stringList(payload.relics);
     this.ranked = payload.ranked === true;
     this.serverLoadout = loadoutFrom(payload);
@@ -337,6 +447,12 @@ class HubClientImpl {
       void this.refreshBalance();
     }
     this.changed();
+    // An act that started while the visit was pending (the stage start waits at most
+    // SETTLE_WAIT_MS) still gets Golden Sproto's life, once, now that the Relics are known:
+    // only that act, and only while it is still being played (not from a menu).
+    const act = this.pendingAct;
+    this.pendingAct = '';
+    if (act !== '' && act === `${GameState.zoneId}:${GameState.act}` && !MENU_SCENES.includes(SceneRouter.currentId)) GameState.grantGoldenLife();
   }
 
   private readSession(): boolean {
@@ -361,6 +477,7 @@ class HubClientImpl {
 
   private onLevelStarted(zone: string, act: number): void {
     this.lastClear = null;
+    this.pendingAct = this.visitPending && zone !== '' ? `${zone}:${act}` : '';
     // Respawns keep the attempt; only a fresh start (startLevel) mints a run id.
     if (SceneRouter.freeScene !== '' || zone === '') return;
     if (!this.save.beginAttempt(zone, act)) {
@@ -507,11 +624,18 @@ function stringList(value: unknown): string[] {
   return out;
 }
 
-function loadoutFrom(payload: Payload): Record<string, unknown> {
+/**
+ * The server's slot choice (body, back), when init carries one. SDK 0.8.0's init answers
+ * `items` as the owned item ids (string[]) and has no loadout yet, so this is empty there and
+ * the slots stay a local choice. A top-level `loadout` object is read when a server sends one;
+ * `items.loadout` only from the older object-shaped `items`, never off the item list.
+ */
+export function loadoutFrom(payload: Payload): Record<string, unknown> {
+  const plain = (v: unknown): v is Payload => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (plain(payload.loadout)) return payload.loadout;
   const items = payload.items;
-  if (!items || typeof items !== 'object') return {};
-  const loadout = (items as Payload).loadout;
-  return loadout && typeof loadout === 'object' && !Array.isArray(loadout) ? (loadout as Payload) : {};
+  if (plain(items) && plain(items.loadout)) return items.loadout;
+  return {};
 }
 
 export const HubClient = new HubClientImpl();

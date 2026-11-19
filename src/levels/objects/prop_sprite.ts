@@ -3,7 +3,8 @@ import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Rect2, Vec2 } from '../../runtime/vec2';
 
-const PATH = 'assets/sprites/common/props/props_sheet.png';
+export const PROPS_SHEET = 'assets/sprites/common/props/props_sheet.png';
+const PATH = PROPS_SHEET;
 const CELL = 48;
 
 export const PropSprite = {

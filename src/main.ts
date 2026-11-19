@@ -13,9 +13,8 @@ import { HubClient } from './hub/hub_client';
 import { RelicLoadout } from './hub/relic_loadout';
 import { migrateGodotSave } from './hub/godot_migration';
 import { installBackdrop } from './levels/common/backdrop';
+import { releaseTileCaches } from './levels/common/level_nodes';
 import { registerEnemies } from './levels/registry_enemies';
-import { REMIX_ATLAS } from './levels/enemies/neon/remix_art';
-import { HAZARD_ATLAS } from './levels/objects/hazards/hazard_art';
 import { registerObjects } from './levels/registry_objects';
 import { registerLevelScenes } from './levels/scenes';
 import { registerNewContent } from './levels/content';
@@ -31,6 +30,8 @@ import { Node, ProcessMode } from './runtime/node';
 import { tree, VIEW_H, VIEW_W } from './runtime/tree';
 import { Vec2 } from './runtime/vec2';
 import { installUi } from './ui/setup';
+import { MENU_ART } from './ui/common/menu_backdrop';
+import { SPROTO_SHEET } from './player/player_visual';
 import { Display } from './ui/display';
 import { Feedback } from './ui/feedback';
 import { FullScreen } from './ui/fullscreen';
@@ -135,8 +136,10 @@ async function boot(): Promise<void> {
     preload([
       assetUrl('assets/sprites/common/emerald/emerald.png'),
       assetUrl('assets/sprites/common/emerald/emerald_small.png'),
-      assetUrl(HAZARD_ATLAS),
-      assetUrl(REMIX_ATLAS),
+      // The title and zone select draw these on their first frame. Level art (tiles,
+      // hazards, backdrops, boss sheets) loads with each level (levels/common/level_preload.ts).
+      ...MENU_ART.map((p) => assetUrl(p)),
+      assetUrl(SPROTO_SHEET),
     ].filter((u): u is string => !!u)),
   ]);
 
@@ -180,17 +183,28 @@ async function boot(): Promise<void> {
   FullScreen.use(document as unknown as Parameters<typeof FullScreen.use>[0]);
   refit();
 
-  // The hub: redeems the portal ticket from #t= first thing. Never blocks play.
+  // Respawns reuse the last level's tile geometry, merged edges and chunk pictures; a menu
+  // means no respawn is coming, so they go (tens of MB for the big acts).
+  SceneRouter.sceneChanged.connect(() => {
+    if (SceneRouter.inGameplay()) return;
+    releaseTileCaches();
+    tree.physics.releaseMergeCache();
+  });
+
+  // The hub: redeems the portal ticket from #t= first thing. Never blocks the menus; a stage
+  // start during a pending hub visit waits for it briefly (capped), so Ranked is known first.
+  SceneRouter.beforeStage = () => HubClient.whenSettled();
   void HubClient.init();
 
   // First scene.
-  const target = Dev.takeBootTarget();
+  // A dev target (?scene=, ?zone=) or ?dev only with the test hooks; production always opens the title.
+  const target: { scene?: string; zone?: string; stage?: number } = __HPOS_TEST_HOOKS__ ? Dev.takeBootTarget() : {};
   if (target.scene && Scenes.exists(target.scene)) SceneRouter.openScene(target.scene);
   else if (target.zone) SceneRouter.startZone(target.zone, target.stage ?? 1);
-  else if (!Dev.args.dev && Scenes.exists(TITLE_SCENE)) SceneRouter.goTitle();
+  else if (!(__HPOS_TEST_HOOKS__ && Dev.args.dev) && Scenes.exists(TITLE_SCENE)) SceneRouter.goTitle();
   else SceneRouter.changeTo(MAIN_SCENE);
 
-  if (typeof Dev.args.inputs === 'string') await playTimeline(Dev.args.inputs);
+  if (__HPOS_TEST_HOOKS__ && typeof Dev.args.inputs === 'string') await playTimeline(Dev.args.inputs);
 
   document.getElementById('boot')?.classList.add('hidden');
   tree.playbackRate = () => {
@@ -201,7 +215,9 @@ async function boot(): Promise<void> {
   };
   tree.start(canvas);
   canvas.focus();
-  exposeDebugApi();
+  // Tests and the dev server only: compiled out of production builds, where it would let
+  // anyone forge run times and Tickets from the console.
+  if (__HPOS_TEST_HOOKS__) exposeDebugApi();
 }
 
 async function playTimeline(name: string): Promise<void> {
@@ -221,9 +237,10 @@ async function playTimeline(name: string): Promise<void> {
   }
 }
 
-/** A small API for bots and smoke tests (window.hpos). */
+/** A small API for bots and smoke tests (window.hpos). Only with __HPOS_TEST_HOOKS__. */
 function exposeDebugApi(): void {
   (window as unknown as { hpos: unknown }).hpos = {
+    hooks: 'HPOS_TEST_HOOKS_ON',
     tree,
     router: SceneRouter,
     state: GameState,

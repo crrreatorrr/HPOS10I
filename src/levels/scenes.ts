@@ -11,6 +11,7 @@ import { PathSwitcher } from '../terrain/path_switcher';
 import { LoopGuard } from '../terrain/loop_guard';
 import { buildLevel, LevelTypes, type LevelData } from './common/level_loader';
 import { LevelRoot } from './common/level_root';
+import { preloadLevelArt } from './common/level_preload';
 import { PhysicsPlayground } from './playground/physics_playground';
 
 const LEVEL_FILES = import.meta.glob(['./data/**/*.json', '!./data/tilesets/**'], { import: 'default' }) as Record<
@@ -43,6 +44,7 @@ function registerWithBackdrop(id: string, factory: () => Promise<Node>): void {
       if (id.endsWith('/act2')) level.backdropVariant = 'act2';
       if (id === 'level:test_zone') level.backdropVariant = 'test_zone';
     }
+    await preloadLevelArt(level, id);
     return level;
   });
 }

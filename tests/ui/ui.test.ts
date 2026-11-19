@@ -499,7 +499,7 @@ describe('ZoneSelect', () => {
 
   it('a gamepad reaches HUB with the D-pad and A (return to the hub without the keyboard)', () => {
     const zs = open();
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     const pad = fakePad();
     Input.feedPads([pad]);
     frames(1);
@@ -618,7 +618,7 @@ describe('PauseMenu', () => {
     expect(pm.main.focus).toBe(6);
     tapAction('ui_up');
     expect(pm.main.focus).toBe(5);
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     tapAction('ui_up');
     tapAction('jump');
     // Mid-run, EXIT TO HUB asks first, with KEEP PLAYING focused.
@@ -664,7 +664,7 @@ describe('PauseMenu', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
     tapAction('pause');
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     for (let i = 0; i < 4; i++) tapAction('ui_down'); // EXIT TO HUB
     tapAction('ui_accept');
     expect(pm.page).toBe('confirm');
@@ -683,7 +683,7 @@ describe('PauseMenu', () => {
   it('the hub chrome asks mid-run: the menu opens on the question, and KEEP PLAYING resumes', () => {
     const pm = addOverlay(new PauseMenu());
     enterGameplay();
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     pm.confirmExitToHub();
     expect(pm.isOpen()).toBe(true);
     expect(tree.paused).toBe(true);
@@ -706,7 +706,7 @@ describe('PauseMenu', () => {
     const pm = addOverlay(new PauseMenu());
     SceneRouter.changeTo('title');
     frames(2);
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     pm.confirmExitToHub();
     expect(exit).toHaveBeenCalledTimes(1);
     expect(pm.isOpen()).toBe(false);

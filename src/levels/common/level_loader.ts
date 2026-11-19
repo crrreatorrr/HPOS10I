@@ -11,6 +11,7 @@ import { CollisionObject2D, Area2D } from '../../runtime/physics';
 import { Vec2 } from '../../runtime/vec2';
 import { BoundsRect, DecorRect, loadTileset, Marker, TileLayer, tilesetIdFromPath } from './level_nodes';
 import { isConfigurable, Props, type RawProps } from './props';
+import { decodeCells } from './cell_codec';
 
 export interface LevelNodeData {
   name: string;
@@ -21,6 +22,19 @@ export interface LevelNodeData {
   groups?: string[];
   props: RawProps;
   cells?: [number, number, number, number][];
+  /** The web build's compact form of `cells` (levels/common/cell_codec.ts). */
+  cells_delta?: number[];
+}
+
+/** Expanded cells per node: the same array every time, so a respawn reuses the tile geometry. */
+const expanded = new WeakMap<LevelNodeData, [number, number, number, number][]>();
+
+function nodeCells(n: LevelNodeData): [number, number, number, number][] | undefined {
+  if (n.cells) return n.cells;
+  if (!n.cells_delta) return undefined;
+  let cells = expanded.get(n);
+  if (!cells) expanded.set(n, (cells = decodeCells(n.cells_delta)));
+  return cells;
 }
 
 export interface LevelData {
@@ -110,9 +124,10 @@ export async function buildLevel(data: LevelData): Promise<Node> {
     applyGeneric(node, props);
     if (isConfigurable(node)) node.applyProps(props);
     for (const g of n.groups ?? []) node.addToGroup(g);
-    if (node instanceof TileLayer && n.cells) {
+    const nodeCellList = node instanceof TileLayer ? nodeCells(n) : undefined;
+    if (node instanceof TileLayer && nodeCellList) {
       const layer = node;
-      const cells = n.cells;
+      const cells = nodeCellList;
       const id = layer.tilesetId || tilesetIdFromPath(String(n.props.tile_set ?? ''));
       tileJobs.push(
         loadTileset(id).then((ts) => {

@@ -17,7 +17,8 @@ Tags: **[auto]** script/test · **[manual]** human judgement.
 - [ ] WEB-B1 [auto] `index.html`, `.wasm`, `.pck`, `.js` present; sizes match `fileSizes` in `GODOT_CONFIG`.
 - [ ] WEB-B2 [auto] Single-threaded: `GODOT_THREADS_ENABLED = false`, `ensureCrossOriginIsolationHeaders: false`, no `*.worker.js`, and the wasm memory is not shared (no SharedArrayBuffer requirement).
 - [ ] WEB-B3 [auto] Budgets: `.pck` < 40 MB, total < 80 MB (variables in the script); gzip sizes printed.
-- [ ] WEB-B4 [auto] Audio in the `.pck` is only Ogg Vorbis (no `.wav`, `.mp3` or their imported forms).
+- [ ] WEB-B4 [auto] Audio is Ogg Vorbis plus an AAC (`.m4a`) twin of every file for Safari and iOS (no `.wav`, `.mp3` or other formats); `web_check.mjs` checks the pairs.
+- [ ] WEB-B6 [auto] A production build has no test hooks: no `window.hpos`, and `?scene`, `?zone`, `?inputs`, `?dev` do nothing (`web_check.mjs` hooks, and the first smoke step).
 - [ ] WEB-B5 [auto] Viewport meta tag present (mobile scaling).
 
 ## C. CI and deploy

@@ -68,3 +68,20 @@ describe('Breakwater Coin', () => {
     expect(state.speed_mult).toBe(1);
   });
 });
+
+describe('server loadout parsing', () => {
+  it('reads no loadout off SDK 0.8.0\'s item list', async () => {
+    const { loadoutFrom } = await import('../../src/hub/hub_client');
+    expect(loadoutFrom({ items: ['hpos_skin_nobu'], relics: ['cones_tip'] })).toEqual({});
+    const arr = Object.assign(['x'], { loadout: { slots: { body: 'x' } } });
+    expect(loadoutFrom({ items: arr })).toEqual({});
+    expect(loadoutFrom({})).toEqual({});
+  });
+
+  it('reads a top-level loadout, or one in an object-shaped items', async () => {
+    const { loadoutFrom } = await import('../../src/hub/hub_client');
+    expect(loadoutFrom({ loadout: { slots: { body: ITEM_NOBU } } })).toEqual({ slots: { body: ITEM_NOBU } });
+    expect(loadoutFrom({ items: { loadout: { slots: { back: null } } } })).toEqual({ slots: { back: null } });
+    expect(loadoutFrom({ loadout: ['no'] })).toEqual({});
+  });
+});

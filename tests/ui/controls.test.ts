@@ -365,7 +365,7 @@ describe('standard options on every menu', () => {
     const go = showScene(() => new GameOverScreen());
     expect(menuLabels(go.menu!.items)).toEqual(['RETRY STAGE', 'MAIN MENU', 'HUB', 'CONTROLS', 'FULL SCREEN: OFF']);
     for (const it of go.menu!.items) expect(it.rect.bottom).toBeLessThan(240);
-    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(() => undefined);
+    const exit = vi.spyOn(HubClient, 'exitToHub').mockImplementation(async () => undefined);
     frames(100);
     tapAction('ui_down');
     tapAction('ui_down');

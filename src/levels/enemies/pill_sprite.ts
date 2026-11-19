@@ -4,7 +4,8 @@ import { tree } from '../../runtime/tree';
 import { Rect2, Vec2 } from '../../runtime/vec2';
 
 // The first four columns are the motion loop. The last two are the charge flash.
-const PATH = 'assets/sprites/common/pills/pills_sheet.png';
+export const PILLS_SHEET = 'assets/sprites/common/pills/pills_sheet.png';
+const PATH = PILLS_SHEET;
 const CELL = 48;
 
 export const PillSprite = {

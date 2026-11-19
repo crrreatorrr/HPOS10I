@@ -344,7 +344,7 @@ export class ZoneSelect extends Node {
   toHub(): void {
     if (this.busy) return;
     this.busy = true;
-    HubClient.exitToHub();
+    void HubClient.exitToHub();
   }
 
   isBusy(): boolean {

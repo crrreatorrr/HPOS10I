@@ -35,10 +35,10 @@ const check = (ok, label) => {
   if (!ok) failures++;
 };
 
-// 1. Build the game with the local server key.
+// 1. Build the game with the local server key, and the test hooks (window.hpos) this check drives.
 const out = mkdtempSync(join(tmpdir(), 'hpos-e2e-'));
 const build = spawnSync('npx', ['vite', 'build', '--outDir', out, '--emptyOutDir'], {
-  env: { ...process.env, HPOS_NAKAMA_SERVER_KEY: SERVER_KEY, HPOS_HUB_URL: '/hub/' },
+  env: { ...process.env, HPOS_NAKAMA_SERVER_KEY: SERVER_KEY, HPOS_HUB_URL: '/hub/', HPOS_TEST_BUILD: '1' },
   encoding: 'utf8',
 });
 if (build.status !== 0) {
@@ -47,7 +47,7 @@ if (build.status !== 0) {
 }
 
 // 2. Serve it same-origin with /v2 proxied to Nakama (like the hub's dev server).
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.ogg': 'audio/ogg', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.svg': 'image/svg+xml' };
 const nakama = new URL(NAKAMA);
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');

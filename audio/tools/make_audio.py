@@ -2,15 +2,16 @@
 """Procedural placeholder audio for HPOS10I: original chiptune-style sound
 effects and two short looping tracks, synthesised from square, triangle and
 noise voices (like an early-90s console sound chip), then encoded to Ogg
-Vorbis with ffmpeg.
+Vorbis with ffmpeg. Run audio/tools/make_m4a.sh afterwards for the AAC twins
+Safari and iOS load.
 
   python3 audio/tools/make_audio.py           # everything
   python3 audio/tools/make_audio.py jump z1   # only these names
 
 Writes audio/sfx/<name>.ogg for every SFX name in docs/CONTRACTS.md and
 audio/music/<name>.ogg for every music name: seven loops plus the act_clear
-and game_over jingles. WAVs only live in a temp folder (the project must hold
-Ogg only). Uses ffmpeg's libvorbis when present, else its built-in Vorbis
+and game_over jingles. WAVs only live in a temp folder (the project holds
+Ogg, plus the AAC twins). Uses ffmpeg's libvorbis when present, else its built-in Vorbis
 encoder (stereo-only, so mono is duplicated to two channels).
 
 Every melody, rhythm and sound here was composed for this project.
