@@ -53,6 +53,8 @@ export const EARN_REASON = 'level_end';
 export const EARN_MAX_PER_ACT = 20;
 /** Earn replies that can never succeed with the same key and body: the earn is dropped. */
 const FINAL_EARN_ERRORS = ['idempotency_mismatch', 'unknown_reason', 'bad_amount', 'bad_reason', 'server_reason', 'bad_key'];
+/** Longest a stage start waits for a hub visit's init (Ranked, Relics) before it starts anyway. */
+export const SETTLE_WAIT_MS = 1500;
 /** How often the session token is checked for refresh (the SDK refreshes within 5 min of expiry). */
 const REFRESH_EVERY_MS = 120_000;
 
@@ -91,6 +93,11 @@ class HubClientImpl {
   readonly stateChanged = new Signal();
   reach: Reach = 'offline';
   inSession = false;
+  /**
+   * True when this page load starts or resumes a hub visit (a portal ticket or a live session):
+   * only such a visit can turn out Ranked, so while its init is pending the extras fail closed.
+   */
+  visitStarting = false;
   /** The hub account playing this visit, only while its session is live. Progress is saved under it. */
   playerId: string | null = null;
   /** Server Ticket balance, mirrored from earn answers (never saved locally). */
@@ -119,6 +126,7 @@ class HubClientImpl {
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private wired = false;
   private hubUrl = '/hub/';
+  private settleWaiters: (() => void)[] = [];
 
   /**
    * Connects to the hub. Pass an SDK in tests; the browser build creates the real one.
@@ -131,6 +139,7 @@ class HubClientImpl {
     // Before the first scene (boot doesn't wait for the rest of init): a hub
     // visit's progress waits for its account, so nothing lands on the device.
     const visit = opts.visitStarting ?? (typeof window !== 'undefined' && hubVisitStarting(GAME_ID));
+    this.visitStarting = visit;
     if (visit) this.save.hold();
     this.showProgress();
     this.hubUrl = opts.hubUrl ?? __HUB_URL__;
@@ -170,6 +179,7 @@ class HubClientImpl {
     this.sdk = null;
     this.reach = 'offline';
     this.inSession = false;
+    this.visitStarting = false;
     this.playerId = null;
     this.relics = [];
     this.ranked = false;
@@ -179,6 +189,32 @@ class HubClientImpl {
     this.balanceStamp++;
     this.lastBanked = null;
     this.changed();
+  }
+
+  /** True while a hub visit's init has not answered: Ranked and the Relics are not known yet. */
+  get visitPending(): boolean {
+    return this.reach === 'pending' && this.visitStarting;
+  }
+
+  /**
+   * Null when nothing is pending; else a promise that settles when the visit's init answers,
+   * or after timeoutMs, whichever is first (a stage start waits on it, so Ranked and the
+   * Relics are known before the act's item boxes and Golden Sproto's life are decided).
+   */
+  whenSettled(timeoutMs = SETTLE_WAIT_MS): Promise<void> | null {
+    if (!this.visitPending) return null;
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(done, timeoutMs);
+      const waiter = () => done();
+      this.settleWaiters.push(waiter);
+      const self = this;
+      function done(): void {
+        clearTimeout(timer);
+        const i = self.settleWaiters.indexOf(waiter);
+        if (i >= 0) self.settleWaiters.splice(i, 1);
+        resolve();
+      }
+    });
   }
 
   /** The hub Ticket balance as shown: the number with a session, '--' without one or before it is known. */
@@ -269,6 +305,9 @@ class HubClientImpl {
 
   private changed(): void {
     this.revision++;
+    if (!this.visitPending && this.settleWaiters.length > 0) {
+      for (const waiter of this.settleWaiters.splice(0)) waiter();
+    }
     this.stateChanged.emit();
   }
 
@@ -337,6 +376,9 @@ class HubClientImpl {
       void this.refreshBalance();
     }
     this.changed();
+    // An act that started while the visit was pending (the stage start waits at most
+    // SETTLE_WAIT_MS) still gets Golden Sproto's life, once, now that the Relics are known.
+    GameState.grantGoldenLife();
   }
 
   private readSession(): boolean {

@@ -180,7 +180,9 @@ async function boot(): Promise<void> {
   FullScreen.use(document as unknown as Parameters<typeof FullScreen.use>[0]);
   refit();
 
-  // The hub: redeems the portal ticket from #t= first thing. Never blocks play.
+  // The hub: redeems the portal ticket from #t= first thing. Never blocks the menus; a stage
+  // start during a pending hub visit waits for it briefly (capped), so Ranked is known first.
+  SceneRouter.beforeStage = () => HubClient.whenSettled();
   void HubClient.init();
 
   // First scene.
