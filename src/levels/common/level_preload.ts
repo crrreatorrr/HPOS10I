@@ -24,7 +24,8 @@ const BOSS_SHEETS = ['bosses_sheet.png', 'boss_moves_sheet.png', 'attacks_sheet.
 /** Repository paths of the art `level` (scene `sceneId`) draws from its first frame. */
 export function levelArtPaths(level: Node, sceneId: string): string[] {
   const paths = new Set<string>([HAZARD_ATLAS, PROPS_SHEET, PILLS_SHEET]);
-  if (sceneId.includes('z4_')) paths.add(REMIX_ATLAS);
+  const zoneId = level instanceof LevelRoot ? level.currentZoneId() : '';
+  if (sceneId.includes('z4_') || zoneId.startsWith('z4_')) paths.add(REMIX_ATLAS);
   if (sceneId.startsWith('boss:')) for (const p of BOSS_SHEETS) paths.add(p);
   if (level instanceof LevelRoot) {
     const zone = level.currentArtZoneId();
