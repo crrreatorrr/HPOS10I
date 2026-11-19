@@ -2,7 +2,9 @@ import moveLayout from '../../assets/sprites/common/bosses/boss_moves.json';
 import { assetImage } from '../runtime/assets';
 import { Color } from '../runtime/color';
 import type { Gfx } from '../runtime/gfx';
+import { clamp } from '../runtime/math';
 import { Rect2, Vec2 } from '../runtime/vec2';
+import { drawSpecialCue, sampleMotion, specialMotion } from './boss_specials';
 
 const ART = 'assets/sprites/common/bosses';
 export const BossSprite = { rug: 0, demon: 1, broccoli: 2, executive: 3 } as const;
@@ -12,6 +14,12 @@ export type BossPoseId = (typeof BossPose)[keyof typeof BossPose];
 
 const ATLAS_CELL = 96;
 const SEQUENCE_LENGTH = 6;
+export const BOSS_RELEASE_FRAMES = 26;
+const sustained = new Set(['sweep', 'zip_low', 'zip_high', 'fakeout', 'tornado', 'dash', 'arrow_slide']);
+
+export function usesSustainedStrike(move: string): boolean {
+  return sustained.has(move);
+}
 const moves: Readonly<Record<string, { boss: number; windup: number; strike: number }>> = moveLayout;
 // Tight source crops keep projectiles legible at the size of their actual hazards.
 const attackArt: Readonly<Record<string, readonly [row: number, x: number, y: number, w: number, h: number]>> = {
@@ -29,9 +37,13 @@ const attackArt: Readonly<Record<string, readonly [row: number, x: number, y: nu
 const ATTACK_CELL = 32;
 
 export function drawBossFrame(
-  g: Gfx, id: BossSpriteId, pose: BossPoseId, ticks: number, facing: number, feet: number, squash: number, move?: string,
+  g: Gfx, id: BossSpriteId, pose: BossPoseId, ticks: number, facing: number, feet: number, squash: number, move?: string, windupFrames = 0,
 ): boolean {
-  const layout = move ? moves[move] : undefined;
+  const windup = pose === BossPose.windup;
+  const strike = pose === BossPose.strike;
+  const special = windup || strike ? specialMotion(move) : undefined;
+  const source = special?.source ?? move;
+  const layout = source ? moves[source] : undefined;
   const moveRow = layout?.boss === id
     ? pose === BossPose.windup ? layout.windup : pose === BossPose.strike ? layout.strike : undefined
     : undefined;
@@ -40,13 +52,25 @@ export function drawBossFrame(
   if (!tex) return false;
   const row = moveTexture && moveRow !== undefined ? moveRow : id * 8 + pose;
   const frame = Math.floor(ticks / (pose === BossPose.idle ? 9 : 4));
-  const column = pose === BossPose.windup ? Math.min(SEQUENCE_LENGTH - 1, frame) : frame % SEQUENCE_LENGTH;
+  const progress = windup ? clamp(ticks / Math.max(1, windupFrames - 1), 0, 1) : clamp(ticks / BOSS_RELEASE_FRAMES, 0, 1);
+  const oneShot = windup || pose === BossPose.defeat || (strike && !!move && !usesSustainedStrike(move));
+  const sequenceFrame = windup ? Math.floor(progress * SEQUENCE_LENGTH) : frame;
+  const column = oneShot ? Math.min(SEQUENCE_LENGTH - 1, sequenceFrame) : sequenceFrame % SEQUENCE_LENGTH;
   const region = new Rect2(column * ATLAS_CELL, row * ATLAS_CELL, ATLAS_CELL, ATLAS_CELL);
-  g.texture(tex, new Vec2(-48, feet - Math.round(89 * squash)), {
+  const key = special ? sampleMotion(windup ? special.windup : special.release, progress) : undefined;
+  const width = Math.round(ATLAS_CELL * (key?.[2] ?? 1));
+  const height = squash * (key?.[3] ?? 1);
+  const anchor = feet - (key?.[4] ?? 0);
+  if (key) g.setTransform(new Vec2(0, anchor), key[1] * facing);
+  g.texture(tex, new Vec2(-Math.round(width / 2), (key ? 0 : anchor) - Math.round(89 * height)), {
     region,
-    size: new Vec2(ATLAS_CELL, Math.round(ATLAS_CELL * squash)),
+    size: new Vec2(width, Math.round(ATLAS_CELL * height)),
     flipH: facing < 0 && id !== BossSprite.demon,
   });
+  if (key && move) {
+    g.resetTransform();
+    drawSpecialCue(g, move, feet, facing, ticks, windup, progress);
+  }
   return true;
 }
 

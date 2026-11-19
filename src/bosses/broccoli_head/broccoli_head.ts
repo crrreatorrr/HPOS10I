@@ -95,19 +95,23 @@ export class BroccoliHead extends Boss {
     const cans: AttackPlan = { id: 'cans', aimed: true, telegraph: 1.2 };
     const fake: AttackPlan = { id: 'fakeout', telegraph: 1.3 };
     const tornado: AttackPlan = { id: 'tornado', telegraph: 1.4 };
+    const rail: AttackPlan = { id: 'rail_burst', telegraph: 2.25 };
+    const wheelie: AttackPlan = { id: 'wheelie', telegraph: 2 };
+    const board: AttackPlan = { id: 'board_drop', aimed: true, telegraph: 1.8 };
     const sparks = (half: number): AttackPlan => ({ id: 'sparks', telegraph: 2.2, overlap: true, variant: half, gap: 4 });
     const first = this.rng.randiRange(0, 1);
     const sets: AttackPlan[][] =
       this.phase === 1
         ? [
             [zipLow, cans, zipHigh],
-            [cans, fake, zipLow],
-            [zipHigh, cans, fake],
+            [board, fake, zipLow],
+            [rail, cans, zipHigh],
+            [wheelie, zipHigh, fake],
           ]
         : this.phase === 2
           ? [
               [sparks(first), tornado, cans, sparks(1 - first), zipHigh],
-              [sparks(first), cans, tornado, sparks(1 - first), fake],
+              [wheelie, sparks(first), cans, tornado, sparks(1 - first)],
             ]
           : [
               [sparks(first), { ...tornado, overlap: true, gap: 6 }, cans, sparks(1 - first), zipLow],
@@ -398,7 +402,7 @@ export class BroccoliHead extends Boss {
   }
 
   override dangerZones(): Rect2[] {
-    const out = [...this.canZones];
+    const out = [...super.dangerZones(), ...this.canZones];
     const t = this.currentTelegraph();
     if (t && ['zip_low', 'zip_high', 'fakeout', 'tornado'].includes(t.plan.id)) {
       // He comes down by his wall first.

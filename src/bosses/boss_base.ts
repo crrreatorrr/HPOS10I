@@ -51,7 +51,8 @@ import { LevelFx } from '../levels/common/level_fx';
 import { PlayerArea } from '../levels/common/player_area';
 import type { CurveTerrain } from '../terrain/curve_terrain';
 import { BossFx } from './boss_fx';
-import { BossPose, drawBossAttack, drawBossFrame, type BossSpriteId, type BossPoseId } from './boss_sprites';
+import { BOSS_RELEASE_FRAMES, BossPose, drawBossAttack, drawBossFrame, usesSustainedStrike, type BossSpriteId, type BossPoseId } from './boss_sprites';
+import { drawSpecialHazard, drawSpecialWarning, prepareSpecial, strikePosition, type SpecialAttack } from './boss_specials';
 
 /** A script step per physics tick. */
 export type BossScript = Generator<void, void, void>;
@@ -283,6 +284,7 @@ export abstract class Boss extends Node2D {
   private flashFrames = 0;
   private playerWasDead = false;
   private visualAttack: AttackPlan | null = null;
+  private specialAttack: SpecialAttack | null = null;
   private attackStart = 0;
   private recoveryUntil = 0;
   private travelSpeed = 0;
@@ -349,13 +351,14 @@ export abstract class Boss extends Node2D {
   protected onFinalHit(_player: Player): void {}
   /** Where the current telegraph's attack will land (bots, overlay). World rects. */
   dangerZones(): Rect2[] {
-    return [];
+    return this.specialAttack ? [...this.specialAttack.danger] : [];
   }
 
   /** Telegraph visuals in world space (the overlay calls it every frame). */
   drawOverlay(g: Gfx): void {
     const t = this.telegraphNow;
-    if (t && t.plan.aimed) BossFx.targetRing(g, t.target, this.frame);
+    if (t && this.specialAttack) drawSpecialWarning(g, this.specialAttack, t.frames - t.left, t.frames);
+    else if (t?.plan.aimed) BossFx.targetRing(g, t.target, this.frame);
   }
 
   // --- State --------------------------------------------------------------------
@@ -532,10 +535,12 @@ export abstract class Boss extends Node2D {
 
   /** Plays the sprite cycle driven by the same phases as the fight script. */
   protected drawBossSprite(g: Gfx, art: BossSpriteId, feet: number, squash = 1, exposed = false): boolean {
+    const shortStrikeEnded = this.visualAttack && !usesSustainedStrike(this.visualAttack.id) && this.frame - this.attackStart >= BOSS_RELEASE_FRAMES;
     const pose = this.isDefeated ? BossPose.defeat
       : this.flashFrames > 0 ? BossPose.hit
       : this.weakOpen || exposed ? BossPose.exposed
       : this.telegraphNow ? BossPose.windup
+      : shortStrikeEnded ? BossPose.recovery
       : this.visualAttack ? BossPose.strike
       : this.frame < this.recoveryUntil ? BossPose.recovery
       : this.travelSpeed > 0.7 ? BossPose.travel
@@ -548,16 +553,44 @@ export abstract class Boss extends Node2D {
     let ticks = this.frame - this.poseStart;
     if (pose === BossPose.strike) ticks = this.frame - this.attackStart;
     else if (pose === BossPose.windup && telegraph) ticks = telegraph.frames - telegraph.left;
-    return drawBossFrame(g, art, pose, ticks, this.facing, feet, squash, (telegraph?.plan ?? this.visualAttack)?.id);
+    return drawBossFrame(g, art, pose, ticks, this.facing, feet, squash, (telegraph?.plan ?? this.visualAttack)?.id, telegraph?.frames);
   }
 
-  private *animateAttack(plan: AttackPlan, target: Vec2): BossScript {
+  private *animateAttack(plan: AttackPlan, target: Vec2, special: SpecialAttack | null, from: Vec2): BossScript {
     this.visualAttack = plan;
     this.attackStart = this.frame;
-    yield* this.attack(plan, target);
+    if (special) {
+      yield* this.performSpecial(special);
+      if (!this.position.equals(from)) yield* this.glide(from, 22);
+      // Keep existing overlaps safe until the player moves clear of the caster.
+      for (const p of this.body.playersInside()) this.spared.add(p);
+      for (const p of this.weakPoint.playersInside()) this.spared.add(p);
+      this.specialAttack = null;
+    } else yield* this.attack(plan, target);
     if (this.visualAttack === plan) {
       this.visualAttack = null;
       this.recoveryUntil = this.frame + 24;
+    }
+  }
+
+  private *performSpecial(special: SpecialAttack): BossScript {
+    let frame = 0;
+    const active: BossHazard[] = [];
+    while (frame < special.frames || active.some((h) => !h.isDone())) {
+      for (const strike of special.strikes) {
+        if (strike.delay !== frame) continue;
+        const hazard = new BossHazard(this, special.id, strike.size);
+        hazard.life = strike.frames;
+        hazard.behave = (h) => {
+          const at = strikePosition(strike, h.age);
+          h.vel = at.sub(h.position);
+          h.position = at;
+        };
+        hazard.look = (g, h) => drawSpecialHazard(g, special.id, strike.size, h.age);
+        active.push(this.spawnHazard(hazard, strike.route[0]!));
+      }
+      frame += 1;
+      yield;
     }
   }
 
@@ -605,24 +638,27 @@ export abstract class Boss extends Node2D {
 
   /** True while touching the boss can't hurt (grace, after a hit, sinking into or out of an opening). */
   isTouchSafe(): boolean {
-    return !this.canHarm() || this.invFrames > 0 || this.drained;
+    return !this.canHarm() || this.invFrames > 0 || this.drained || this.specialAttack !== null;
   }
 
   private contact(): void {
     if (!this.engaged || this.isDefeated) return;
-    for (const player of this.weakPoint.playersInside()) {
+    const weakInside = this.weakPoint.playersInside();
+    const bodyInside = this.body.playersInside();
+    for (const p of this.spared) {
+      if (!bodyInside.includes(p) && !weakInside.includes(p)) this.spared.delete(p);
+    }
+    for (const player of weakInside) {
       if (player.state === 'dead') continue;
       if (this.invFrames > 0) return;
       if (this.weakOpen && player.isAttacking()) {
         this.landHit(player);
         return;
       }
-      if (!this.weakOpen && !this.isTouchSafe()) player.hurt(this.weakPoint.globalPosition);
+      if (!this.weakOpen && !this.isTouchSafe() && !this.spared.has(player)) player.hurt(this.weakPoint.globalPosition);
     }
-    const inside = this.body.playersInside();
-    for (const p of [...this.spared]) if (!inside.includes(p)) this.spared.delete(p);
     if (this.isTouchSafe()) return;
-    for (const player of inside) {
+    for (const player of bodyInside) {
       if (player.state !== 'dead' && !this.spared.has(player)) player.hurt(this.bodyCenter());
     }
   }
@@ -638,6 +674,7 @@ export abstract class Boss extends Node2D {
     this.invFrames = Boss.HIT_INVINCIBLE_FRAMES;
     this.flashFrames = 36;
     this.visualAttack = null;
+    this.specialAttack = null;
     this.recoveryUntil = 0;
     this.telegraphNow = null;
     this.lockedTarget = null;
@@ -697,18 +734,27 @@ export abstract class Boss extends Node2D {
     const target = player ? player.globalPosition : new Vec2(this.centerX(), this.arena.floorY - 19);
     this.lockedTarget = plan.aimed ? target : null;
     this.telegraphNow = { plan, frames, left: frames, target };
+    const from = this.position;
+    const special = prepareSpecial(plan.id, this.arena, target, from);
+    this.specialAttack = special;
+    if (special) this.facing = this.position.x < this.centerX() ? 1 : -1;
     this.telegraphStarted.emit(plan.id, frames);
     Audio.playSfx('boss_telegraph');
     this.beginTelegraph(plan, target);
     for (let i = 0; i < frames; i++) {
       if (this.telegraphNow) this.telegraphNow.left = frames - i;
-      this.telegraphStep(plan, target, i, frames);
+      if (special) {
+        const t = Math.min(1, (i + 1) / (frames * .65));
+        this.position = from.lerp(special.castAt, t * t * (3 - 2 * t));
+      } else {
+        this.telegraphStep(plan, target, i, frames);
+      }
       yield;
     }
     this.telegraphNow = null;
     this.lockedTarget = null;
     this.attackStarted.emit(plan.id);
-    const script = this.animateAttack(plan, target);
+    const script = this.animateAttack(plan, target, special, from);
     if (plan.overlap) this.runBeside(script);
     else yield* script;
     yield* waitFrames(this.gapFrames(plan.gap ?? 12));

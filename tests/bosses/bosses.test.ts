@@ -12,7 +12,7 @@ import { Scenes } from '../../src/core/scenes';
 import { Gfx } from '../../src/runtime/gfx';
 import { Node, Node2D } from '../../src/runtime/node';
 import { tree } from '../../src/runtime/tree';
-import { Vec2 } from '../../src/runtime/vec2';
+import { Rect2, Vec2 } from '../../src/runtime/vec2';
 import { BoundsRect } from '../../src/levels/common/level_nodes';
 import { LevelRoot } from '../../src/levels/common/level_root';
 import { Checkpoint } from '../../src/levels/objects/checkpoint';
@@ -29,13 +29,14 @@ interface Case {
   scene: keyof typeof BOSS_ARENAS;
   zone: string;
   desperation: boolean;
+  specials: string[];
 }
 
 const CASES: Case[] = [
-  { scene: 'boss:rug_pull', zone: 'z1_retro_rush_hills', desperation: false },
-  { scene: 'boss:library_demon', zone: 'z2_wizard_academy', desperation: false },
-  { scene: 'boss:broccoli_head', zone: 'z3_capital_mansion', desperation: true },
-  { scene: 'boss:the_executive', zone: 'z4_neon_rush_remix', desperation: true },
+  { scene: 'boss:rug_pull', zone: 'z1_retro_rush_hills', desperation: false, specials: ['tassel_fan', 'loom_columns', 'fray_boomerang'] },
+  { scene: 'boss:library_demon', zone: 'z2_wizard_academy', desperation: false, specials: ['ink_seals', 'bookends', 'quill_fall'] },
+  { scene: 'boss:broccoli_head', zone: 'z3_capital_mansion', desperation: true, specials: ['rail_burst', 'wheelie', 'board_drop'] },
+  { scene: 'boss:the_executive', zone: 'z4_neon_rush_remix', desperation: true, specials: ['closing_bell', 'red_tape', 'stamp'] },
 ];
 
 /** 0.35 s at 60 Hz. */
@@ -192,6 +193,30 @@ describe.each(CASES)('$scene', (c) => {
       expect(p.attack - p.telegraph, `${p.id} at ${p.telegraph}`).toBeGreaterThanOrEqual(MIN_TELEGRAPH_FRAMES);
       expect(p.frames).toBeGreaterThanOrEqual(MIN_TELEGRAPH_FRAMES);
     }
+  });
+
+  it('uses every special and keeps its hazards inside the warned area', async () => {
+    const w = await open(c);
+    const warnings = new Map<string, Rect2[]>();
+    const seen = new Set<string>();
+    const outside: string[] = [];
+    w.boss.telegraphStarted.connect((id) => {
+      if (c.specials.includes(id)) warnings.set(id, w.boss.dangerZones());
+    });
+    const observer = w.root.addChild(new Node('ObserveBossSpecials'));
+    observer.processPriority = 200;
+    observer.physicsProcess = () => {
+      for (const hazard of w.boss.liveHazards()) {
+        if (!c.specials.includes(hazard.name)) continue;
+        seen.add(hazard.name);
+        const hit = hazard.rect();
+        const zones = warnings.get(hazard.name) ?? [];
+        if (!zones.some((zone) => zone.grow(.01).encloses(hit))) outside.push(hazard.name);
+      }
+    };
+    winFight(w);
+    expect([...seen].sort()).toEqual([...c.specials].sort());
+    expect(outside).toEqual([]);
   });
 
   it('locks an aimed attack on where Sproto was when the telegraph started', async () => {
@@ -356,6 +381,32 @@ describe.each(CASES)('$scene', (c) => {
 });
 
 describe('fairness', () => {
+  it('restores caster contact damage only after a player already touching it moves away', async () => {
+    const w = await open(CASES[1]!);
+    let specialStarted = false;
+    w.boss.attackStarted.connect((id) => {
+      if (id === 'ink_seals') specialStarted = true;
+    });
+    enterArena(w);
+    expect(landHit(w)).toBe(true);
+    const waitSafely = () => w.player.respawnAt(floorPoint(w, safeX(w)));
+    expect(waitFor(() => specialStarted && w.boss.liveHazards().some((h) => h.name === 'ink_seals'), 2000, waitSafely)).toBeGreaterThan(0);
+    expect(waitFor(() => w.boss.liveHazards().length === 0, 200, waitSafely)).toBeGreaterThan(0);
+    expect(w.boss.isTouchSafe()).toBe(true);
+    const before = w.hurts;
+    const touchWeakPoint = () => w.player.respawnAt(w.boss.weakRect()!.center);
+    expect(waitFor(() => !w.boss.isTouchSafe(), 50, touchWeakPoint)).toBeGreaterThan(0);
+    touchWeakPoint();
+    step(2);
+    expect(w.hurts).toBe(before);
+    waitSafely();
+    step(2);
+    touchWeakPoint();
+    step(2);
+    expect(w.hurts).toBe(before + 1);
+  });
+
+
   it('a scripted bot beats the Rug Pull without taking any damage (a human-viable route)', async () => {
     const w = await openArena(async () => buildRugPullArena());
     expect(GameState.tickets).toBe(0); // one touch would end the run

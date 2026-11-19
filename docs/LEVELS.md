@@ -262,6 +262,17 @@ are deliberately very difficult** (director):
 | **Broccoli Head (Z3)** | **8** | **1.1 s** | **3** | **0.5 s** | **×1.25** | **yes** | **1** |
 | **The Executive (Z4)** | **10** | **0.9 s** | **4** | **0.45 s** | **×1.3** | **yes** | **1** |
 
+Each boss also rotates three animated specials into its attack cycles.
+The telegraph traces moving hazards and outlines areas that will stay
+dangerous. Aimed specials choose their targets when the warning starts.
+
+| Boss | Specials |
+|---|---|
+| The Rug Pull | **Tassel Fan** drops three separated tassels. **Loom Columns** raises two staggered dust plumes. **Fray Boomerang** sends a roll along the floor that returns overhead. |
+| Library Demon | **Ink Seals** opens two pools on either side of the target. **Bookends** brings two sliding books inward and leaves the middle open. **Quill Fall** sends three staggered quills down diagonal paths. |
+| Broccoli Head | **Rail Burst** sends two low pulses inward. **Wheelie** arcs two spinning wheels across the air. **Board Drop** aims a board at the floor and sends it back up. |
+| The Executive | **Closing Bell** hits two marked columns in succession. **Red Tape** sends two ribbons across the air at different heights. **Stamp** drops a narrow stamp that briefly stays on the floor. |
+
 **Broccoli Head, very difficult:**
 - **Phase 1 (hits 1–4):** each cycle chains 3 attacks before the hair-fix
   pause (the weak point):

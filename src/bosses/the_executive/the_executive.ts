@@ -147,17 +147,21 @@ export class TheExecutive extends Boss {
     const dash: AttackPlan = { id: 'dash', telegraph: 1.6 };
     const slide: AttackPlan = { id: 'arrow_slide', telegraph: 3.5 };
     const storm: AttackPlan = { id: 'storm', aimed: true };
+    const bell: AttackPlan = { id: 'closing_bell', telegraph: 3 };
+    const tape: AttackPlan = { id: 'red_tape', telegraph: 2.4 };
+    const stamp: AttackPlan = { id: 'stamp', aimed: true, telegraph: 1.9 };
     const sets: AttackPlan[][] =
       this.phase === 1
         ? [
             [briefcase, crash, dash, double],
-            [crash, double, briefcase, dash],
-            [double, dash, crash, briefcase],
+            [stamp, double, briefcase, dash],
+            [double, tape, crash, briefcase],
+            [bell, dash, briefcase, double],
           ]
         : this.phase === 2
           ? [
               [slide, storm, crash, double],
-              [storm, slide, double, crash],
+              [tape, slide, double, bell],
             ]
           : [
               [{ ...crash, overlap: true, gap: 4 }, storm, slide, double],
@@ -550,7 +554,7 @@ export class TheExecutive extends Boss {
   }
 
   override dangerZones(): Rect2[] {
-    const out = [...this.caseZones, ...this.stormZones];
+    const out = [...super.dangerZones(), ...this.caseZones, ...this.stormZones];
     for (const l of new Set([...this.crashMarked, ...this.crashFalling])) out.push(this.laneRect(l));
     if (this.sinkZone) out.push(this.sinkZone);
     const t = this.currentTelegraph();
