@@ -149,7 +149,7 @@ held suspended until a gesture), `popin.mjs` (resource timing vs the moment a le
 - metaverse-hub re-vendor of hub-sdk (not done here, per the brief): drop `dist/hub-sdk.iife.js` from the vendored
   files and update `tools/qa/originality_allow.txt` line pins; re-check `loadoutFrom()` if the SDK adds a loadout
   to `InitResult`.
-- Check on a real iPhone / Safari that music and effects play (AAC path).
+- Check on a real iOS device and in desktop Safari that music and effects play (AAC path).
 - metaverse-hub: the hub's `fetch:games` downloads the `web-build` artifact, which is the production build and so
   has no `window.hpos`. Anything in the hub that drove `window.hpos` must use a `HPOS_TEST_BUILD=1` build.
 - metaverse-hub: §1.2.4 server-side replay verification of `hpos10i_act_time` submissions.
