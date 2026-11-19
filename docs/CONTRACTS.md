@@ -340,8 +340,11 @@ Zone ids: `test_zone`, `z1_retro_rush_hills`, `z2_wizard_academy`,
 ## Audio (`src/core/audio.ts`)
 
 `Audio.playSfx('name')`, `Audio.playMusic('name')`, `Audio.stopMusic()`.
-Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`. Missing = silent.
-Web Audio, unlocked by the first key press, click or tap.
+Files: `audio/sfx/<name>.ogg`, `audio/music/<name>.ogg`, each with an AAC twin
+(`<name>.m4a`, made by `audio/tools/make_m4a.sh`) for Safari and iOS, which cannot
+decode Ogg with Web Audio; the format is picked with `canPlayType`. Missing = silent.
+Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
+`menu_select` load at boot; the other effects load at the unlock gesture.
 
 - **SFX:** `jump`, `roll`, `spindash_charge`, `spindash_release`, `skid`,
   `ticket`, `ticket_loss`, `hurt`, `death`, `spring`, `booster`, `break_wall`,
