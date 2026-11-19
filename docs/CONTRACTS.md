@@ -375,7 +375,8 @@ Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
 
 `HubClient` on the vendored `@metaverse/hub-sdk` (`vendor/hub-sdk`):
 - `init()` at boot redeems `#t=` (or the tab's saved session) and reads
-  Relics, Ranked and the loadout; without a server key or network the game
+  Relics, Ranked and the loadout. Relic ids SDK 0.9.0 does not type
+  (`otherRelics`) pass through into `HubClient.relics`; without a server key or network the game
   plays standalone (`reach = 'offline'`).
 - Every fresh act start mints a run id (UUIDv7, saved first); every clear
   banks the act's tickets with `earnTickets(n, 'level_end', runId)`, so a
@@ -384,7 +385,7 @@ Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
 - One `level_end` earn carries at most **20** Tickets (`EARN_MAX_PER_ACT`, the
   hub's `event_rule.max_amount`): the server refuses more with
   `amount_over_rule` and stores nothing, so an over-cap earn saved by an older
-  build is resent capped with the same key. The SDK (0.8.0) drops a queued
+  build is resent capped with the same key. The SDK (since 0.8.0) drops a queued
   write the server refused for good while it replays its outbox in init(), so
   one refused write can't keep every later launch offline.
 - `npm run e2e:hub` checks the web build against a running hub server (the hub
@@ -401,10 +402,16 @@ Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
   owner's progress; `lastClear` holds the clear the tally is showing.
 - Every act clear reports `hpos10i.level_complete {zone, act, time}` with a
   key unique to that attempt (the server grants the HPOS10I Core and pets).
+  Its answer (SDK 0.9.0) adds a granted Relic (`granted`, or `grantedOther`
+  for an untyped id) to `relics` and the pets (`granted_items`) to
+  `HubClient.grantedItems`.
 - Only Zone 1 Act 1 posts to `hpos10i_act_time`, only from a clean run, and it posts that run's own time (never the saved best) (the server keeps one time
   per player for this game and ignores unranked runs).
 - The Ticket→Verse exchange is not offered: the server refuses it for this game.
-- `exitToHub()`: flushes the outbox, returns to `<hubUrl>#from=hpos10i`.
+- `exitToHub()`: waits at most `EXIT_FLUSH_MS` for the cloud save, then sends
+  what is still unsynced with `store.flushKeepalive()` (SDK 0.9.0,
+  feature-detected; the request outlives the page) and navigates once to
+  `<hubUrl>#from=hpos10i`.
 - With a session, `init()` reads the Ticket balance once (`getTicketBalance`);
   earn answers update it after that. `ticketText()` is the balance, or `--`
   with no session. Read-only: nothing in the game spends or exchanges Tickets.
@@ -412,7 +419,7 @@ Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
   (Golden, Nobu, Tidebreaker), the cape, and their effects (off in Ranked),
   plus `extras_allowed` for the extra moves and item boxes.
 - Progress lives in the hub SDK's progress store (`src/hub/progress.ts`,
-  SDK 0.8.0 `createProgressStore`), one copy per owner:
+  SDK `createProgressStore`, since 0.8.0), one copy per owner:
   - **device**: play outside a hub session, `hpos10i/progress-v3.json`;
   - **pending**: a page load that starts or resumes a hub visit
     (`hubVisitStarting`) holds progress in memory until `init` answers;

@@ -800,3 +800,50 @@ describe('progress save (v2: emeralds, ranks)', () => {
     expect(progressData()).toMatchObject({ cleared: [`${ZONE_A}:1`, `${ZONE_A}:2`], emeralds: [Emeralds.key(ZONE_A, 1), Emeralds.key(ZONE_A, 2)] });
   });
 });
+
+describe('hub SDK 0.9.0 answers', () => {
+  it('passes Relic ids this SDK does not type (otherRelics) through to relics', async () => {
+    HubClient.shutdown();
+    const sdk = new FakeSdk();
+    const done = HubClient.init({ sdk, hubUrl: '/hub/' });
+    sdk.of('init')[0]!.resolve({ effects: {}, ticketsCapLeft: 40, relics: ['genesis_shard'], otherRelics: ['future_relic', 'genesis_shard'] });
+    await done;
+    await settle();
+    expect(HubClient.relics).toEqual(['genesis_shard', 'future_relic']);
+  });
+
+  it('takes a level_complete answer: the Relic granted (typed or not) and its granted_items', async () => {
+    const sdk = await boot();
+    playAttempt(ZONE_A, 1, 0);
+    GameState.completeLevel();
+    await settle();
+    const before = HubClient.revision;
+    await reply(sdk.of('reportEvent')[0]!, true, { granted: 'genesis_shard', granted_items: ['pet_a', '', 7, 'pet_a'] });
+    expect(HubClient.relics).toEqual(['genesis_shard']);
+    expect(HubClient.grantedItems).toEqual(['pet_a']);
+    expect(HubClient.revision).toBeGreaterThan(before);
+    playAttempt(ZONE_A, 2, 0);
+    GameState.completeLevel();
+    await reply(sdk.of('reportEvent')[1]!, true, { grantedOther: 'future_relic', granted_items: ['pet_b'] });
+    expect(HubClient.relics).toEqual(['genesis_shard', 'future_relic']);
+    expect(HubClient.grantedItems).toEqual(['pet_a', 'pet_b']);
+    // An older server's empty answer changes nothing.
+    playAttempt(ZONE_B, 1, 0);
+    GameState.completeLevel();
+    await settle();
+    const rev = HubClient.revision;
+    await reply(sdk.of('reportEvent')[2]!, true, {});
+    expect(HubClient.revision).toBe(rev);
+  });
+
+  it('drops an answer that arrives after the SDK changed', async () => {
+    const sdk = await boot();
+    playAttempt(ZONE_A, 1, 0);
+    GameState.completeLevel();
+    const call = sdk.of('reportEvent')[0]!;
+    await boot();
+    await reply(call, true, { granted: 'genesis_shard', granted_items: ['pet_a'] });
+    expect(HubClient.relics).toEqual([]);
+    expect(HubClient.grantedItems).toEqual([]);
+  });
+});
