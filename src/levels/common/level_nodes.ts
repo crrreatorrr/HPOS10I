@@ -79,17 +79,16 @@ export class TileLayer extends Node2D implements Configurable {
   }
 
   /**
-   * Builds collision from cells and the tileset (call before entering the tree). The shapes
-   * are made once per cells array and tileset and shared after that (a respawn rebuilds the
-   * level from the same data): nothing changes a tile shape after it is made.
+   * Builds collision from cells and the tileset (call before entering the tree). The last
+   * layer's shapes are shared when the same cells and tileset come again (a respawn rebuilds
+   * the level from the same data): nothing changes a tile shape after it is made.
    */
   build(tileset: TilesetData, cells: [number, number, number, number][]): void {
     this.tileset = tileset;
     this.cells = cells;
-    let byTileset = tileGeometryCache.get(cells);
-    if (!byTileset) tileGeometryCache.set(cells, (byTileset = new WeakMap()));
-    let geometry = byTileset.get(tileset);
-    if (!geometry) byTileset.set(tileset, (geometry = tileGeometry(tileset, cells)));
+    const last = lastTileGeometry;
+    const geometry = last && last.cells === cells && last.tileset === tileset ? last.geometry : tileGeometry(tileset, cells);
+    lastTileGeometry = { cells, tileset, geometry };
     this.solid.clearShapes();
     for (const s of geometry.solid) this.solid.addShape(s);
     this.topOnly.clearShapes();
@@ -193,7 +192,14 @@ interface TileGeometry {
   bounds: Rect2;
 }
 
-const tileGeometryCache = new WeakMap<object, WeakMap<TilesetData, TileGeometry>>();
+/** The last tile layer's geometry (one entry: a respawn reuses it, other levels never keep theirs alive). */
+let lastTileGeometry: { cells: object; tileset: TilesetData; geometry: TileGeometry } | null = null;
+
+/** Drops the tile shapes and chunk pictures kept for a respawn (when a menu takes over). */
+export function releaseTileCaches(): void {
+  lastTileGeometry = null;
+  lastChunkCache = null;
+}
 
 /** One number per tile coordinate (exact for any coordinate within +-524288 tiles). */
 function tileKey(x: number, y: number): number {

@@ -80,4 +80,22 @@ describe('merge cache across a respawn', () => {
     expect(after).not.toBe(before);
     expect(JSON.stringify(world.bodyEdges(solid))).toBe(before);
   });
+
+  it('merges again when a shape is moved in place', () => {
+    const world = new PhysicsWorld();
+    const l = layer('z1_retro_rush_hills/act1');
+    const solid = bodies(l)[0]!;
+    world._register(solid);
+    const before = JSON.stringify(world.bodyEdges(solid));
+    const open = solid.shapes.find((s) => !s.edgeless && s.kind === 'polygon')!;
+    if (open.kind !== 'polygon') throw new Error('polygon expected');
+    const saved = open.points;
+    open.points = saved.map((p) => new Vec2(p.x, p.y - 4));
+    solid.shapesChanged();
+    const moved = JSON.stringify(world.bodyEdges(solid));
+    open.points = saved;
+    solid.shapesChanged();
+    expect(moved).not.toBe(before);
+    expect(JSON.stringify(world.bodyEdges(solid))).toBe(before);
+  });
 });

@@ -13,6 +13,7 @@ import { HubClient } from './hub/hub_client';
 import { RelicLoadout } from './hub/relic_loadout';
 import { migrateGodotSave } from './hub/godot_migration';
 import { installBackdrop } from './levels/common/backdrop';
+import { releaseTileCaches } from './levels/common/level_nodes';
 import { registerEnemies } from './levels/registry_enemies';
 import { registerObjects } from './levels/registry_objects';
 import { registerLevelScenes } from './levels/scenes';
@@ -181,6 +182,14 @@ async function boot(): Promise<void> {
   });
   FullScreen.use(document as unknown as Parameters<typeof FullScreen.use>[0]);
   refit();
+
+  // Respawns reuse the last level's tile geometry, merged edges and chunk pictures; a menu
+  // means no respawn is coming, so they go (tens of MB for the big acts).
+  SceneRouter.sceneChanged.connect(() => {
+    if (SceneRouter.inGameplay()) return;
+    releaseTileCaches();
+    tree.physics.releaseMergeCache();
+  });
 
   // The hub: redeems the portal ticket from #t= first thing. Never blocks the menus; a stage
   // start during a pending hub visit waits for it briefly (capped), so Ranked is known first.

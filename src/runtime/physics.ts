@@ -219,11 +219,13 @@ interface BodyRecord {
   isStatic: boolean;
 }
 
-/** What a merge group's result was made from: per body, its shapes, their flags and its transform. */
+/** What a merge group's result was made from: per body, its shapes, their flags and geometry, and its transform. */
 interface MergeInput {
   layer: number;
   shapes: Shape[];
   flags: number[];
+  /** A hash of each shape's geometry, so a shape changed in place never reuses the old merge. */
+  geometry: number[];
   transform: Transform2D;
 }
 
@@ -239,6 +241,30 @@ const DETACHED = null as unknown as CollisionObject2D;
 
 function shapeFlags(shape: Shape): number {
   return (shape.disabled ? 1 : 0) | (shape.edgeless ? 2 : 0);
+}
+
+const hashF64 = new Float64Array(1);
+const hashU32 = new Uint32Array(hashF64.buffer);
+
+function hashMix(h: number, v: number): number {
+  hashF64[0] = v;
+  h = Math.imul(h ^ hashU32[0]!, 0x01000193);
+  return Math.imul(h ^ hashU32[1]!, 0x01000193);
+}
+
+/** FNV-style hash of a shape's exact numbers (points, size, offset, radius). */
+function shapeGeometryHash(shape: Shape): number {
+  let h = 0x811c9dc5;
+  switch (shape.kind) {
+    case 'polygon':
+      h = hashMix(h, shape.points.length);
+      for (const p of shape.points) h = hashMix(hashMix(h, p.x), p.y);
+      return h;
+    case 'rect':
+      return hashMix(hashMix(hashMix(hashMix(hashMix(h, 1), shape.size.x), shape.size.y), shape.offset.x), shape.offset.y);
+    case 'circle':
+      return hashMix(hashMix(hashMix(hashMix(h, 2), shape.radius), shape.offset.x), shape.offset.y);
+  }
 }
 
 const CELL = 64;
@@ -427,6 +453,11 @@ export class PhysicsWorld {
     rec.cells = [...cells];
   }
 
+  /** Drops the merges kept for a respawn (when a menu takes over). */
+  releaseMergeCache(): void {
+    this.mergeCache.clear();
+  }
+
   /** Rebuilds merged edges for tile-map style bodies (once, before the next query). */
   private flushMerges(): void {
     if (this.mergeDirty.size === 0) return;
@@ -444,6 +475,7 @@ export class PhysicsWorld {
         layer: rec.body.collisionLayer,
         shapes: rec.body.shapes.slice(),
         flags: rec.body.shapes.map(shapeFlags),
+        geometry: rec.body.shapes.map(shapeGeometryHash),
         transform: rec.transform,
       }));
       const cached = this.mergeCache.get(layer);
@@ -880,7 +912,9 @@ function sameMergeInputs(a: MergeInput[], b: MergeInput[]): boolean {
     const p = a[i]!;
     const q = b[i]!;
     if (p.layer !== q.layer || p.shapes.length !== q.shapes.length || !sameTransform(p.transform, q.transform)) return false;
-    for (let j = 0; j < p.shapes.length; j++) if (p.shapes[j] !== q.shapes[j] || p.flags[j] !== q.flags[j]) return false;
+    for (let j = 0; j < p.shapes.length; j++) {
+      if (p.shapes[j] !== q.shapes[j] || p.flags[j] !== q.flags[j] || p.geometry[j] !== q.geometry[j]) return false;
+    }
   }
   return true;
 }
