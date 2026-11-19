@@ -223,9 +223,14 @@ for (const id of ids) {
 }
 
 // 4. Audio formats: Ogg where the browser plays Vorbis; AAC (.m4a) where it cannot (Safari, iOS),
-// simulated here by a canPlayType that refuses Ogg. Only the menu effects load before the first
-// key press; the rest load at it.
-for (const [label, refuseOgg, want, avoid] of [['ogg', false, '.ogg', '.m4a'], ['aac (Safari path)', true, '.m4a', '.ogg']]) {
+// simulated here by a canPlayType that refuses Ogg; and a browser that claims Ogg but cannot decode
+// it, which must try one Ogg file only. Only the menu effects load before the first key press; the
+// rest load at it.
+for (const [label, refuseOgg, want, avoid, decodeRefusesOgg] of [
+  ['ogg', false, '.ogg', '.m4a', false],
+  ['aac (Safari path)', true, '.m4a', '.ogg', false],
+  ['aac after an Ogg decode failure', false, '.m4a', '.ogg', true],
+]) {
   const context = await browser.newContext({ viewport: { width: 848, height: 480 } });
   // Headless Chromium lets audio start without a gesture; a real browser keeps the context
   // suspended until the first key press, click or tap. Do the same here.
@@ -242,6 +247,16 @@ for (const [label, refuseOgg, want, avoid] of [['ogg', false, '.ogg', '.m4a'], [
       }
     };
   });
+  if (decodeRefusesOgg) {
+    await context.addInitScript(() => {
+      const real = BaseAudioContext.prototype.decodeAudioData;
+      BaseAudioContext.prototype.decodeAudioData = function (data, ...rest) {
+        const head = new Uint8Array(data, 0, 4);
+        if (String.fromCharCode(...head) === 'OggS') return Promise.reject(new DOMException('no vorbis', 'EncodingError'));
+        return real.call(this, data, ...rest);
+      };
+    });
+  }
   if (refuseOgg) {
     await context.addInitScript(() => {
       const real = HTMLMediaElement.prototype.canPlayType;
@@ -264,9 +279,11 @@ for (const [label, refuseOgg, want, avoid] of [['ogg', false, '.ogg', '.m4a'], [
     await page.keyboard.press('ArrowDown');
     await frames(page, 90);
     const wrong = audio.filter((p) => p.endsWith(avoid));
-    if (wrong.length) fail(`audio ${label}: fetched ${wrong.length} ${avoid} file(s)`);
-    else if (beforeGesture > 3) fail(`audio ${label}: ${beforeGesture} audio requests before the first key press`);
-    else if (!(audio.length >= 28 && audio.every((p) => p.endsWith(want)))) fail(`audio ${label}: only ${audio.length} ${want} file(s) after the first key press`);
+    const allowed = decodeRefusesOgg ? 1 : 0; // the one file that finds out
+    const wanted = audio.filter((p) => p.endsWith(want));
+    if (wrong.length > allowed) fail(`audio ${label}: fetched ${wrong.length} ${avoid} file(s)`);
+    else if (beforeGesture > 3 + allowed) fail(`audio ${label}: ${beforeGesture} audio requests before the first key press`);
+    else if (!(wanted.length >= 28)) fail(`audio ${label}: only ${wanted.length} ${want} file(s) after the first key press`);
     else console.log(`OK    audio ${label}: ${beforeGesture} file(s) before the first key press, ${audio.length} after`);
   } catch (e) {
     fail(`audio ${label}: ${String(e).split('\n')[0]}`);

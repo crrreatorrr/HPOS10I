@@ -100,6 +100,10 @@ class AudioManager {
   private ducked = false;
   private muted = false;
   private format: AudioFormat = 'ogg';
+  /** True once a file decoded: the format is settled. */
+  private formatKnown = false;
+  /** The first load: the others wait for its verdict on the format before they fetch. */
+  private probe: Promise<unknown> | null = null;
   /** Effects heard this session (tests read it; the game never does). */
   readonly history: string[] = [];
 
@@ -204,32 +208,55 @@ class AudioManager {
     if (known) return known;
     const table = dir === 'sfx' ? SFX_URLS : MUSIC_URLS;
     const ctx = this.ctx;
-    const fetchDecode = async (format: AudioFormat): Promise<AudioBuffer | null> => {
+    /** A decoded buffer, or null; decodeFailed only when the file arrived and would not decode. */
+    const attempt = async (format: AudioFormat): Promise<{ buf: AudioBuffer | null; decodeFailed: boolean; missing?: boolean }> => {
       const url = urlFor(table, dir, name, format);
-      if (!url || !ctx) return null;
+      if (!url || !ctx) return { buf: null, decodeFailed: false, missing: !url };
+      let data: ArrayBuffer;
       try {
         const res = await fetch(url);
-        if (!res.ok) return null;
-        const data = await res.arrayBuffer();
-        return await ctx.decodeAudioData(data);
+        if (!res.ok) return { buf: null, decodeFailed: false };
+        data = await res.arrayBuffer();
       } catch {
-        return null;
+        return { buf: null, decodeFailed: false };
+      }
+      try {
+        return { buf: await ctx.decodeAudioData(data), decodeFailed: false };
+      } catch {
+        return { buf: null, decodeFailed: true };
       }
     };
-    const p = (async () => {
+    const run = async (): Promise<AudioBuffer | null> => {
       const first = this.format;
-      const buf = await fetchDecode(first);
-      if (buf) return buf;
+      const tried = await attempt(first);
+      if (tried.buf) {
+        this.formatKnown = true;
+        return tried.buf;
+      }
+      // A file shipped in one format only: use that one, the session's format stays.
+      if (tried.missing) return (await attempt(first === 'ogg' ? 'm4a' : 'ogg')).buf;
+      // A network error says nothing about the format.
+      if (!tried.decodeFailed) return null;
       // canPlayType can promise a format decodeAudioData then refuses: try the other one,
       // and keep it for the rest of the session when it works.
       const other: AudioFormat = first === 'ogg' ? 'm4a' : 'ogg';
-      const fallback = await fetchDecode(other);
-      if (fallback && this.format === first) this.format = other;
-      return fallback;
+      const fallback = await attempt(other);
+      if (fallback.buf) {
+        if (this.format === first) this.format = other;
+        this.formatKnown = true;
+      }
+      return fallback.buf;
+    };
+    const isProbe = !this.formatKnown && !this.probe;
+    const wait = !isProbe && !this.formatKnown ? this.probe : null;
+    const p = (async () => {
+      if (wait) await wait;
+      return run();
     })().then((buf) => {
       this.buffers.set(key, buf);
       return buf;
     });
+    if (isProbe) this.probe = p;
     this.loading.set(key, p);
     return p;
   }
