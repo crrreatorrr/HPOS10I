@@ -227,6 +227,21 @@ for (const id of ids) {
 // key press; the rest load at it.
 for (const [label, refuseOgg, want, avoid] of [['ogg', false, '.ogg', '.m4a'], ['aac (Safari path)', true, '.m4a', '.ogg']]) {
   const context = await browser.newContext({ viewport: { width: 848, height: 480 } });
+  // Headless Chromium lets audio start without a gesture; a real browser keeps the context
+  // suspended until the first key press, click or tap. Do the same here.
+  await context.addInitScript(() => {
+    const Real = window.AudioContext;
+    window.AudioContext = class extends Real {
+      #gesture = false;
+      get state() {
+        return this.#gesture ? super.state : 'suspended';
+      }
+      resume() {
+        if (navigator.userActivation?.hasBeenActive ?? true) this.#gesture = true;
+        return super.resume();
+      }
+    };
+  });
   if (refuseOgg) {
     await context.addInitScript(() => {
       const real = HTMLMediaElement.prototype.canPlayType;
