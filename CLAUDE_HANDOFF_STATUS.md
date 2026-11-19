@@ -128,6 +128,7 @@ Not changed:
 | `npm run build && node tools/qa/web_check.mjs build/web` | pass | pass | pass |
 | `npm run smoke` | pass: 19 scenes, production-hooks check, play path, feedback, Ogg and AAC audio paths | pass | pass (+ Ogg-decode-failure case) |
 | `npm run test:bots` | pass (11 tests) | pass (11 tests: every act, item boxes on and off, timeline replays) | pass (11) |
+| `tools/lead/gate.sh HEAD` (clean checkout) | — | — | pass on be15367: 886 passed / 1 skipped, bots, build, web_check, smoke 19 scenes, originality 0 hits (the first run, on 45ebca4, failed the originality scan on a device brand in this file; fixed in b288bdb) |
 | `npm run e2e:hub` | not run: needs the metaverse-hub Nakama stack (docker) | not run | not run |
 | Real Safari / iOS audio | not run: no WebKit in this container; simulated in smoke | — | — |
 
