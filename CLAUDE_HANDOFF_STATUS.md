@@ -74,8 +74,19 @@ No pull request opened, nothing pushed to `main`, no deploys.
 ### Phase 2 (multiplayer and online)
 - Nothing for this repo: the handoff has no multiplayer items for HPOS10I, and the brief lists none.
 
-### Phase 3 (§3.3 repo hygiene)
-- Pending.
+### Phase 3 (§3.3 repo hygiene) — proposals only, nothing deleted
+None of these ship: `web_check` already fails a build containing `docs/`, `tools/`, `qa/` or `tests/` files, and
+the build is 161 files of runtime assets. They only cost clone size. For the owner to decide:
+- `docs/art/higgsfield-preview.png` (684,103 B) — referenced by nothing in the tree (added in a138471 "Refresh
+  HPOS10I art with Higgsfield Unlimited"). **Proposal: delete** or move to the art archive outside git.
+- `tools/art/sources/emerald_source.webp` (387,558 B) — the director-supplied source of the emerald icon, cited as
+  provenance in `prompts.md` row 3. **Proposal: keep** (it is the originality record for that asset).
+- `qa/reports/evidence/**` (1,534,400 B for all of `qa/`, ~25 PNGs) — linked from 10 QA reports, which
+  `qa/README.md` keeps as history. **Proposal: keep**, or move to a release asset if clone size matters.
+- `vendor/hub-sdk/dist/hub-sdk.iife.js` (~237 KB) — not bundled; drop it in metaverse-hub's vendor script at the
+  next re-vendor and update `tools/qa/originality_allow.txt` then.
+- GitHub repo description still says "Godot 4" — **not changed**: it is a live repository setting. The owner can
+  change it in the repo's settings (it is pure TypeScript + Canvas 2D now).
 
 ## Checks
 
