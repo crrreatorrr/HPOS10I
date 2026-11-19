@@ -3,7 +3,7 @@
 // converts it to MP4 and a small GIF for review. The game steps its fixed
 // 60 Hz clock from the browser's frames, so a timeline replays the same way.
 //
-//   npm run build
+//   npm run build:test   (a build with the test hooks, in build/web-test)
 //   node tools/lead/record_clip.mjs <name> <seconds> "<url query>" [timeline.json]
 // Example:
 //   node tools/lead/record_clip.mjs z1_run 20 "zone=z1_retro_rush_hills&mute" tests/levels/inputs/z1_act1_run.json
@@ -23,10 +23,10 @@ if (!name || !seconds) {
 }
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
-const dir = 'build/web';
+const dir = 'build/web-test';
 const out = 'build/clips';
 mkdirSync(out, { recursive: true });
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.ogg': 'audio/ogg', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.svg': 'image/svg+xml' };
 const server = createServer((req, res) => {
   let p = new URL(req.url ?? '/', 'http://x').pathname;
   if (p.endsWith('/')) p += 'index.html';

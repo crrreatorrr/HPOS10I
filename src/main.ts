@@ -184,13 +184,14 @@ async function boot(): Promise<void> {
   void HubClient.init();
 
   // First scene.
-  const target = Dev.takeBootTarget();
+  // A dev target (?scene=, ?zone=) or ?dev only with the test hooks; production always opens the title.
+  const target: { scene?: string; zone?: string; stage?: number } = __HPOS_TEST_HOOKS__ ? Dev.takeBootTarget() : {};
   if (target.scene && Scenes.exists(target.scene)) SceneRouter.openScene(target.scene);
   else if (target.zone) SceneRouter.startZone(target.zone, target.stage ?? 1);
-  else if (!Dev.args.dev && Scenes.exists(TITLE_SCENE)) SceneRouter.goTitle();
+  else if (!(__HPOS_TEST_HOOKS__ && Dev.args.dev) && Scenes.exists(TITLE_SCENE)) SceneRouter.goTitle();
   else SceneRouter.changeTo(MAIN_SCENE);
 
-  if (typeof Dev.args.inputs === 'string') await playTimeline(Dev.args.inputs);
+  if (__HPOS_TEST_HOOKS__ && typeof Dev.args.inputs === 'string') await playTimeline(Dev.args.inputs);
 
   document.getElementById('boot')?.classList.add('hidden');
   tree.playbackRate = () => {
@@ -201,7 +202,9 @@ async function boot(): Promise<void> {
   };
   tree.start(canvas);
   canvas.focus();
-  exposeDebugApi();
+  // Tests and the dev server only: compiled out of production builds, where it would let
+  // anyone forge run times and Tickets from the console.
+  if (__HPOS_TEST_HOOKS__) exposeDebugApi();
 }
 
 async function playTimeline(name: string): Promise<void> {
@@ -221,9 +224,10 @@ async function playTimeline(name: string): Promise<void> {
   }
 }
 
-/** A small API for bots and smoke tests (window.hpos). */
+/** A small API for bots and smoke tests (window.hpos). Only with __HPOS_TEST_HOOKS__. */
 function exposeDebugApi(): void {
   (window as unknown as { hpos: unknown }).hpos = {
+    hooks: 'HPOS_TEST_HOOKS_ON',
     tree,
     router: SceneRouter,
     state: GameState,

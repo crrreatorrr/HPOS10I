@@ -11,6 +11,7 @@ export default defineConfig({
     __HUB_URL__: JSON.stringify('/hub/'),
     __NAKAMA_SERVER_KEY__: JSON.stringify(''),
     __BUILD_ID__: JSON.stringify('test'),
+    __HPOS_TEST_HOOKS__: JSON.stringify(true),
   },
   test: {
     include: ['tests/**/*.test.ts'],
