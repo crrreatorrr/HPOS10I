@@ -384,9 +384,9 @@ Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
 - One `level_end` earn carries at most **20** Tickets (`EARN_MAX_PER_ACT`, the
   hub's `event_rule.max_amount`): the server refuses more with
   `amount_over_rule` and stores nothing, so an over-cap earn saved by an older
-  build is resent capped with the same key. Before the SDK starts, queued earns
-  that can never be delivered are cleared from its outbox (`outbox_repair.ts`),
-  so one refused write can't keep every later launch offline.
+  build is resent capped with the same key. The SDK (0.8.0) drops a queued
+  write the server refused for good while it replays its outbox in init(), so
+  one refused write can't keep every later launch offline.
 - `npm run e2e:hub` checks the web build against a running hub server (the hub
   repo's `server/docker-compose.yml`): ticket redeem, earn once per attempt,
   reloads, the Relic, the board, outbox recovery and Exit to Hub.

@@ -171,19 +171,3 @@ describe('the per-act earn maximum', () => {
     expect(HubClient.ticketBalance).toBe(20);
   });
 });
-
-describe('outbox repair', () => {
-  it('marks over-cap and already-settled earns undeliverable, nothing else', async () => {
-    const { isUndeliverable } = await import('../../src/hub/outbox_repair');
-    Storage.use(memoryStore());
-    const save = HubClient.save;
-    save.loadAll();
-    expect(isUndeliverable({ key: 'a', rpc: 'tickets.earn', gameId: 'hpos10i', body: { amount: 137 } }, save)).toBe(true);
-    expect(isUndeliverable({ key: 'b', rpc: 'tickets.earn', gameId: 'hpos10i', body: { amount: 12 } }, save)).toBe(false);
-    expect(isUndeliverable({ key: 'c', rpc: 'session.event', gameId: 'hpos10i', body: {} }, save)).toBe(false);
-    expect(isUndeliverable({ key: 'd', rpc: 'tickets.earn', gameId: 'nobu', body: { amount: 500 } }, save)).toBe(false);
-    save.commitEarn('e', 12);
-    save.ackEarn('e');
-    expect(isUndeliverable({ key: 'e', rpc: 'tickets.earn', gameId: 'hpos10i', body: { amount: 12 } }, save)).toBe(true);
-  });
-});

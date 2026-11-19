@@ -35,7 +35,6 @@ import { betterRank, rankFor, type Rank } from '../core/rank';
 import { SceneRouter } from '../core/scene_router';
 import { Signal } from '../runtime/signal';
 import { HubSave } from './hub_save';
-import { repairOutbox } from './outbox_repair';
 import { pageServerKey } from './server_key';
 
 export const GAME_ID: GameId = 'hpos10i';
@@ -107,7 +106,6 @@ class HubClientImpl {
   balanceKnown = false;
   ticketsCapLeft = 0;
   earnCapped = false;
-  effects: Record<string, unknown> = {};
   relics: string[] = [];
   ranked = false;
   serverLoadout: Record<string, unknown> = {};
@@ -148,9 +146,8 @@ class HubClientImpl {
     this.wire();
     let sdk = opts.sdk ?? null;
     if (!sdk && typeof window !== 'undefined') {
-      // Before the SDK replays its outbox: drop queued earns that can never be delivered.
-      this.reach = 'pending';
-      await repairOutbox(this.save);
+      // SDK 0.8.0 replays its outbox inside init() and drops writes the server refused for
+      // good itself, so one undeliverable queued earn can no longer keep a launch offline.
       try {
         sdk = createHubSdk({ serverUrl: '', serverKey: opts.serverKey ?? pageServerKey(), hubUrl: this.hubUrl });
       } catch (err) {
@@ -381,7 +378,6 @@ class HubClientImpl {
       return;
     }
     this.reach = 'ready';
-    this.effects = payload.effects && typeof payload.effects === 'object' ? (payload.effects as Payload) : {};
     this.relics = stringList(payload.relics);
     this.ranked = payload.ranked === true;
     this.serverLoadout = loadoutFrom(payload);
@@ -572,11 +568,18 @@ function stringList(value: unknown): string[] {
   return out;
 }
 
-function loadoutFrom(payload: Payload): Record<string, unknown> {
+/**
+ * The server's slot choice (body, back), when init carries one. SDK 0.8.0's init answers
+ * `items` as the owned item ids (string[]) and has no loadout yet, so this is empty there and
+ * the slots stay a local choice. A top-level `loadout` object is read when a server sends one;
+ * `items.loadout` only from the older object-shaped `items`, never off the item list.
+ */
+export function loadoutFrom(payload: Payload): Record<string, unknown> {
+  const plain = (v: unknown): v is Payload => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (plain(payload.loadout)) return payload.loadout;
   const items = payload.items;
-  if (!items || typeof items !== 'object') return {};
-  const loadout = (items as Payload).loadout;
-  return loadout && typeof loadout === 'object' && !Array.isArray(loadout) ? (loadout as Payload) : {};
+  if (plain(items) && plain(items.loadout)) return items.loadout;
+  return {};
 }
 
 export const HubClient = new HubClientImpl();
