@@ -12,10 +12,15 @@
 //   fight is never the best Ticket source.
 // - Every act clear is reported as hpos10i.level_complete {zone, act}: the
 //   server grants the HPOS10I Core for Zone 1 Act 1 and pets for later acts.
+//   The answer (SDK 0.9.0) names a Relic it granted (`granted`, or `grantedOther`
+//   for an id this SDK does not type) and the pets (`granted_items`): the Relic
+//   joins `relics` at once, the pets are kept in `grantedItems`.
 // - The act-time board keeps one time per player, so only Zone 1 Act 1 posts
 //   to it (a like-for-like time trial; the server ignores unranked runs), and
 //   only from a clean run. Times are the attempt clock (GameState.attemptTime).
-// - Exit to Hub flushes the SDK outbox and returns to <hubUrl>#from=hpos10i.
+// - Exit to Hub waits briefly for the cloud save, sends what is still unsynced as a
+//   keepalive save (SDK 0.9.0, so it outlives the page) and returns to
+//   <hubUrl>#from=hpos10i.
 // - With a session, the Ticket balance is read once after init
 //   (getTicketBalance) and then follows earn answers. ticketText() is what
 //   the hub chrome shows: the balance, or '--' with no session.
@@ -115,7 +120,10 @@ class HubClientImpl {
   balanceKnown = false;
   ticketsCapLeft = 0;
   earnCapped = false;
+  /** Relic ids from init and event grants, unknown ids included (SDK 0.9.0 `otherRelics`). */
   relics: string[] = [];
+  /** Pets and other items event answers granted this page load (`granted_items`), newest last. */
+  grantedItems: string[] = [];
   ranked = false;
   serverLoadout: Record<string, unknown> = {};
   /** Bumped on every state change (RelicLoadout caches on it). */
@@ -211,6 +219,7 @@ class HubClientImpl {
     this.exitRetry = null;
     this.playerId = null;
     this.relics = [];
+    this.grantedItems = [];
     this.ranked = false;
     this.serverLoadout = {};
     this.ticketBalance = 0;
@@ -277,7 +286,8 @@ class HubClientImpl {
 
   /**
    * Back to the hub. Waits for the cloud save to flush (at most EXIT_FLUSH_MS: an account's
-   * unsynced progress is also pushed on its next attach), then navigates once: the SDK's exit
+   * unsynced progress is also pushed on its next attach), sends whatever is still unsynced as a
+   * keepalive save (it outlives the page; a no-op once the flush landed), then navigates once: the SDK's exit
    * when a session is live (it closes the session and navigates itself), else a plain
    * navigation. Navigating twice would abort the save still in flight, so a second press while
    * leaving joins the first. The game stands still meanwhile (the player chose to leave).
@@ -308,6 +318,7 @@ class HubClientImpl {
       new Promise<void>((resolve) => (timer = setTimeout(resolve, EXIT_FLUSH_MS))),
     ]);
     if (timer) clearTimeout(timer);
+    this.save.flushKeepalive();
     const sdk = this.sdk;
     if (sdk && this.hasLiveSession(sdk)) {
       try {
@@ -430,7 +441,8 @@ class HubClientImpl {
       return;
     }
     this.reach = 'ready';
-    this.relics = stringList(payload.relics);
+    // 0.9.0 keeps Relic ids it does not type in `otherRelics`; they pass through unchanged.
+    this.relics = stringList([...listOf(payload.relics), ...listOf(payload.otherRelics)]);
     this.ranked = payload.ranked === true;
     this.serverLoadout = loadoutFrom(payload);
     this.ticketsCapLeft = Number(payload.ticketsCapLeft ?? 0);
@@ -528,7 +540,11 @@ class HubClientImpl {
       // attempts that clear the same act in the same time are two reports.
       if (!this.save.runMatches(zone, act)) this.save.beginAttempt(zone, act);
       const eventKey = this.save.keyFor('relic', `${zone}:${act}:${this.save.currentRunId()}:${timeMs}`);
-      void this.call(() => this.sdk!.reportEvent(EVENT_LEVEL_COMPLETE, { zone, act, time: timeSec }, eventKey));
+      const sdk = this.sdk;
+      void this.call(async () => {
+        const res = await sdk!.reportEvent(EVENT_LEVEL_COMPLETE, { zone, act, time: timeSec }, eventKey);
+        if (this.sdk === sdk) this.onEventResult(res as unknown as Payload);
+      });
     }
     if (tickets > 0 && !bossReplay) this.bankTickets(zone, act, tickets);
   }
@@ -604,6 +620,25 @@ class HubClientImpl {
     this.changed();
   }
 
+  /** A level_complete answer: a granted Relic (typed or not) and any granted items. */
+  private onEventResult(res: Payload | null | undefined): void {
+    if (!res || typeof res !== 'object') return;
+    let changed = false;
+    for (const id of [res.granted, res.grantedOther]) {
+      if (typeof id === 'string' && id !== '' && !this.relics.includes(id)) {
+        this.relics = [...this.relics, id];
+        changed = true;
+      }
+    }
+    for (const id of listOf(res.granted_items)) {
+      if (typeof id === 'string' && id !== '' && !this.grantedItems.includes(id)) {
+        this.grantedItems = [...this.grantedItems, id];
+        changed = true;
+      }
+    }
+    if (changed) this.changed();
+  }
+
   private async call(fn: () => Promise<unknown>): Promise<void> {
     if (!this.sdk) return;
     try {
@@ -612,6 +647,10 @@ class HubClientImpl {
       console.info('[Hub] call failed', errorPayload(err));
     }
   }
+}
+
+function listOf(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function stringList(value: unknown): string[] {
@@ -625,8 +664,8 @@ function stringList(value: unknown): string[] {
 }
 
 /**
- * The server's slot choice (body, back), when init carries one. SDK 0.8.0's init answers
- * `items` as the owned item ids (string[]) and has no loadout yet, so this is empty there and
+ * The server's slot choice (body, back), when init carries one. SDK 0.9.0's init (as 0.8.0's)
+ * answers `items` as the owned item ids (string[]) and has no loadout yet, so this is empty there and
  * the slots stay a local choice. A top-level `loadout` object is read when a server sends one;
  * `items.loadout` only from the older object-shaped `items`, never off the item list.
  */

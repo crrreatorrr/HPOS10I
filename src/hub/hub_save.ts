@@ -191,6 +191,22 @@ export class HubSave {
     return this.store.flush();
   }
 
+  /**
+   * For page exit: sends unsynced account progress as one keepalive save, so it outlives the
+   * page. Feature-detected (SDK 0.9.0's ProgressStore.flushKeepalive); false when nothing was
+   * sent, the store has no keepalive path, or it threw.
+   */
+  flushKeepalive(): boolean {
+    const store = this.store as ProgressStore<Progress> & { flushKeepalive?: () => boolean };
+    if (typeof store.flushKeepalive !== 'function') return false;
+    try {
+      return store.flushKeepalive() === true;
+    } catch (err) {
+      console.warn('[Hub] keepalive save failed', err);
+      return false;
+    }
+  }
+
   /** True when a `storage` event for this key may change the progress shown. */
   watches(key: string | null): boolean {
     return this.store.watches(key) || (key === SAVE_KEYS.legacyProgress && this.store.owner().kind === 'device');

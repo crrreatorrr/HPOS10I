@@ -92,6 +92,50 @@ describe('Exit to Hub', () => {
     expect(assign).toHaveBeenCalledTimes(2);
   });
 
+  it('sends the keepalive save after the bounded wait, then navigates once', async () => {
+    const order: string[] = [];
+    const exit = vi.fn(() => order.push('exit'));
+    await HubClient.init({ sdk: sdkWith(true, exit), hubUrl: '/hub/', visitStarting: false });
+    vi.spyOn(HubClient.save, 'flush').mockImplementation(async () => {
+      order.push('flush');
+    });
+    vi.spyOn(HubClient.save, 'flushKeepalive').mockImplementation(() => {
+      order.push('keepalive');
+      return true;
+    });
+    await HubClient.exitToHub();
+    expect(order).toEqual(['flush', 'keepalive', 'exit']);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('sends the keepalive save when the flush is stuck', async () => {
+    await HubClient.init({ sdk: sdkWith(false), hubUrl: '/hub/', visitStarting: false });
+    vi.spyOn(HubClient.save, 'flush').mockImplementation(() => new Promise<void>(() => {}));
+    const keepalive = vi.spyOn(HubClient.save, 'flushKeepalive');
+    vi.useFakeTimers();
+    const done = HubClient.exitToHub();
+    await vi.advanceTimersByTimeAsync(EXIT_FLUSH_MS + 1);
+    await done;
+    expect(keepalive).toHaveBeenCalledTimes(1);
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it('feature-detects flushKeepalive: a store without it, or one that throws, still navigates', async () => {
+    await HubClient.init({ sdk: sdkWith(false), hubUrl: '/hub/', visitStarting: false });
+    const save = HubClient.save as unknown as { store: { flushKeepalive?: () => boolean } };
+    const original = save.store.flushKeepalive;
+    save.store.flushKeepalive = undefined;
+    expect(HubClient.save.flushKeepalive()).toBe(false);
+    save.store.flushKeepalive = () => {
+      throw new Error('boom');
+    };
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(HubClient.save.flushKeepalive()).toBe(false);
+    save.store.flushKeepalive = original;
+    await HubClient.exitToHub();
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to plain navigation when the SDK exit throws', async () => {
     await HubClient.init({ sdk: sdkWith(true, vi.fn(() => { throw new Error('boom'); })), hubUrl: '/hub/', visitStarting: false });
     await HubClient.exitToHub();
