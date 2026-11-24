@@ -42,7 +42,8 @@ export const ArenaLayout = {
   VIEW_TOP: -192,
   VIEW_H: 240,
   DEPTH: 64,
-  START_X: 64,
+  /** Right of the touch D-pad on screen (the camera starts at the left wall). */
+  START_X: 96,
   /** Before the corridor tickets: a respawn walks through them again. */
   CHECKPOINT_X: 128,
   /** Left face of the entry wall; the arena (camera lock) starts here. */
