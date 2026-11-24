@@ -23,7 +23,8 @@ const DECK_LIGHT = Color.rgb8(120, 110, 170);
 export class RoofPlatform extends Node2D {
   static readonly CRUMBLE_FRAMES = 60;
   static readonly FALL_FRAMES = 40;
-  static readonly RESPAWN_FRAMES = 150;
+  /** Gone this long after falling (1.5 s: in desperation every platform crumbles under him). */
+  static readonly RESPAWN_FRAMES = 90;
 
   state: PlatformState = 'solid';
   private timer = 0;

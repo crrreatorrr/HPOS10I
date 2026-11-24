@@ -354,6 +354,11 @@ export abstract class Boss extends Node2D {
     return this.specialAttack ? [...this.specialAttack.danger] : [];
   }
 
+  /** Floor that is about to give way (world rects): bots and tests. */
+  unstableFloor(): Rect2[] {
+    return [];
+  }
+
   /** Telegraph visuals in world space (the overlay calls it every frame). */
   drawOverlay(g: Gfx): void {
     const t = this.telegraphNow;

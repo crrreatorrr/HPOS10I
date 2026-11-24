@@ -16,12 +16,14 @@
 // Phase 2 (hits 5-6): the roof splits (cracks flash first) into two ledges
 // by the walls and three floating platforms over a deadly drop. He rides a
 // giant red chart arrow above his wall:
-//   - arrow_slide: a dashed path, then he dives and slides across the
-//     platforms on the arrow, knocking them loose (they respawn on a timer);
-//     the ledges are never touched;
+//   - arrow_slide: a dashed path, then he drops straight down onto it and
+//     slides across the platforms on the arrow, knocking them loose (they
+//     respawn on a timer), and rises straight up at its end; the ledges are
+//     never touched;
 //   - storm: a briefcase whose paper storm also pushes Sproto sideways;
-//   - crash and double as before.
-// Desperation (hits 7-8): market crash and briefcase storms at once, the
+//   - crash (three waves, longer marks) and double (longer marks); no case
+//     lands on a ledge.
+// Desperation (hits 7-8): market crash (a four-lane gap) and briefcase storms at once, the
 // phone check shrinks to 0.9 s, and platforms crumble a second after you
 // land on them. For the phone check he lands on the middle platform (all
 // platforms come back first).
@@ -50,10 +52,22 @@ const PERCH_Y = -150;
 const RIDE_Y = -8;
 const LANES = 8;
 const CASE_GRAVITY = 0.3;
+const CRASH_WAVES = 3;
+/** Lanes in the crash gap (it moves one lane a wave, so one lane always stays clear)... */
+const CRASH_GAP = 2;
+/** ...and in desperation, where a paper storm (88 px) lands in the gap at the same time. */
+const CRASH_GAP_DESPERATE = 4;
+/** Base frames a crash wave stays marked before it drops (scaled by the interval and the escalation). */
+const CRASH_WAIT = 64;
+const CRASH_WAIT_SPLIT = 90;
 const STORM_FRAMES = 120;
 const LEDGE = 56;
+/** The arrow slide runs between this far from each wall: its arrow (28 px each side) stops short of the ledges. */
+const SLIDE_INSET = LEDGE + 30;
 const PLATFORM = new Vec2(64, 16);
 const GAP = 22;
+/** Past the ledge's inner edge, the nearest a case lands once the roof has split (the storm reaches 44 px each way). */
+const CASE_LEDGE_GAP = 16;
 const SLOW_MOTION = 0.3;
 const SLOW_FRAMES = 45;
 
@@ -143,6 +157,9 @@ export class TheExecutive extends Boss {
   protected planCycle(): AttackPlan[] {
     const briefcase: AttackPlan = { id: 'briefcase', aimed: true };
     const double: AttackPlan = { id: 'double', aimed: true, telegraph: 1.3 };
+    // Over the split roof the clear side of a double is often a gap away (and
+    // under his perch): its marks last 0.58 s there, not 0.35 s.
+    const doubleSplit: AttackPlan = { ...double, telegraph: 2 };
     const crash: AttackPlan = { id: 'crash', telegraph: 2.2 };
     const dash: AttackPlan = { id: 'dash', telegraph: 1.6 };
     const slide: AttackPlan = { id: 'arrow_slide', telegraph: 3.5 };
@@ -160,12 +177,12 @@ export class TheExecutive extends Boss {
           ]
         : this.phase === 2
           ? [
-              [slide, storm, crash, double],
-              [tape, slide, double, bell],
+              [slide, storm, crash, doubleSplit],
+              [tape, slide, doubleSplit, bell],
             ]
           : [
-              [{ ...crash, overlap: true, gap: 4 }, storm, slide, double],
-              [slide, { ...crash, overlap: true, gap: 4 }, storm, double],
+              [{ ...crash, overlap: true, gap: 4 }, storm, slide, doubleSplit],
+              [slide, { ...crash, overlap: true, gap: 4 }, storm, doubleSplit],
             ];
     const plans = sets[this.cycle % sets.length]!;
     this.cycle += 1;
@@ -189,7 +206,7 @@ export class TheExecutive extends Boss {
         // The first gap opens around Sproto's lane (he can't outrun a far one).
         const w = (this.arena.right - this.arena.left) / LANES;
         const lane = clamp(Math.floor((target.x - this.arena.left) / w), 0, LANES - 1);
-        this.gapLane = clamp(lane - this.rng.randiRange(0, 1), 0, LANES - 2);
+        this.gapLane = clamp(lane - this.rng.randiRange(0, 1), 0, LANES - this.gapWidth());
         this.crashMarked = this.waveLanes(this.gapLane);
         break;
       }
@@ -212,13 +229,22 @@ export class TheExecutive extends Boss {
   }
 
   private aimCases(xs: number[]): void {
-    this.caseTargets = xs.map((x) => new Vec2(this.clampX(x, 16), this.arena.floorY));
+    // Once the roof has split no case lands on a ledge: its storm (88 px
+    // wide) would cover all 56 px of it, and with the platforms knocked loose
+    // there would be nowhere to stand. The wall end of each ledge stays clear.
+    const margin = this.split ? LEDGE + CASE_LEDGE_GAP : 16;
+    this.caseTargets = xs.map((x) => new Vec2(this.clampX(x, margin), this.arena.floorY));
     this.caseZones = this.caseTargets.map((t) => new Rect2(t.x - 44, this.arena.floorY - 80, 88, 80));
+  }
+
+  /** Lanes the crash gap spans: wider in desperation, where a paper storm lands in it at the same time. */
+  private gapWidth(): number {
+    return this.desperate ? CRASH_GAP_DESPERATE : CRASH_GAP;
   }
 
   private waveLanes(gap: number): number[] {
     const out: number[] = [];
-    for (let i = 0; i < LANES; i++) if (i !== gap && i !== gap + 1) out.push(i);
+    for (let i = 0; i < LANES; i++) if (i < gap || i >= gap + this.gapWidth()) out.push(i);
     return out;
   }
 
@@ -317,10 +343,11 @@ export class TheExecutive extends Boss {
   }
 
   private *crash(): BossScript {
-    const waves = this.phase === 1 ? 3 : 4;
+    const waves = CRASH_WAVES;
     // Each wave is marked for at least 0.35 s before its arrows drop (and they
-    // take a third of a second to fall): time to step one lane over.
-    const wait = Math.max(Boss.MIN_TELEGRAPH_FRAMES, this.gapFrames(64));
+    // take a third of a second to fall): time to step one lane over. Over the
+    // split roof the next lane can be a platform away, so the marks last longer.
+    const wait = Math.max(Boss.MIN_TELEGRAPH_FRAMES, this.gapFrames(this.split ? CRASH_WAIT_SPLIT : CRASH_WAIT));
     const arrows: BossHazard[] = [];
     for (let k = 0; k < waves; k++) {
       // Drop the marked wave, then mark the next one (the gap moves a lane).
@@ -331,7 +358,7 @@ export class TheExecutive extends Boss {
         this.crashMarked = [];
         break;
       }
-      const step = this.gapLane <= 0 ? 1 : this.gapLane >= LANES - 2 ? -1 : this.rng.randf() < 0.5 ? -1 : 1;
+      const step = this.gapLane <= 0 ? 1 : this.gapLane >= LANES - this.gapWidth() ? -1 : this.rng.randf() < 0.5 ? -1 : 1;
       this.gapLane += step;
       const next = this.waveLanes(this.gapLane);
       this.crashMarked = next;
@@ -385,8 +412,12 @@ export class TheExecutive extends Boss {
     this.slidePath = null;
     const other = -this.home;
     const y = this.arena.floorY + RIDE_Y;
-    const startX = this.home < 0 ? this.arena.left + LEDGE + 14 : this.arena.right - LEDGE - 14;
-    const endX = other < 0 ? this.arena.left + LEDGE + 14 : this.arena.right - LEDGE - 14;
+    const perchY = this.arena.floorY + PERCH_Y;
+    const startX = this.home < 0 ? this.arena.left + SLIDE_INSET : this.arena.right - SLIDE_INSET;
+    const endX = other < 0 ? this.arena.left + SLIDE_INSET : this.arena.right - SLIDE_INSET;
+    // Over to the end of the marked path at perch height, then straight down:
+    // he never sweeps the ledges (the safe spots) on the way.
+    yield* this.glide(new Vec2(startX, Math.min(perchY, this.position.y)), 10);
     yield* this.glide(new Vec2(startX, y), 18);
     const speed = this.speedPx(3.4);
     while (Math.abs(endX - this.position.x) > speed) {
@@ -399,7 +430,9 @@ export class TheExecutive extends Boss {
       yield;
     }
     this.home = other;
-    yield* this.glide(this.perchAt(this.home), this.gapFrames(26));
+    // Straight up, then over to the perch above the wall.
+    yield* this.glide(new Vec2(endX, perchY), this.gapFrames(16));
+    yield* this.glide(this.perchAt(this.home), this.gapFrames(10));
   }
 
   // --- The roof split -----------------------------------------------------------
@@ -551,6 +584,10 @@ export class TheExecutive extends Boss {
         this.body.setRects([new Rect2(-11, -62, 22, 62)]);
         break;
     }
+  }
+
+  override unstableFloor(): Rect2[] {
+    return this.platforms.filter((p) => p.state === 'shaking').map((p) => p.rect());
   }
 
   override dangerZones(): Rect2[] {

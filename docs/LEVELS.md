@@ -306,10 +306,16 @@ dangerous. Aimed specials choose their targets when the warning starts.
 - **Phase 2 (hits 5–6):**
   - the rooftop splits into floating platforms over a deadly drop
   - he slides between them on the giant red chart arrow and knocks
-    platforms loose; they respawn on a timer
-  - the paper storms push Sproto sideways
+    platforms loose; they respawn 1.5 s after they fall. The slide stops
+    short of the ledges, and he drops onto it and rises from it straight
+    down and up, so the ledges are always safe from it
+  - the paper storms push Sproto sideways; no briefcase lands on a ledge
+    (the wall end of each ledge stays clear of its storm)
+  - the market crash has three waves with longer marks (the next lane can
+    be a platform away), and the double briefcase's marks last 0.58 s
 - **Desperation (hits 7–8):**
-  - market crash and briefcase storms at once
+  - market crash and briefcase storms at once; the crash leaves a
+    four-lane gap there, so the storm landing in it leaves room to dodge
   - the phone check shrinks to 0.9 s
   - platforms crumble a second after you land
 - **Final hit:** slow motion, the tie flies off, Sproto poses.
