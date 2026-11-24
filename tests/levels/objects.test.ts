@@ -278,6 +278,34 @@ describe('floor switch and door', () => {
   });
 });
 
+describe('floor switch sensor height', () => {
+  it('a full jump at speed 8 clears a 96 px sensor at the top of its arc, but not a 160 px one', () => {
+    const pressed: Record<number, boolean> = {};
+    for (const height of [96, 160]) {
+      world = newWorld();
+      addFloor(world);
+      // The plate sits under the top of the jump's arc.
+      const sw = place(new FloorSwitch('FloorSwitch1'), new Vec2(220, 0), { doors: [], trigger_height: height });
+      player = spawnPlayer(world, Vec2.ZERO);
+      settle(player, Vec2.ZERO);
+      player.groundSpeed = 8;
+      step(2);
+      press('jump');
+      step(70);
+      release('jump');
+      expect(player.globalPosition.x).toBeGreaterThan(300);
+      pressed[height] = sw.isPressed;
+    }
+    expect(pressed).toEqual({ 96: false, 160: true });
+  });
+
+  it('Zone 3 Act 1: FloorSwitch3 (the one before HallDoor3) reaches above a full jump, as in Act 2', () => {
+    const data = JSON.parse(readFileSync(join(__dirname, '../../src/levels/data/z3_capital_mansion/act1.json'), 'utf8')) as { nodes: { name: string; props?: Record<string, unknown> }[] };
+    const sw = data.nodes.find((n) => n.name === 'FloorSwitch3');
+    expect(sw?.props?.trigger_height).toBe(160);
+  });
+});
+
 describe('registry', () => {
   it('registers every object and playground type the levels use', () => {
     registerObjects();

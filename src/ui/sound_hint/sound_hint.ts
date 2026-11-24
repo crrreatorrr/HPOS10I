@@ -1,7 +1,9 @@
 // A short toast while audio is still locked and the player is on a gamepad
-// (browsers only unlock audio on a key, click or tap). Each gamepad press
-// while locked shows it for SHOW_SECONDS, then it fades; it frees itself once
-// audio unlocks. installUi() returns it as a global overlay.
+// (browsers only unlock audio on a key, click or tap). The first gamepad
+// press on each screen (scene) while locked shows it for SHOW_SECONDS, then it
+// fades; later presses on the same screen leave it hidden, so it never keeps
+// covering a menu title. It frees itself once audio unlocks. installUi()
+// returns it as a global overlay.
 //
 // Placed top-centre, right of the HUD counters (their values end at x 139)
 // and left of the corner widgets (the hub chrome, whose left edge sits at
@@ -25,6 +27,8 @@ export const HINT_WIDTH = 174;
 export class SoundHint extends UiLayer {
   private timeLeft = 0;
   private alpha = 1;
+  /** The scene it was last shown on (once per screen). */
+  private shownOn: unknown = undefined;
 
   constructor() {
     super('SoundHint', 99);
@@ -34,11 +38,19 @@ export class SoundHint extends UiLayer {
 
   override enterTree(): void {
     Audio.unlockHintChanged.connect(this.onUnlockHintChanged, { owner: this });
-    if (Audio.needsUnlockHint()) this.showHint();
+    if (Audio.needsUnlockHint()) this.showOncePerScreen();
   }
 
   override exitTree(): void {
     Audio.unlockHintChanged.disconnect(this.onUnlockHintChanged);
+  }
+
+  /** Shows it unless it was already shown on this screen. */
+  showOncePerScreen(): void {
+    const scene = this.isInsideTree() ? this.tree.currentScene : null;
+    if (scene === this.shownOn) return;
+    this.shownOn = scene;
+    this.showHint();
   }
 
   showHint(): void {
@@ -55,7 +67,7 @@ export class SoundHint extends UiLayer {
   }
 
   private readonly onUnlockHintChanged = (show: boolean): void => {
-    if (show) this.showHint();
+    if (show) this.showOncePerScreen();
     else if (!Audio.isLocked()) this.queueFree();
   };
 

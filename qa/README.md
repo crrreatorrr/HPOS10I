@@ -21,7 +21,7 @@ are kept as history.
 
 ```bash
 npm test                       # everything fast, QA lint and contract tests included
-npm run test:bots              # the playtest bots on every act (several minutes)
+npm run test:bots              # the playtest bots on every act, and the boss bot in every arena (several minutes)
 tools/qa/originality_scan.sh . # add --commits=main..HEAD for commit messages
 npm run build && node tools/qa/web_check.mjs build/web && npm run smoke
 ```

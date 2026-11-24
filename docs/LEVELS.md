@@ -206,7 +206,9 @@ a death or a restart):
 - The HUD clock still rewinds to the checkpoint's time after a death, and the
   10:00 time limit reads the HUD clock. After a time over the next life
   starts the clock at 0:00 from the same checkpoint, so a checkpoint reached
-  near 10:00 can't end every life after it.
+  near 10:00 can't end every life after it. The TIME counter flashes red
+  for the last minute; at 10:00 the clock stops there and TIME OVER shows
+  through the death.
 
 ## Rising difficulty inside every act
 
@@ -232,8 +234,9 @@ is quicker and more aggressive near the end of an act.
 - The high route is the hardest stretch of the act; the low route is
   longer and full of hazards.
 - Opens with a checkpoint (the finale checkpoint). It ends with a short
-  calm corridor holding a few tickets and a checkpoint right outside the
-  arena gate, so a failed boss attempt never replays the gauntlet.
+  calm corridor outside the arena gate: a checkpoint, then a few tickets,
+  so a failed boss attempt never replays the gauntlet and every retry
+  walks through the tickets again.
 
 **Fairness still holds:** telegraphs never drop below 0.35 s, there are no
 blind drops, and every finale starts at a checkpoint.
@@ -241,7 +244,7 @@ blind drops, and every finale starts at a checkpoint.
 **Hazards** grow along the same curve:
 - Z1: spikes and the odd pit.
 - Z2: candle flames, falling books, crushing shelves, and narrow lava vents and burrower hatches.
-- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A floor switch's sensor reaches above a full jump in Act 2 (`trigger_height` 160), so hopping across the plate cannot leave its door shut. A ceiling ram on a route (`wake_radius`) never drops on the clock. Zone 3's starts its rest and warning when Sproto comes near. Zone 4 Act 1's (`dwell_frames`) flashes for as long as he is near and comes down only on a player who has stayed in its lane for 1.5 s, so walking, running or dashing through is safe at any speed and only waiting under it is crushed. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
+- Z3: security beams, conveyor belts and ceiling rams that warn at floor level before closing. A floor switch's sensor reaches above a full jump in Act 2 and at Act 1's FloorSwitch3, the last before its door (`trigger_height` 160), so jumping across the plate at speed cannot leave the door shut. A ceiling ram on a route (`wake_radius`) never drops on the clock. Zone 3's starts its rest and warning when Sproto comes near. Zone 4 Act 1's (`dwell_frames`) flashes for as long as he is near and comes down only on a player who has stayed in its lane for 1.5 s, so walking, running or dashing through is safe at any speed and only waiting under it is crushed. Ticket trails mark one-way steps to optional hazard shelves in Z2 and Z3.
 - Z4: everything, in neon, with vanishing platforms. Short bubbling lava and poison wells have ticket arcs to mark the jump and shallow basins so a player with tickets can recover. Crushers, vents and burrowers also appear on lower routes with upper bypasses.
 
 ## Bosses
@@ -303,10 +306,16 @@ dangerous. Aimed specials choose their targets when the warning starts.
 - **Phase 2 (hits 5–6):**
   - the rooftop splits into floating platforms over a deadly drop
   - he slides between them on the giant red chart arrow and knocks
-    platforms loose; they respawn on a timer
-  - the paper storms push Sproto sideways
+    platforms loose; they respawn 1.5 s after they fall. The slide stops
+    short of the ledges, and he drops onto it and rises from it straight
+    down and up, so the ledges are always safe from it
+  - the paper storms push Sproto sideways; no briefcase lands on a ledge
+    (the wall end of each ledge stays clear of its storm)
+  - the market crash has three waves with longer marks (the next lane can
+    be a platform away), and the double briefcase's marks last 0.58 s
 - **Desperation (hits 7–8):**
-  - market crash and briefcase storms at once
+  - market crash and briefcase storms at once; the crash leaves a
+    four-lane gap there, so the storm landing in it leaves room to dodge
   - the phone check shrinks to 0.9 s
   - platforms crumble a second after you land
 - **Final hit:** slow motion, the tie flies off, Sproto poses.
@@ -319,9 +328,14 @@ dangerous. Aimed specials choose their targets when the warning starts.
 - No attack can hit the instant Sproto respawns.
 - Invincibility frames after a hit are honoured.
 - The checkpoint outside the arena means a failed attempt restarts the
-  boss, not the act. A game over offers RETRY STAGE, which starts the same
+  boss, not the act. It stands before the corridor tickets, so every retry
+  starts with them. A game over offers RETRY STAGE, which starts the same
   arena again with fresh lives.
 - QA must show a human-viable no-damage route exists for every phase.
+  `tests/qa/playtest_bosses.test.ts` (`npm run test:bots`) has the boss bot
+  play every arena honestly (controls only, no top-ups, retries from the
+  checkpoint): each boss must fall within a few attempts (the Executive
+  within 5, the most of the four) and a player who stands still loses.
 
 ## How it's checked
 

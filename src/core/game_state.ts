@@ -9,6 +9,8 @@ import { RelicLoadout } from '../hub/relic_loadout';
 
 export const START_LIVES = 3;
 export const TICKETS_PER_LIFE = 100;
+/** Seconds on the act clock before time over (10:00, like the classic games). */
+export const TIME_LIMIT = 600;
 /** Score for the 1st, 2nd, 3rd... enemy popped without touching the ground; the last value repeats. */
 export const CHAIN_SCORES: readonly number[] = [100, 200, 400, 800, 1000];
 
@@ -34,6 +36,8 @@ class GameStateStore {
    */
   levelTime = 0;
   timerRunning = false;
+  /** The act clock reached TIME_LIMIT: it stopped there and this life ends (the HUD shows TIME OVER). */
+  timeOver = false;
   /**
    * The honest clock of this attempt: every tick the act clock ran since
    * startLevel(), never rewound. Best times and ranks use it.
@@ -212,6 +216,7 @@ class GameStateStore {
     this.chain = 0;
     this.levelTime = 0;
     this.timerRunning = true;
+    this.timeOver = false;
     this.ticketsChanged.emit(this.tickets);
   }
 }

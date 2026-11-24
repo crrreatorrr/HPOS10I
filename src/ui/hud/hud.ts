@@ -6,12 +6,14 @@
 //
 // Data comes from GameState: its tickets/score/lives signals, and
 // GameState.levelTime for the clock (read every frame). At 0 tickets the
-// TICKETS counter flashes red: the next hit costs a life. In touch mode the
+// TICKETS counter flashes red: the next hit costs a life. In an act's last
+// minute the TIME counter flashes red too, and at 10:00 (GameState.timeOver)
+// the clock stops and TIME OVER shows in the middle of the screen. In touch mode the
 // lives box moves under the counters so the on-screen pad does not cover it.
 // Under the counters it draws the speed lines (speed_lines.ts), and near the
 // bottom of the screen the teaching prompt a PromptZone asked for (Prompts).
 
-import { GameState } from '../../core/game_state';
+import { GameState, TIME_LIMIT } from '../../core/game_state';
 import { Color } from '../../runtime/color';
 import type { Gfx } from '../../runtime/gfx';
 import { Vec2 } from '../../runtime/vec2';
@@ -38,6 +40,10 @@ export const POWER_UPS_POSITION = new Vec2(142, 18);
 const POWER_UP_STEP = 30;
 /** The teaching prompt's line. */
 export const PROMPT_Y = 196;
+/** The TIME counter flashes for the last minute before time over. */
+export const TIME_WARN_SECONDS = 60;
+/** Where TIME OVER is drawn (title style, centred). */
+export const TIME_OVER_Y = 96;
 /** Timers flash in their last seconds. */
 const POWER_UP_WARN_SECONDS = 3;
 
@@ -57,6 +63,7 @@ export class Hud extends UiLayer {
   private shownSeconds = -1;
   private flashClock = 0;
   private warningLit = false;
+  private timeWarnLit = false;
   private clock = 0;
   readonly speedLines = new SpeedLines();
 
@@ -144,7 +151,21 @@ export class Hud extends UiLayer {
   }
 
   private updateWarning(): void {
-    this.warningLit = GameState.tickets === 0 && this.flashClock < FLASH_PERIOD * 0.5;
+    const lit = this.flashClock < FLASH_PERIOD * 0.5;
+    this.warningLit = GameState.tickets === 0 && lit;
+    // Only on a running act clock (boss arenas and menus have no time limit) or once it ran out.
+    const lastMinute = GameState.timerRunning && this.hasTimeLimit() && GameState.levelTime >= TIME_LIMIT - TIME_WARN_SECONDS;
+    this.timeWarnLit = GameState.timeOver || (lastMinute && lit);
+  }
+
+  /** True when the scene runs an act clock that can run out (LevelRoot adds a TimeLimit node to acts). */
+  private hasTimeLimit(): boolean {
+    return this.isInsideTree() && this.tree.currentScene?.getNodeOrNull('TimeLimit') != null;
+  }
+
+  /** True while the TIME counter is drawn in the warning colour. */
+  isTimeWarningLit(): boolean {
+    return this.timeWarnLit;
   }
 
   private readonly onTickets = (value: number): void => {
@@ -166,8 +187,10 @@ export class Hud extends UiLayer {
     // Counters (offsets from hud.tscn).
     drawText(g, 'SCORE', 18, 5, 'hudLabel');
     drawText(g, this.scoreText, 74, 5, 'hudValue', { align: 'right', width: 62 });
-    drawText(g, 'TIME', 18, 17, 'hudLabel');
-    drawText(g, this.timeText, 74, 17, 'hudValue', { align: 'right', width: 62 });
+    const timeWarn = this.timeWarnLit ? WARNING_COLOR : null;
+    if (timeWarn) drawText(g, 'TIME', 18, 17, 'hudValue', { color: timeWarn });
+    else drawText(g, 'TIME', 18, 17, 'hudLabel');
+    drawText(g, this.timeText, 74, 17, 'hudValue', { align: 'right', width: 62, color: timeWarn });
     PixelArt.ticket(g, 3, 30);
     const warn = this.warningLit ? WARNING_COLOR : null;
     if (warn) {
@@ -183,6 +206,7 @@ export class Hud extends UiLayer {
     drawText(g, 'SPROTO', l.x + 19, l.y, 'outline', { color: COLORS.gold });
     drawText(g, this.livesText, l.x + 19, l.y + 8, 'hudValue');
     this.paintPowerUps(g);
+    if (GameState.timeOver) drawCentered(g, 'TIME OVER', TIME_OVER_Y, 'title');
     const prompt = this.promptText();
     if (prompt !== '') {
       // Fades out over its last half second; above the touch pad and the lives box.

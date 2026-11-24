@@ -35,7 +35,8 @@ export enum Zone {
 }
 
 /** Layout in game pixels (the 424x240 view). */
-export const PAD_CENTER = new Vec2(58, 180);
+/** Low and left enough to clear Sproto where every act and arena starts him (screen x 96 and up). */
+export const PAD_CENTER = new Vec2(48, 186);
 /** A finger landing this close to the pad centre takes the pad... */
 export const PAD_HIT_RADIUS = 56;
 /** ...and so does one anywhere left of this line below PAD_ZONE_TOP. */
@@ -47,7 +48,7 @@ export const PAD_DEAD_ZONE = 7;
 /** Angle from horizontal (degrees): below MIN pure left/right, above MAX pure up/down, between both. */
 export const PAD_DIAGONAL_MIN = 35;
 export const PAD_DIAGONAL_MAX = 58;
-const PAD_DRAW_RADIUS = 34;
+export const PAD_DRAW_RADIUS = 34;
 
 export const JUMP_CENTER = new Vec2(370, 182);
 export const JUMP_HIT_RADIUS = 50;

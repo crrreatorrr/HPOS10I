@@ -10,6 +10,7 @@ import { registerEnemies } from '../../src/levels/registry_enemies';
 import { registerObjects } from '../../src/levels/registry_objects';
 import { registerCoreTypes } from '../../src/levels/scenes';
 import { Moves } from '../../src/player/moves';
+import { Hud } from '../../src/ui/hud/hud';
 import { tree } from '../../src/runtime/tree';
 import { Vec2 } from '../../src/runtime/vec2';
 import z1act1 from '../../src/levels/data/z1_retro_rush_hills/act1.json';
@@ -169,11 +170,48 @@ describe('time limit', () => {
     tree.changeSceneNow(() => root);
     step(3);
     GameState.timerRunning = true;
+    const hud = root.addChild(new Hud());
     GameState.levelTime = TIME_LIMIT - 1 / 120;
     step(1);
     GameState.levelTime = TIME_LIMIT;
     step(1);
     expect(root.player?.state).toBe('dead');
+    // The clock stops at 10:00 through the death, and the HUD says why.
+    expect(GameState.timeOver).toBe(true);
+    for (let i = 0; i < 120; i++) {
+      step(1);
+      hud.process(1 / 60);
+    }
+    expect(GameState.levelTime).toBe(TIME_LIMIT);
+    expect(hud.timeText).toBe('10:00');
+    expect(hud.isTimeWarningLit()).toBe(true);
+    GameState.restartFromCheckpoint();
+    expect(GameState.timeOver).toBe(false);
+    SceneRouter.zoneId = '';
+  });
+
+  it('flashes the TIME counter in the last minute of an act, not before', async () => {
+    SceneRouter.zoneId = 'z1_retro_rush_hills';
+    SceneRouter.stage = 1;
+    const root = (await buildLevel(z1act1 as unknown as LevelData)) as LevelRoot;
+    root.useSceneRouter = false;
+    tree.changeSceneNow(() => root);
+    step(3);
+    const hud = root.addChild(new Hud());
+    const litDuring = (frames: number): boolean => {
+      let lit = false;
+      for (let i = 0; i < frames; i++) {
+        step(1);
+        hud.process(1 / 60);
+        lit ||= hud.isTimeWarningLit();
+      }
+      return lit;
+    };
+    GameState.levelTime = TIME_LIMIT - 120;
+    expect(litDuring(60)).toBe(false);
+    GameState.levelTime = TIME_LIMIT - 45;
+    expect(litDuring(60)).toBe(true);
+    expect(GameState.timeOver).toBe(false);
     SceneRouter.zoneId = '';
   });
 

@@ -17,7 +17,7 @@ import { BoundsRect } from '../../src/levels/common/level_nodes';
 import { LevelRoot } from '../../src/levels/common/level_root';
 import { Checkpoint } from '../../src/levels/objects/checkpoint';
 import { LevelTicket } from '../../src/levels/objects/ticket';
-import { ArenaLayout, refillHits } from '../../src/bosses/arena';
+import { ArenaController, ArenaLayout, refillHits } from '../../src/bosses/arena';
 import { Boss } from '../../src/bosses/boss_base';
 import { BOSS_ARENAS, registerBosses } from '../../src/bosses/register';
 import { buildRugPullArena } from '../../src/bosses/rug_pull/arena';
@@ -102,11 +102,34 @@ describe('arena scenes', () => {
     const checkpoints = level.findChildren<Checkpoint>((n) => n instanceof Checkpoint);
     expect(checkpoints.length).toBe(1);
     expect(checkpoints[0]!.position.x).toBeLessThan(ArenaLayout.GATE_X);
-    expect(checkpoints[0]!.position.x).toBeGreaterThan(ArenaLayout.GATE_X - 96);
     const tickets = level.findChildren<LevelTicket>((n) => n instanceof LevelTicket);
     expect(tickets.length).toBeGreaterThanOrEqual(3);
     for (const t of tickets) expect(t.position.x).toBeLessThan(ArenaLayout.GATE_X);
+    // A retry respawns at the checkpoint: it stands before every ticket, so he picks them all up again.
+    for (const t of tickets) expect(t.position.x).toBeGreaterThan(checkpoints[0]!.position.x + 16);
     expect(level.findChildren((n) => n.isInGroup('boss')).length).toBe(1);
+  });
+
+  it.each(CASES)('$scene: a retry from the checkpoint walks through every corridor ticket again', async (c) => {
+    const first = await open(c);
+    press('move_right');
+    expect(waitFor(() => first.boss.engaged, 60 * 20)).toBeGreaterThan(0);
+    release('move_right');
+    expect(GameState.tickets).toBe(ArenaLayout.CORRIDOR_TICKETS.length);
+    const at = GameState.checkpointPosition;
+    expect(at).not.toBeNull();
+    // Died in the arena: the respawn is a fresh scene from the checkpoint, on 0 tickets.
+    GameState.restartFromCheckpoint();
+    expect(GameState.tickets).toBe(0);
+    const root = await BOSS_ARENAS[c.scene]();
+    root.useSceneRouter = false;
+    tree.changeSceneNow(() => root);
+    step(2);
+    expect(root.player!.globalPosition.x).toBeCloseTo(at!.x, 0);
+    press('move_right');
+    expect(waitFor(() => (ArenaController.find(root)?.boss.engaged ?? false), 60 * 20)).toBeGreaterThan(0);
+    release('move_right');
+    expect(GameState.tickets).toBe(ArenaLayout.CORRIDOR_TICKETS.length);
   });
 
   it.each(CASES)('$scene locks the camera and shuts the gate when Sproto walks in', async (c) => {
@@ -377,7 +400,7 @@ describe.each(CASES)('$scene', (c) => {
     const won = playWithBot(w, 60 * 400, true);
     expect(w.boss.hitsTaken).toBe(Boss.HITS);
     expect(won).toBe(true);
-  });
+  }, 240_000);
 });
 
 describe('fairness', () => {
@@ -413,7 +436,7 @@ describe('fairness', () => {
     const won = playWithBot(w, 60 * 240);
     expect(w.hurts).toBe(0);
     expect(won).toBe(true);
-  });
+  }, 120_000);
 
   it('the final hit on the Executive runs in slow motion, then time goes back to normal', async () => {
     const w = await open(CASES[3]!);
@@ -427,6 +450,54 @@ describe('fairness', () => {
     expect(boss.split).toBe(true);
     expect(boss.platforms.length).toBe(3);
   });
+});
+
+describe('the Executive over the split roof', () => {
+  /** Lands `hits` hits, then keeps Sproto safe (topped up, back on a ledge after a fall) while `each` watches. */
+  async function splitFight(hits: number): Promise<{ w: ArenaWorld; boss: TheExecutive }> {
+    const w = await open(CASES[3]!);
+    enterArena(w);
+    for (let i = 0; i < hits; i++) expect(landHit(w), `hit ${i + 1}`).toBe(true);
+    const boss = w.boss as TheExecutive;
+    expect(waitFor(() => boss.split, 600, () => GameState.tickets < 20 && GameState.addTickets(20))).toBeGreaterThanOrEqual(0);
+    return { w, boss };
+  }
+
+  it('the arrow slide, and his way down to it and back up, never touch the ledges', async () => {
+    const { w, boss } = await splitFight(4);
+    const { left, right, floorY } = w.arena.info;
+    const ledges = [new Rect2(left, floorY - 80, 56, 80), new Rect2(right - 56, floorY - 80, 56, 80)];
+    let sliding = false;
+    let slides = 0;
+    boss.attackStarted.connect((id) => {
+      if (id === 'arrow_slide') {
+        sliding = true;
+        slides += 1;
+      } else sliding = false;
+    });
+    const parked = () => w.player.respawnAt(floorPoint(w, left + 6));
+    for (let i = 0; i < 60 * 40 && slides < 2; i++) {
+      if (GameState.tickets < 20) GameState.addTickets(20);
+      parked();
+      step(1);
+      if (sliding) for (const r of boss.bodyRects()) for (const l of ledges) expect(r.intersects(l), `frame ${i}: body ${r} over a ledge`).toBe(false);
+    }
+    expect(slides).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+
+  it('in desperation the market crash leaves a four-lane gap (its paper storm lands in it at once)', async () => {
+    const { w, boss } = await splitFight(6);
+    expect(boss.desperate).toBe(true);
+    const laneW = (w.arena.info.right - w.arena.info.left) / 8;
+    let marked = -1;
+    for (let i = 0; i < 60 * 40 && marked < 0; i++) {
+      if (GameState.tickets < 20) GameState.addTickets(20);
+      if (w.player.globalPosition.y > w.arena.info.floorY + 4 || w.player.state === 'hurt') w.player.respawnAt(floorPoint(w, safeX(w)));
+      step(1);
+      if (boss.currentTelegraph()?.plan.id === 'crash') marked = boss.dangerZones().filter((z) => Math.abs(z.w - laneW) < 1).length;
+    }
+    expect(marked).toBe(8 - 4);
+  }, 60_000);
 });
 
 /** One tick of a passive fight: tickets topped up, Sproto kept on the floor away from the boss. */

@@ -1,11 +1,12 @@
 // Boss arenas, built in code around a LevelRoot (docs/CONTRACTS.md "Levels"
 // and "Bosses"). Every arena has the same frame:
 //
-//   PlayerStart -- calm corridor (tickets) -- checkpoint -- entry gate |
+//   PlayerStart -- checkpoint -- calm corridor (tickets) -- entry gate |
 //   | arena: one screen (424 px) between two walls, flat floor | exit gate -- exit
 //
-// - The corridor is short and calm: a few tickets and a checkpoint right
-//   outside the gate, so a failed attempt restarts the boss, not the act.
+// - The corridor is short and calm: a checkpoint, then a few tickets on the
+//   way to the gate, so a failed attempt restarts the boss, not the act, and
+//   every retry picks the tickets up again (the respawn is a fresh scene).
 // - When Sproto is 40 px inside, the entry gate shuts, the camera locks to
 //   the arena (GameCamera.lockTo) and the boss starts (Boss.engage()).
 // - Ticket refills drop on the side away from the boss after the hits the
@@ -41,8 +42,10 @@ export const ArenaLayout = {
   VIEW_TOP: -192,
   VIEW_H: 240,
   DEPTH: 64,
-  START_X: 64,
-  CHECKPOINT_X: 432,
+  /** Right of the touch D-pad on screen (the camera starts at the left wall). */
+  START_X: 96,
+  /** Before the corridor tickets: a respawn walks through them again. */
+  CHECKPOINT_X: 128,
   /** Left face of the entry wall; the arena (camera lock) starts here. */
   GATE_X: 480,
   WALL: 16,
