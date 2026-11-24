@@ -332,6 +332,10 @@ dangerous. Aimed specials choose their targets when the warning starts.
   starts with them. A game over offers RETRY STAGE, which starts the same
   arena again with fresh lives.
 - QA must show a human-viable no-damage route exists for every phase.
+  `tests/qa/playtest_bosses.test.ts` (`npm run test:bots`) has the boss bot
+  play every arena honestly (controls only, no top-ups, retries from the
+  checkpoint): each boss must fall within a few attempts (the Executive
+  within 5, the most of the four) and a player who stands still loses.
 
 ## How it's checked
 
