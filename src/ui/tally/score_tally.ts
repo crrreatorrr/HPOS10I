@@ -7,7 +7,8 @@
 // (sfx `emerald_get`). If this act's emerald was won before, a quiet small
 // icon and "N / 8" instead. Nothing for the test zone or boss arenas. When
 // this clear banked tickets with the hub (HubClient.lastBanked changed since
-// the act started), a line says "+N Tickets sent to the hub", or that the
+// the act started), a line says "+N Tickets sent to the hub" (with a hub
+// session; standalone: "+N Tickets saved for the hub"), or that the
 // hub's Ticket limit was reached when the hub refused the earn for a cap.
 //
 // After an act, a line shows this clear's time on the attempt clock
@@ -216,7 +217,8 @@ export class ScoreTally extends UiLayer {
     if (this.banked <= 0) return '';
     // The hub refused this earn for its session or daily cap: nothing was added.
     if (HubClient.earnCapped && HubClient.lastBanked?.acked !== true) return HUB_LIMIT_LINE;
-    return `+${this.banked} Tickets sent to the hub`;
+    // Standalone (no hub session, the chip shows --): the earn waits in the save until the next visit.
+    return HubClient.inSession ? `+${this.banked} Tickets sent to the hub` : `+${this.banked} Tickets saved for the hub`;
   }
 
   isCountingDone(): boolean {
