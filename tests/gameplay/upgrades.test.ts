@@ -176,6 +176,30 @@ describe('time limit', () => {
     expect(root.player?.state).toBe('dead');
     SceneRouter.zoneId = '';
   });
+
+  it('gives the life after a time over a full clock, even from a checkpoint reached near 10:00', async () => {
+    SceneRouter.zoneId = 'z1_retro_rush_hills';
+    SceneRouter.stage = 1;
+    GameState.startLevel('z1_retro_rush_hills', 1);
+    const root = (await buildLevel(z1act1 as unknown as LevelData)) as LevelRoot;
+    root.useSceneRouter = false;
+    tree.changeSceneNow(() => root);
+    step(3);
+    GameState.levelTime = TIME_LIMIT - 5;
+    GameState.setCheckpoint(root.player!.globalPosition);
+    expect(GameState.checkpointTime).toBe(TIME_LIMIT - 5);
+    // An ordinary death still rewinds to the checkpoint's time.
+    GameState.restartFromCheckpoint();
+    expect(GameState.levelTime).toBe(TIME_LIMIT - 5);
+    GameState.levelTime = TIME_LIMIT;
+    step(1);
+    expect(root.player?.state).toBe('dead');
+    GameState.restartFromCheckpoint();
+    expect(GameState.levelTime).toBe(0);
+    expect(GameState.checkpointPosition).not.toBeNull();
+    GameState.resetGame();
+    SceneRouter.zoneId = '';
+  });
 });
 
 describe('extra moves', () => {

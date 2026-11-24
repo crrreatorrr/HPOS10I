@@ -3,7 +3,8 @@
 //   - item boxes, placed by rule along the route (about one every five
 //     screens, alternating the high and the low route), skipped when the
 //     player turned them off or in Ranked; Zone 4 gets no speed shoes;
-//   - the classic 10:00 time limit per act (time over costs a life);
+//   - the classic 10:00 time limit per act (time over costs a life, and the
+//     next life starts the clock again at 0:00);
 //   - impact feel: a short hit-stop and camera shake when an enemy pops or
 //     Sproto is hit (Options: screen shake).
 // Also registers the new level types (item boxes) and, when they exist,
@@ -69,6 +70,10 @@ class TimeLimit extends Node {
     if (!player || player.state === 'dead' || this.root.isFinishing() || !GameState.timerRunning) return;
     if (GameState.levelTime >= TIME_LIMIT) {
       GameState.levelTime = TIME_LIMIT;
+      // The next life gets a full clock, as in the classic games. A death rewinds
+      // the clock to the checkpoint's time, so without this a checkpoint reached
+      // near 10:00 would end every life after it seconds later.
+      GameState.checkpointTime = 0;
       player.kill();
     }
   }
