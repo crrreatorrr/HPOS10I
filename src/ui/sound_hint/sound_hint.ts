@@ -3,9 +3,11 @@
 // while locked shows it for SHOW_SECONDS, then it fades; it frees itself once
 // audio unlocks. installUi() returns it as a global overlay.
 //
-// Placed top-centre, right of the HUD counters and left of the corner
-// widgets (the playground's ticket count, the touch pause button), in a band
-// that is empty in every gameplay scene; under the pause menu.
+// Placed top-centre, right of the HUD counters (their values end at x 139)
+// and left of the corner widgets (the hub chrome, whose left edge sits at
+// x 317 or more on a desktop canvas; the playground's ticket count; the touch
+// pause button), in a band that is empty in every gameplay scene; under the
+// pause menu.
 
 import { Audio } from '../../core/audio';
 import type { Gfx } from '../../runtime/gfx';
@@ -16,6 +18,9 @@ import { COLORS, drawText, UiLayer } from '../common/theme';
 export const SHOW_SECONDS = 4;
 export const FADE_SECONDS = 0.6;
 export const SOUND_HINT_TEXT = 'PRESS A KEY OR CLICK FOR SOUND';
+/** The band the text is centred in: between the HUD values and the hub chrome. */
+export const HINT_X = 141;
+export const HINT_WIDTH = 174;
 
 export class SoundHint extends UiLayer {
   private timeLeft = 0;
@@ -55,6 +60,6 @@ export class SoundHint extends UiLayer {
   };
 
   protected override paint(g: Gfx): void {
-    g.withAlpha(this.alpha, () => drawText(g, SOUND_HINT_TEXT, 146, 4, 'outline', { align: 'center', width: 190, color: COLORS.gold }));
+    g.withAlpha(this.alpha, () => drawText(g, SOUND_HINT_TEXT, HINT_X, 4, 'outline', { align: 'center', width: HINT_WIDTH, color: COLORS.gold }));
   }
 }
