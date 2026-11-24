@@ -1540,6 +1540,31 @@ describe('screens', () => {
   });
 });
 
+describe('sound hint', () => {
+  it('shows once per screen while audio is locked, not again on every gamepad press', () => {
+    tree.changeSceneNow(() => new Node2D('ScreenA'));
+    const hint = new SoundHint();
+    tree.root.addChild(hint);
+    const press = (): void => {
+      Audio.unlockHintChanged.emit(true);
+      for (let i = 0; i < 60 * 5; i++) hint.process(1 / 60);
+    };
+    Audio.unlockHintChanged.emit(true);
+    expect(hint.visible).toBe(true);
+    for (let i = 0; i < 60 * 5; i++) hint.process(1 / 60);
+    expect(hint.visible).toBe(false);
+    // More presses on the same screen: it stays hidden.
+    Audio.unlockHintChanged.emit(true);
+    expect(hint.visible).toBe(false);
+    press();
+    // A new screen: once more.
+    tree.changeSceneNow(() => new Node2D('ScreenB'));
+    Audio.unlockHintChanged.emit(true);
+    expect(hint.visible).toBe(true);
+    hint.free();
+  });
+});
+
 describe('installUi', () => {
   it('registers the menu scenes, the level hooks and the overlays', () => {
     const ui = installUi();

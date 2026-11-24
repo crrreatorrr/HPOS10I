@@ -369,7 +369,7 @@ Web Audio, unlocked by the first key press, click or tap. Only `menu_move` and
 | Tally | Emits `finished`; the emerald moment; this clear's attempt time with the saved best or NEW BEST! (`HubClient.lastClear`) and its rank; the time bonus from the rank table (`src/core/rank.ts`: time / par, S 20,000, A 12,000, B 8,000, C 3,000, D 1,000, nothing past twice the par; a run that is not clean is capped at A; boss arenas have no par and keep a flat table); "+N Tickets sent to the hub" with a hub session ("+N Tickets saved for the hub" standalone, where the earn waits in the save), or "Hub Ticket limit reached" when the hub refused the earn for a cap |
 | Game over | RETRY STAGE (default: a fresh game at the act or boss arena where the last life went), MAIN MENU, HUB, CONTROLS and FULL SCREEN; one continue prompt in sandbox scenes |
 | Ending | The credits roll, with the saved best rank of all eight acts |
-| Dev menu (`main`), sound hint, rotate hint | |
+| Dev menu (`main`), sound hint, rotate hint | The sound hint (gamepad while audio is locked) shows once per screen, on the first press there, for 4 s. |
 
 ## Hub (`src/hub`)
 
