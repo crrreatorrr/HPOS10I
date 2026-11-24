@@ -3,15 +3,16 @@
 //   - item boxes, placed by rule along the route (about one every five
 //     screens, alternating the high and the low route), skipped when the
 //     player turned them off or in Ranked; Zone 4 gets no speed shoes;
-//   - the classic 10:00 time limit per act (time over costs a life, and the
-//     next life starts the clock again at 0:00);
+//   - the classic 10:00 time limit per act (the clock stops at 10:00, the HUD
+//     shows TIME OVER, it costs a life, and the next life starts the clock
+//     again at 0:00);
 //   - impact feel: a short hit-stop and camera shake when an enemy pops or
 //     Sproto is hit (Options: screen shake).
 // Also registers the new level types (item boxes) and, when they exist,
 // Zone 4 and the boss arenas.
 
 import { GameCamera } from '../camera/game_camera';
-import { GameState } from '../core/game_state';
+import { GameState, TIME_LIMIT } from '../core/game_state';
 import { Layers } from '../core/layers';
 import { SceneRouter } from '../core/scene_router';
 import { Settings } from '../core/settings';
@@ -26,8 +27,7 @@ import { registerZone4 } from './z4/register';
 import { Vec2 } from '../runtime/vec2';
 import { TerrainLoop } from '../terrain/loop';
 
-/** Seconds before time over. */
-export const TIME_LIMIT = 600;
+export { TIME_LIMIT };
 /** Route length between item boxes (five screens). */
 const BOX_SPACING = 424 * 5;
 /** Nothing else this close to a box (px), except tickets. */
@@ -70,6 +70,9 @@ class TimeLimit extends Node {
     if (!player || player.state === 'dead' || this.root.isFinishing() || !GameState.timerRunning) return;
     if (GameState.levelTime >= TIME_LIMIT) {
       GameState.levelTime = TIME_LIMIT;
+      // The clock stays at 10:00 through the death (it would run on until Player.died).
+      GameState.timerRunning = false;
+      GameState.timeOver = true;
       // The next life gets a full clock, as in the classic games. A death rewinds
       // the clock to the checkpoint's time, so without this a checkpoint reached
       // near 10:00 would end every life after it seconds later.

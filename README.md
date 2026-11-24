@@ -93,7 +93,8 @@ clear is ranked S to D against the act's par time; a death or a checkpoint
 restart caps the rank at A, and the pause menu's RESTART ACT starts a clean
 attempt from 0:00. The zone select keeps your best time and rank per act. Item boxes along the routes hold a shield,
 speed shoes, invincibility or an extra life (never tickets). Each act has a
-10:00 time limit.
+10:00 time limit: the clock flashes red in the last minute and shows TIME OVER
+when it runs out.
 
 ## The hub
 

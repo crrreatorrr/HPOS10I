@@ -206,7 +206,9 @@ a death or a restart):
 - The HUD clock still rewinds to the checkpoint's time after a death, and the
   10:00 time limit reads the HUD clock. After a time over the next life
   starts the clock at 0:00 from the same checkpoint, so a checkpoint reached
-  near 10:00 can't end every life after it.
+  near 10:00 can't end every life after it. The TIME counter flashes red
+  for the last minute; at 10:00 the clock stops there and TIME OVER shows
+  through the death.
 
 ## Rising difficulty inside every act
 
