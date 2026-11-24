@@ -204,7 +204,9 @@ a death or a restart):
 - Enemies popped without touching the ground score 100, 200, 400, 800, then
   1,000 each.
 - The HUD clock still rewinds to the checkpoint's time after a death, and the
-  10:00 time limit reads the HUD clock.
+  10:00 time limit reads the HUD clock. After a time over the next life
+  starts the clock at 0:00 from the same checkpoint, so a checkpoint reached
+  near 10:00 can't end every life after it.
 
 ## Rising difficulty inside every act
 
