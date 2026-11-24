@@ -17,7 +17,7 @@ import { BoundsRect } from '../../src/levels/common/level_nodes';
 import { LevelRoot } from '../../src/levels/common/level_root';
 import { Checkpoint } from '../../src/levels/objects/checkpoint';
 import { LevelTicket } from '../../src/levels/objects/ticket';
-import { ArenaLayout, refillHits } from '../../src/bosses/arena';
+import { ArenaController, ArenaLayout, refillHits } from '../../src/bosses/arena';
 import { Boss } from '../../src/bosses/boss_base';
 import { BOSS_ARENAS, registerBosses } from '../../src/bosses/register';
 import { buildRugPullArena } from '../../src/bosses/rug_pull/arena';
@@ -102,11 +102,34 @@ describe('arena scenes', () => {
     const checkpoints = level.findChildren<Checkpoint>((n) => n instanceof Checkpoint);
     expect(checkpoints.length).toBe(1);
     expect(checkpoints[0]!.position.x).toBeLessThan(ArenaLayout.GATE_X);
-    expect(checkpoints[0]!.position.x).toBeGreaterThan(ArenaLayout.GATE_X - 96);
     const tickets = level.findChildren<LevelTicket>((n) => n instanceof LevelTicket);
     expect(tickets.length).toBeGreaterThanOrEqual(3);
     for (const t of tickets) expect(t.position.x).toBeLessThan(ArenaLayout.GATE_X);
+    // A retry respawns at the checkpoint: it stands before every ticket, so he picks them all up again.
+    for (const t of tickets) expect(t.position.x).toBeGreaterThan(checkpoints[0]!.position.x + 16);
     expect(level.findChildren((n) => n.isInGroup('boss')).length).toBe(1);
+  });
+
+  it.each(CASES)('$scene: a retry from the checkpoint walks through every corridor ticket again', async (c) => {
+    const first = await open(c);
+    press('move_right');
+    expect(waitFor(() => first.boss.engaged, 60 * 20)).toBeGreaterThan(0);
+    release('move_right');
+    expect(GameState.tickets).toBe(ArenaLayout.CORRIDOR_TICKETS.length);
+    const at = GameState.checkpointPosition;
+    expect(at).not.toBeNull();
+    // Died in the arena: the respawn is a fresh scene from the checkpoint, on 0 tickets.
+    GameState.restartFromCheckpoint();
+    expect(GameState.tickets).toBe(0);
+    const root = await BOSS_ARENAS[c.scene]();
+    root.useSceneRouter = false;
+    tree.changeSceneNow(() => root);
+    step(2);
+    expect(root.player!.globalPosition.x).toBeCloseTo(at!.x, 0);
+    press('move_right');
+    expect(waitFor(() => (ArenaController.find(root)?.boss.engaged ?? false), 60 * 20)).toBeGreaterThan(0);
+    release('move_right');
+    expect(GameState.tickets).toBe(ArenaLayout.CORRIDOR_TICKETS.length);
   });
 
   it.each(CASES)('$scene locks the camera and shuts the gate when Sproto walks in', async (c) => {

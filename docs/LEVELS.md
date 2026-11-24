@@ -232,8 +232,9 @@ is quicker and more aggressive near the end of an act.
 - The high route is the hardest stretch of the act; the low route is
   longer and full of hazards.
 - Opens with a checkpoint (the finale checkpoint). It ends with a short
-  calm corridor holding a few tickets and a checkpoint right outside the
-  arena gate, so a failed boss attempt never replays the gauntlet.
+  calm corridor outside the arena gate: a checkpoint, then a few tickets,
+  so a failed boss attempt never replays the gauntlet and every retry
+  walks through the tickets again.
 
 **Fairness still holds:** telegraphs never drop below 0.35 s, there are no
 blind drops, and every finale starts at a checkpoint.
@@ -319,7 +320,8 @@ dangerous. Aimed specials choose their targets when the warning starts.
 - No attack can hit the instant Sproto respawns.
 - Invincibility frames after a hit are honoured.
 - The checkpoint outside the arena means a failed attempt restarts the
-  boss, not the act. A game over offers RETRY STAGE, which starts the same
+  boss, not the act. It stands before the corridor tickets, so every retry
+  starts with them. A game over offers RETRY STAGE, which starts the same
   arena again with fresh lives.
 - QA must show a human-viable no-damage route exists for every phase.
 
